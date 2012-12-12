@@ -2,6 +2,11 @@ import serial
 
 class StageController(object):
   def __init__(self, serial_device):
+    """Creates an I/O handle on a Newport EPS300 motion controller and its axes.
+    
+    Arguments:
+    serial_device -- Path string to serial port used by the controller.
+    """
     self.io = serial.Serial(serial_device, 19200, timeout = 1)
     self.io_end = '\r'
     self.axis1 = Stage(1, self)
