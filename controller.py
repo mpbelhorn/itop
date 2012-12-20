@@ -4,7 +4,7 @@ motion controller.
 """
 
 import serial
-import Stage
+import stage
 
 class StageController(object):
   """
@@ -22,9 +22,9 @@ class StageController(object):
     """
     self.io = serial.Serial(serial_device, 19200, timeout = 1)
     self.io_end = '\r'
-    self.axis1 = Stage(1, self)
-    self.axis2 = Stage(2, self)
-    self.axis3 = Stage(3, self)
+    self.axis1 = stage.Stage(1, self)
+    self.axis2 = stage.Stage(2, self)
+    self.axis3 = stage.Stage(3, self)
     self.readFirmwareVersion()
     
   def send(self, command, parameter = '', axis = ''):
