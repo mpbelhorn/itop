@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='MotionControl',
-    version='0.1.0',
+    version='0.1.1',
     author='M.P. Belhorn',
     author_email='matt.belhorn@gmail.com',
     packages=['motioncontrol'],

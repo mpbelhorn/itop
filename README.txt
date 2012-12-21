@@ -8,7 +8,7 @@ Simple usage::
 
     #!/usr/bin/python
 
-    from MotionControl import StageController as sc
+    from motioncontrol import controller as sc
 
     eps = sc.StageController('COM3')
     mirror = eps.axis1
