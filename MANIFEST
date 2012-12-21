@@ -2,3 +2,6 @@
 README.txt
 setup.py
 docs/Git Branching Model.txt
+motioncontrol/__init__.py
+motioncontrol/controller.py
+motioncontrol/stage.py

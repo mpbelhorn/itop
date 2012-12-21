@@ -5,7 +5,7 @@ setup(
     version='0.1.0',
     author='M.P. Belhorn',
     author_email='matt.belhorn@gmail.com',
-    packages=[],
+    packages=['motioncontrol'],
     scripts=[],
     url='https://github.com/emmpbee/ucbelle-optics',
     license='LICENSE.txt',

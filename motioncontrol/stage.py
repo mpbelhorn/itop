@@ -137,7 +137,7 @@ class Stage(object):
     Use this command very carefully. The slave axis will have its speed and
     acceleration in the same ratio as the position.
     Also, ensure that the ratio used for the slave axis does not cause
-    overflow of this axis’ parameters (speed, acceleration), especially with
+    overflow of this axis parameters (speed, acceleration), especially with
     ratios greater than 1. 
     """
     self.send('GR', gear_ratio)
