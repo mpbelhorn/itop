@@ -92,7 +92,6 @@ class StageController(object):
     if (acceleration == '?'):
       acceleration = self.read()
       print acceleration
-    return float(acceleration)
     
   def groups(self):
     """
@@ -101,7 +100,6 @@ class StageController(object):
     self.send('HB')
     group_ids = self.read()
     print group_ids
-    return group_ids
   
   def groupMoveArc(self, group_id, coordinates = '?'):
     """
@@ -116,7 +114,6 @@ class StageController(object):
       print coordinates
     else:
       self.send('HC', ",".join(map(str,coordinates)), group_id)
-    return float(coordinates)
   
   def groupDeceleration(self, group_id, deceleration = '?'):
     """
@@ -128,7 +125,6 @@ class StageController(object):
     if (deceleration == '?'):
       deceleration = self.read()
       print deceleration
-    return float(deceleration)
     
   def groupEStopDeceleration(self, group_id, deceleration = '?'):
     """
@@ -140,7 +136,6 @@ class StageController(object):
     if (deceleration == '?'):
       deceleration = self.read()
       print deceleration
-    return float(deceleration)
   
   # Group power off.
   def groupOff(self, group_id):
@@ -160,7 +155,6 @@ class StageController(object):
     if (jerk == '?'):
       jerk = self.read()
       print jerk
-    return float(jerk)
   
   def groupMoveLine(self, group_id, coordinates = '?'):
     """
@@ -175,7 +169,6 @@ class StageController(object):
       print coordinates
     else:
       self.send('HL' + ",".join(map(str,coordinates)), group_id)
-    return float(coordinates)
 
   # Create new group.
   def groupCreate(self, group_id, axes = '?'):
@@ -191,7 +184,6 @@ class StageController(object):
       print axes
     else:
       self.send('HN', ",".join(map(str,axes)), group_id)
-    return float(axes)
 
   # Group power on.
   def groupOn(self, group_id):
@@ -211,7 +203,6 @@ class StageController(object):
     self.send('HP', '', group_id)
     coordinates = self.read()
     print coordinates
-    return float(coordinates)
     
   # Wait for group via point buffer. - NOT IMPLEMENTED.
   
@@ -233,15 +224,13 @@ class StageController(object):
     if (velocity == '?'):
       velocity = self.read()
       print velocity
-    return float(velocity)
-    
+
   # Wait for group to stop.
   def groupWaitForStop(self, group_id, delay = '0'):
     """
     Pauses command execution until group has stopped for given delay [ms].
     """
     self.send('HW', delay, group_id)
-    return float(delay)
     
   # Delete group.
   def groupStop(self, group_id):
@@ -258,4 +247,3 @@ class StageController(object):
     self.send('HZ', '', group_id)
     size = self.read()
     print size
-    return float(size)
