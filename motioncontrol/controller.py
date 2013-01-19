@@ -233,7 +233,7 @@ class StageController(object):
     self.send('HW', delay, group_id)
     
   # Delete group.
-  def groupStop(self, group_id):
+  def groupDelete(self, group_id):
     """
     Deletes group with given ID.
     """
