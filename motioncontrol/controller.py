@@ -77,3 +77,185 @@ class StageController(object):
     Stages in motion will finish their last command.
     """
     self.send('AB')
+    
+  #-----------------------------------------------------------------------------
+  # Group Functions.
+  #-----------------------------------------------------------------------------
+  
+  def groupAcceleration(self, group_id, acceleration = '?'):
+    """
+    Sets the vectorial acceleration for a group.
+    
+    This command overides individually set accelerations.
+    """
+    self.send('HA', acceleration, group_id)
+    if (acceleration == '?'):
+      acceleration = self.read()
+      print acceleration
+    return float(acceleration)
+    
+  def groups(self):
+    """
+    Returns the IDs of all defined groups.
+    """
+    self.send('HB')
+    group_ids = self.read()
+    print group_ids
+    return group_ids
+  
+  def groupMoveArc(self, group_id, coordinates = '?'):
+    """
+    Moves a group along an arc.
+    
+    The arc is defined by a list of coordinates:
+      [center_x, center_y, deltaTheta]
+    """
+    if (coordinates == '?'):
+      self.send('HC', coordinates, group_id)
+      coordinates = self.read()
+      print coordinates
+    else:
+      self.send('HC', ",".join(map(str,coordinates)), group_id)
+    return float(coordinates)
+  
+  def groupDeceleration(self, group_id, deceleration = '?'):
+    """
+    Sets the vectorial deceleration for a group.
+    
+    This command overides individually set decelerations.
+    """
+    self.send('HD', deceleration, group_id)
+    if (deceleration == '?'):
+      deceleration = self.read()
+      print deceleration
+    return float(deceleration)
+    
+  def groupEStopDeceleration(self, group_id, deceleration = '?'):
+    """
+    Sets the vectorial deceleration for a group emergency stop.
+    
+    This command overides individually set decelerations.
+    """
+    self.send('HE', deceleration, group_id)
+    if (deceleration == '?'):
+      deceleration = self.read()
+      print deceleration
+    return float(deceleration)
+  
+  # Group power off.
+  def groupOff(self, group_id):
+    """
+    Turns off power to all axis in a group.
+    """
+    self.send('HF', '', group_id)
+  
+  # Set group jerk.
+  def groupJerk(self, group_id, jerk = '?'):
+    """
+    Sets the vectorial jerk limit for a group.
+    
+    This command overides individually set jerks.
+    """
+    self.send('HJ', jerk, group_id)
+    if (jerk == '?'):
+      jerk = self.read()
+      print jerk
+    return float(jerk)
+  
+  def groupMoveLine(self, group_id, coordinates = '?'):
+    """
+    Moves a group along a line.
+    
+    The line is defined by a list of endpoint coordinates:
+      [axis1, axis2, ..., axisN]
+    """
+    if (coordinates == '?'):
+      self.send('HL', coordinates, group_id)
+      coordinates = self.read()
+      print coordinates
+    else:
+      self.send('HL' + ",".join(map(str,coordinates)), group_id)
+    return float(coordinates)
+
+  # Create new group.
+  def groupCreate(self, group_id, axes = '?'):
+    """
+    Creates a group with ID group_id over the given axes.
+    
+    The axes are given as an ordered list of the physical axis numbers:
+      [axis1, axis2, ..., axisN]
+    """
+    if (axes == '?'):
+      self.send('HN', coordinates, group_id)
+      coordinates = self.read()
+      print coordinates
+    else:
+      self.send('HN', ",".join(map(str,coordinates)), group_id)
+    return float(coordinates)
+
+  # Group power on.
+  def groupOn(self, group_id):
+    """
+    Turns on power to all axis in a group.
+    """
+    self.send('HO', '', group_id)
+  
+  # Get group position.
+  def groupPosition(self, group_id):
+    """
+    Returns the position of all stages in a group.
+    
+    The positions are given as an ordered list of the group axis numbers:
+      [axis1, axis2, ..., axisN]
+    """
+    self.send('HP', '', group_id)
+    coordinates = self.read()
+    print coordinates
+    return float(coordinates)
+    
+  # Wait for group via point buffer. - NOT IMPLEMENTED.
+  
+  # Stop group.
+  def groupStop(self, group_id):
+    """
+    Stops all motion on all axes in a group.
+    """
+    self.send('HS', '', group_id)
+
+  # Set group velocity.
+  def groupVelocity(self, group_id, velocity = '?'):
+    """
+    Sets the vectorial velocity limit for a group.
+    
+    This command overides individually set velocities.
+    """
+    self.send('HV', velocity, group_id)
+    if (velocity == '?'):
+      velocity = self.read()
+      print velocity
+    return float(velocity)
+    
+  # Wait for group to stop.
+  def groupWaitForStop(self, group_id, delay = '0'):
+    """
+    Pauses command execution until group has stopped for given delay [ms].
+    """
+    self.send('HW', delay, group_id)
+    return float(delay)
+    
+  # Delete group.
+  def groupStop(self, group_id):
+    """
+    Deletes group with given ID.
+    """
+    self.send('HX', '', group_id)
+    
+  # Get group size.
+  def groupSize(self, group_id):
+    """
+    Returns the size of the group with given group_id.
+    """
+    self.send('HZ', '', group_id)
+    size = self.read()
+    print size
+    return float(size)
