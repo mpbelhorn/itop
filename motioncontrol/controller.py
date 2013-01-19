@@ -168,7 +168,7 @@ class StageController(object):
       coordinates = self.read()
       print coordinates
     else:
-      self.send('HL' + ",".join(map(str,coordinates)), group_id)
+      self.send('HL', ",".join(map(str,coordinates)), group_id)
 
   # Create new group.
   def groupCreate(self, group_id, axes = '?'):
