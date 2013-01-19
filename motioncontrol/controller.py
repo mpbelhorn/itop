@@ -29,7 +29,7 @@ class StageController(object):
     
   def send(self, command, parameter = '', axis = ''):
     """Send a command to the controller."""
-    self.io.write(axis + command + parameter + self.io_end)
+    self.io.write(str(axis) + str(command) + str(parameter) + self.io_end)
     
   def read(self):
     """Return a line read from the controller's serial buffer."""
@@ -186,12 +186,12 @@ class StageController(object):
       [axis1, axis2, ..., axisN]
     """
     if (axes == '?'):
-      self.send('HN', coordinates, group_id)
-      coordinates = self.read()
-      print coordinates
+      self.send('HN', axes, group_id)
+      axes = self.read()
+      print axes
     else:
-      self.send('HN', ",".join(map(str,coordinates)), group_id)
-    return float(coordinates)
+      self.send('HN', ",".join(map(str,axes)), group_id)
+    return float(axes)
 
   # Group power on.
   def groupOn(self, group_id):
