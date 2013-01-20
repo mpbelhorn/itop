@@ -266,6 +266,7 @@ class StageController(object):
     if str(group_id) in self.groups():
       self.groupDelete(group_id)
     for axis in axes:
+      print axis, str(axis)
       stage = self.stages[str(axis)]
       stage.on()
       stage.goToHome()
