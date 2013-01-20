@@ -269,6 +269,8 @@ class StageController(object):
       stage = stages[axis - 1]
       stage.on()
       stage.goToHome()
+      while stage.getMotionStatus():
+        pass
     self.groupCreate(group_id, axes)
     self.groupVelocity(group_id, kwargs.pop('velocity', 10))
     self.groupAcceleration(group_id, kwargs.pop('acceleration', 100))
