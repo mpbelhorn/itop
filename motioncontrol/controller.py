@@ -274,4 +274,4 @@ class StageController(object):
     self.groupAcceleration(group_id, kwargs.pop('acceleration', 100))
     self.groupJerk(group_id, kwargs.pop('jerk', 1000))
     self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
-    self.groupOn()
+    self.groupOn(group_id)
