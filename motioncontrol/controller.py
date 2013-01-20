@@ -25,7 +25,7 @@ class StageController(object):
     self.axis1 = stage.Stage(1, self)
     self.axis2 = stage.Stage(2, self)
     self.axis3 = stage.Stage(3, self)
-    self.stages = {'1':self.axis1, '2':self.axis2, '3':self.axis3}
+    self.stages = [self.axis1, self.axis2, self.axis3]
     self.readFirmwareVersion()
     
   def send(self, command, parameter = '', axis = ''):
@@ -263,14 +263,11 @@ class StageController(object):
      
     See core group functions for usage of each parameter.
     """
+    print self.groups(), str(group_id)
     if str(group_id) in self.groups():
       self.groupDelete(group_id)
-    print axes
-    '''
     for axis in axes:
-      print axis, str(axis)
-      
-      stage = self.stages[str(axis)]
+      stage = self.stages[axis]
       stage.on()
       stage.goToHome()
     self.groupCreate(group_id, axes)
@@ -279,4 +276,3 @@ class StageController(object):
     self.groupJerk(group_id, kwargs.pop('jerk', 1000))
     self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
     self.groupOn()
-    '''
