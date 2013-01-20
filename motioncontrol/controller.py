@@ -25,7 +25,6 @@ class StageController(object):
     self.axis1 = stage.Stage(1, self)
     self.axis2 = stage.Stage(2, self)
     self.axis3 = stage.Stage(3, self)
-    self.stages = [self.axis1, self.axis2, self.axis3]
     self.readFirmwareVersion()
     
   def send(self, command, parameter = '', axis = ''):
@@ -263,11 +262,11 @@ class StageController(object):
      
     See core group functions for usage of each parameter.
     """
-    print self.groups(), str(group_id)
     if str(group_id) in self.groups():
       self.groupDelete(group_id)
+    stages = [self.axis1, self.axis2, self.axis3]
     for axis in axes:
-      stage = self.stages[axis]
+      stage = stages[axis]
       stage.on()
       stage.goToHome()
     self.groupCreate(group_id, axes)
