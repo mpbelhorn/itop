@@ -266,6 +266,7 @@ class StageController(object):
     if str(group_id) in self.groups():
       self.groupDelete(group_id)
     print axes
+    '''
     for axis in axes:
       print axis, str(axis)
       
@@ -278,3 +279,4 @@ class StageController(object):
     self.groupJerk(group_id, kwargs.pop('jerk', 1000))
     self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
     self.groupOn()
+    '''
