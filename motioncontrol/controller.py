@@ -25,6 +25,7 @@ class StageController(object):
     self.axis1 = stage.Stage(1, self)
     self.axis2 = stage.Stage(2, self)
     self.axis3 = stage.Stage(3, self)
+    self.stages = {'1':self.axis1, '2':self.axis2, '3':self.axis3}
     self.readFirmwareVersion()
     
   def send(self, command, parameter = '', axis = ''):
@@ -100,6 +101,7 @@ class StageController(object):
     self.send('HB')
     group_ids = self.read()
     print group_ids
+    return group_ids
   
   def groupMoveArc(self, group_id, coordinates = '?'):
     """
@@ -247,3 +249,29 @@ class StageController(object):
     self.send('HZ', '', group_id)
     size = self.read()
     print size
+    
+  def initializeGroup(self, group_id, axes, **kwargs):
+    """
+    Creates and initilizes a group.
+    
+    Default values are provided for all kinematic parameters unless alternatives
+    are given in the form of keyword arguments. Possible options are:
+     'velocity'
+     'acceleration'
+     'jerk'
+     'estop'
+     
+    See core group functions for usage of each parameter.
+    """
+    if str(group_id) in self.groups():
+      self.groupDelete(group_id)
+    for axis in axes:
+      stage = self.stages[axis]
+      stage.on()
+      stage.goToHome()
+    self.groupCreate(group_id, axes)
+    self.groupVelocity(group_id, kwargs.pop('velocity', 10))
+    self.groupAcceleration(group_id, kwargs.pop('acceleration', 100))
+    self.groupJerk(group_id, kwargs.pop('jerk', 1000))
+    self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
+    self.groupOn()
