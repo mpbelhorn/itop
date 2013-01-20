@@ -266,7 +266,7 @@ class StageController(object):
       self.groupDelete(group_id)
     stages = [self.axis1, self.axis2, self.axis3]
     for axis in axes:
-      stage = stages[axis]
+      stage = stages[axis - 1]
       stage.on()
       stage.goToHome()
     self.groupCreate(group_id, axes)
