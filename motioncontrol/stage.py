@@ -40,7 +40,7 @@ class Stage(object):
     self.send('ID')
     return self.controller.read()
     
-  def getMotionStatus():
+  def getMotionStatus(self):
     """Return false for stopped, true for in motion."""
     self.send('MD?')
     return self.controller.read()
