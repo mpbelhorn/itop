@@ -43,7 +43,10 @@ class Stage(object):
   def getMotionStatus(self):
     """Return false for stopped, true for in motion."""
     self.send('MD?')
-    return self.controller.read()
+    if '0' in self.controller.read():
+      return True
+    else:
+      return False
   
   
   #-----------------------------------------------------------------------------
