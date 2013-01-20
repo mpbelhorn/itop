@@ -202,8 +202,9 @@ class StageController(object):
       [axis1, axis2, ..., axisN]
     """
     self.send('HP', '', group_id)
-    coordinates = self.read()
+    coordinates = [float(x.strip()) for x in self.read().split(',')]
     print coordinates
+    return coordinates
     
   # Wait for group via point buffer. - NOT IMPLEMENTED.
   
@@ -257,6 +258,7 @@ class StageController(object):
     are given in the form of keyword arguments. Possible options are:
      'velocity'
      'acceleration'
+     'deceleration'
      'jerk'
      'estop'
      
@@ -274,6 +276,7 @@ class StageController(object):
     self.groupCreate(group_id, axes)
     self.groupVelocity(group_id, kwargs.pop('velocity', 10))
     self.groupAcceleration(group_id, kwargs.pop('acceleration', 100))
+    self.groupDeceleration(group_id, kwargs.pop('deceleration', 100))
     self.groupJerk(group_id, kwargs.pop('jerk', 1000))
     self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
     self.groupOn(group_id)

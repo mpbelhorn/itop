@@ -3,6 +3,7 @@ A set of scripts to read the HD-LBP serial stream
 """
 import serial
 import threading
+import decimal
 
 def readCamera(device):
   cam = serial.Serial(device, 9600, timeout=1)
@@ -24,18 +25,30 @@ def readCamera(device):
       return output
 
 def findBeam(controller, z):
-  for position in range(-120,120):
-    controller.groupMoveLine(1, [position, z])
+  controller.groupVelocity(1, 30)
+  controller.groupMoveLine(1, [-120, z])
+  while controller.axis2.getMotionStatus():
+    pass
+  while controller.axis3.getMotionStatus():
+    pass
+  controller.groupVelocity(1, 5)
+  controller.groupMoveLine(1, [120, z])
+  start_position = [-120, z]
+  while controller.axis2.getMotionStatus():
+    if readCamera('/dev/ttyUSB1')['power'] > 0.002:
+      start_position = map(int, controller.groupPosition(1))
+      print 'Crossed beam!'
+  controller.groupVelocity(1, 30)
+  controller.groupMoveLine(1, start_position)
+  while controller.axis2.getMotionStatus():
+      pass
+  fine_sampling = [[round(y, 4), z] for y in [decimal.Decimal(start_position[0] - 10 + x/10.) for x in range(0, 20 * 10)]]
+  controller.groupVelocity(1, 10)
+  for position in fine_sampling:
+    controller.groupMoveLine(1, position)
     while controller.axis2.getMotionStatus():
       pass
-    while controller.axis3.getMotionStatus():
-      pass
-    if readCamera('/dev/ttyUSB1')['power'] > 0.005:
-      fine_range = [position + x/20. for x in range(0, 6*20)]
+    cam_reading = readCamera('/dev/ttyUSB1')
+    if abs(cam_reading['centroid_x']) < 100 and cam_reading['power'] > 0.002:
       break
-  for position in fine_range:
-    controller.groupMoveLine(1, [position, z])
-    while controller.axis2.getMotionStatus():
-      pass
-    if abs(readCamera('/dev/ttyUSB1')['centroid_x']) < 100:
-      return controller.groupPosition(1)
+  return controller.groupPosition(1)
