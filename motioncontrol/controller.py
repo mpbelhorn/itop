@@ -138,14 +138,12 @@ class StageController(object):
       deceleration = self.read()
       print deceleration
   
-  # Group power off.
   def groupOff(self, group_id):
     """
     Turns off power to all axis in a group.
     """
     self.send('HF', '', group_id)
   
-  # Set group jerk.
   def groupJerk(self, group_id, jerk = '?'):
     """
     Sets the vectorial jerk limit for a group.
@@ -186,14 +184,12 @@ class StageController(object):
     else:
       self.send('HN', ",".join(map(str,axes)), group_id)
 
-  # Group power on.
   def groupOn(self, group_id):
     """
     Turns on power to all axis in a group.
     """
     self.send('HO', '', group_id)
   
-  # Get group position.
   def groupPosition(self, group_id):
     """
     Returns the position of all stages in a group.
@@ -208,14 +204,12 @@ class StageController(object):
     
   # Wait for group via point buffer. - NOT IMPLEMENTED.
   
-  # Stop group.
   def groupStop(self, group_id):
     """
     Stops all motion on all axes in a group.
     """
     self.send('HS', '', group_id)
 
-  # Set group velocity.
   def groupVelocity(self, group_id, velocity = '?'):
     """
     Sets the vectorial velocity limit for a group.
@@ -227,7 +221,6 @@ class StageController(object):
       velocity = self.read()
       print velocity
 
-  # Wait for group to stop.
   def groupWaitForStop(self, group_id, delay = '0'):
     """
     Pauses command execution until group has stopped for given delay [ms].
