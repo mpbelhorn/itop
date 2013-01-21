@@ -28,7 +28,7 @@ class LaserBeamProfiler(object):
     """
     buffer = ''
     while True:
-      buffer = buffer + self.io.read(cam.inWaiting())
+      buffer = buffer + self.io.read(self.io.inWaiting())
       if buffer.count('\n') > 2:
         lines = buffer.split('\n')
         last_line = lines[-2]
