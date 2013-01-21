@@ -300,27 +300,6 @@ class Stage(object):
     self.send('WS', time)
   
   #-----------------------------------------------------------------------------
-  # Group Functions.
-  #-----------------------------------------------------------------------------
-  # Set group acceleration.
-  # Read list of groups.
-  # Move along arc.
-  # Set group decel.
-  # Set group e-stop decel.
-  # Group power off.
-  # Set group jerk.
-  # Move along line.
-  # Create new group.
-  # Group power on.
-  # Get group position.
-  # Wait for group via point buffer.
-  # Stop group.
-  # Set group velocity.
-  # Wait for group to stop.
-  # Delete group.
-  # Get group size.
-  
-  #-----------------------------------------------------------------------------
   # Digital Filters
   #-----------------------------------------------------------------------------
   # Not implememted.

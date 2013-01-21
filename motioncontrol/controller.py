@@ -5,6 +5,7 @@ motion controller.
 
 import serial
 import stage
+from utilities import pauseForStage
 
 class StageController(object):
   """
@@ -262,8 +263,7 @@ class StageController(object):
       stage = stages[axis - 1]
       stage.on()
       stage.goToHome()
-      while stage.getMotionStatus():
-        pass
+      pauseForStage(stage)
     if str(group_id) in self.groups():
       self.groupDelete(group_id)
     self.groupCreate(group_id, axes)

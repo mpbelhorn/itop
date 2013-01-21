@@ -3,6 +3,12 @@ Utility classes for iTOP mirror measurements.
 """
 from numpy import array
 
+def pauseForStage(stage):
+  while stage.getMotionStatus():
+    # Hold python execution in null loop until stage is stopped.
+    pass
+  return
+
 class ConstrainToBeam(object):
   """
   For constaining the movement of a robotic stage group + camera to keep a
@@ -12,8 +18,9 @@ class ConstrainToBeam(object):
     self.controller = controller
     self.group_id = group_id
     self.camera = camera
-    lower_limit = kwargs.pop('lower_limit', -125)
-    upper_limit = kwargs.pop('upper_limit',  125)
+    # Assume group of ILS250CC stages if no kwargs given.
+    self.lower_limit = kwargs.pop('lower_limit', -125)
+    self.upper_limit = kwargs.pop('upper_limit',  125)
     self.power_level = kwargs.pop('power_level', 0.002)
     self.r_initial = array([lower_limit, lower_limit])
     self.r_final = array([upper_limit, upper_limit])
@@ -26,10 +33,15 @@ class ConstrainToBeam(object):
     
     All arguments given in millimeters.
     """
+    upper_range = stop + signed_step_size
+    if upper_range > self.upper_limit or upper_range < self.lower_limit:
+      if signed_step_size > 0:
+        upper_range = self.upper_limit
+      else:
+        upper_range = self.lower_limit
     steps = [[x/1000. + start[0], start[1]]
-        for x in range(int(start * 1000.),
-        int((stop + signed_step_size) * 1000.),
-        int(signed_step_size * 1000.)]
+        for x in range(
+        int(start[0] * 1000.), int(stop * 1000.), int(signed_step_size * 1000.)]
     final_position = start
     beam_seen = False
     for position in steps:
@@ -45,9 +57,24 @@ class ConstrainToBeam(object):
           cam_reading['centroid_x'] - (signed_step_size * 1000) > 5):
         final_position = position
         break
-    # Perhaps an else statement here to catch missed beam passings would be 
-    #   a good idea.
-    return position
+    else:
+      # The beam was not detected! Scan the last segment not covered in steps.
+      # Alternatively, there may be a bug or the stage moved across the beam
+      # too fast to register on the camera over serial communication.
+      position = [steps[-1], upper_range]
+      self.controller.groupMoveLine(self.group_id, position)
+      while self.controller.axis2.getMotionStatus():
+        if (self.camera.read()['power'] > self.power_level):
+          beam_seen = True
+          final_position = position
+      cam_reading = self.camera.read()
+      if cam_reading['power'] > self.power_level:
+        if cam_reading['centroid_x'] - (signed_step_size * 1000) > 5):
+          final_position = position
+        else:
+          print "Beam center not in reach of camera center!"
+          self.controller.groupOff(self.group_id)
+    return final_position
     
   def findBeam(self, z_coordinate):
     """
@@ -55,13 +82,11 @@ class ConstrainToBeam(object):
     """
     self.controller.groupVelocity(self.group_id, 30)
     self.controller.groupMoveLine(self.group_id, [-120, z_coordinate])
-    while self.controller.axis2.getMotionStatus():
-      pass
-    while self.controller.axis3.getMotionStatus():
-      pass
+    pauseForStage(self.controller.axis2)
+    pauseForStage(self.controller.axis3)
     self.controller.groupVelocity(self.group_id, 5)
-    position = [-125.0, z_coordinate]
-    position = stepStage(position, 125.0, 10.0)
+    position = [self.lower_limit, z_coordinate]
+    position = stepStage(position, self.upper_limit, 10.0)
     self.controller.groupVelocity(self.group_id, 30)
     position = stepStage(position, position[0] - 10.0, -5.00)
     position = stepStage(position, position[0] + 5.00,  1.00)
@@ -74,8 +99,8 @@ class ConstrainToBeam(object):
     """
     Finds the trajectory of the stages needed to keep a beam centered on camera.
     """
-    self.r_initial = array(findBeam(self.controller, -120))
-    self.r_final = array(findBeam(self.controller, 120))
+    self.r_initial = array(findBeam(self.controller, self.lower_limit))
+    self.r_final = array(findBeam(self.controller, self.upper_limit))
     self.slope = self.r_final - self.r_initial
     
   def position(self, fraction):
