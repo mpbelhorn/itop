@@ -210,7 +210,25 @@ class StageController(object):
     Stops all motion on all axes in a group.
     """
     self.send('HS', '', group_id)
-
+    
+  def groupIsMoving(self, group_id):
+    """
+    Queries controller if group is in motion or stopped.
+    """
+    self.send('HS', '?', group_id)
+    response = self.read()
+    if '0' in response:
+      return True
+    else:
+      return False
+      
+  def pauseForGroup(self, group_id)
+    """
+    Holds python execution in loop until group is stopped.
+    """
+    while self.groupIsMoving(group_id):
+      pass
+    
   def groupVelocity(self, group_id, velocity = '?'):
     """
     Sets the vectorial velocity limit for a group.
