@@ -3,11 +3,15 @@ Utility classes for iTOP mirror measurements.
 """
 from numpy import array
 import time
+import math
 
 def pauseForStage(stage):
   while stage.getMotionStatus():
     # Hold python execution in null loop until stage is stopped.
     pass
+  
+def clamp(value, min_value, max_value):
+    return max(min(max_value, value), min_value)
   
 class ConstrainToBeam(object):
   """
@@ -19,34 +23,36 @@ class ConstrainToBeam(object):
     self.group_id = group_id
     self.camera = camera
     # Assume group of ILS250CC stages if no kwargs given.
-    self.lower_limit = kwargs.pop('lower_limit', -125)
-    self.upper_limit = kwargs.pop('upper_limit',  125)
+    self.lower_limit_x = kwargs.pop('lower_limit_x', -125)
+    self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
+    self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
+    self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
     self.power_level = kwargs.pop('power_level', 0.002)
-    self.r_initial = array([self.lower_limit, self.lower_limit])
-    self.r_final = array([self.upper_limit, self.upper_limit])
-    travel_range = self.upper_limit - self.lower_limit
-    self.slope = array([travel_range, travel_range])
+    self.r_initial = array([0, 0])
+    self.r_final = array([0, 0])
+    self.slope = array([0, 0])
     
-  def search(self, start_point, x_stop, step_size):
+  def search(self, start_point, stop_point, step_size):
     """
     Searches through a range of position steps for the beam.
     
     All arguments given in millimeters.
-    The step size is a signed quantity where the sign indicates the direction
-    of travel.
     """
-    x_start = start_point[0]
-    z_coordinate = start_point[1]
     beam_seen = False
-    if x_stop > self.upper_limit:
-      upper_range = self.upper_limit
-    if x_start < self.lower_limit:
-      x_start = self.lower_limit
-    steps = [[x/1000., z_coordinate] for x in range(
-        int(x_start * 1000.),
-        int(x_stop * 1000.),
-        int(step_size * 1000.))]
-    steps.append([x_stop, z_coordinate])
+    x_start = clamp(start_point[0], self.lower_limit_x, self.upper_limit_x)
+    x_stop = clamp(stop_point[0], self.lower_limit_x, self.upper_limit_x)
+    z_start = clamp(start_point[1], self.lower_limit_z, self.upper_limit_z)
+    z_stop = clamp(stop_point[1], self.lower_limit_z, self.upper_limit_z)
+    displacement = math.hypot((x_stop - x_start), (z_stop - z_start))
+    if displacement == 0:
+      return None
+    count = int(math.floor(displacement/abs(float(step_size))))
+    x_step = (x_stop - x_start) / float(count)
+    z_step = (z_stop - z_start) / float(count)
+    x_steps = [x_start + x_step*i for i in xrange(count)]
+    z_steps = [z_start + z_step*i for i in xrange(count)]
+    steps = map(list, zip(x_steps, z_steps))
+    steps.append([x_stop, z_stop])
     for position in steps:
       self.controller.groupMoveLine(self.group_id, position)
       while self.controller.groupIsMoving(self.group_id):
@@ -58,8 +64,8 @@ class ConstrainToBeam(object):
         return position
       elif (cam_reading['power'] > self.power_level):
         beam_seen = True
-        beam_offset = cam_reading['centroid_x'] - (step_size * 500.)
-        if (step_size > 0 <= beam_offset) or (step_size < 0 >= beam_offset):
+        beam_offset = cam_reading['centroid_x'] - (x_step * 500.)
+        if (x_step > 0 <= beam_offset) or (x_step < 0 >= beam_offset):
           print "Passed the beam."
           return position
         else:
@@ -96,8 +102,8 @@ class ConstrainToBeam(object):
     scan_range = self.upper_limit - self.lower_limit
     for step_number, step_size in enumerate(scan_steps):
       sign = (-1)**step_number
-      start_point = self.search(
-          start_point, start_point[0] + sign*scan_range, sign*step_size)
+      stop_point = map(sum, zip(start_point, [sign*scan_range, 0]))
+      start_point = self.search(start_point, stop_point, step_size)
       scan_range = 2.0 * step_size
     return self.controller.groupPosition(self.group_id)
   
