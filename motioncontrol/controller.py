@@ -30,34 +30,48 @@ class StageController(object):
     self.readFirmwareVersion()
     
   def send(self, command, parameter = '', axis = ''):
-    """Send a command to the controller."""
+    """
+    Send a command to the controller.
+    """
     self.io.write(str(axis) + str(command) + str(parameter) + self.io_end)
     
   def read(self):
-    """Return a line read from the controller's serial buffer."""
+    """
+    Return a line read from the controller's serial buffer.
+    """
     return self.io.readline()
     
   def reset(self):
-    """Perform a full controller reset."""
+    """
+    Perform a full controller reset.
+    """
     self.send('RS')
     
   def readStatus(self):
-    """Read the first error message in the error FIFO buffer."""
+    """
+    Read the first error message in the error FIFO buffer.
+    """
     self.send('TS')
     self.read()
     
   def readActivity(self):
-    """Read the activity register."""
+    """
+    Read the activity register.
+    """
     self.send('TX')
     self.read()
     
   def readError(self):
-    """Read the first error message in the error FIFO buffer."""
+    """
+    Read the first error message in the error FIFO buffer.
+    """
     self.send('TB?')
     self.read()
     
   def readFirmwareVersion(self):
-    """Report the controller firmware version."""
+    """
+    Report the controller firmware version.
+    """
     self.send('VE?')
     self.read()
     
@@ -79,10 +93,6 @@ class StageController(object):
     Stages in motion will finish their last command.
     """
     self.send('AB')
-    
-  #-----------------------------------------------------------------------------
-  # Group Functions.
-  #-----------------------------------------------------------------------------
   
   def groupAcceleration(self, group_id, acceleration = '?'):
     """
@@ -265,12 +275,13 @@ class StageController(object):
     Creates and initilizes a group.
     
     Default values are provided for all kinematic parameters unless alternatives
-    are given in the form of keyword arguments. Possible options are:
-     'velocity'
-     'acceleration'
-     'deceleration'
-     'jerk'
-     'estop'
+    are given in the form of keyword arguments. The units are those that the
+    stages are currently set to. Possible option=default values are:
+     velocity=10 - Set group velocity (Units/s)
+     acceleration=100 - Set group acceleration (Units/s^2)
+     deceleration=100 - Set group deceleration (Units/s^s)
+     jerk=1000 - Set group jerk rate (Units/s^3)
+     estop=200 - Set group emergency stop deceleration (Units/s^2)
      
     See core group functions for usage of each parameter.
     """

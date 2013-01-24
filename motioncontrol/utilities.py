@@ -6,23 +6,43 @@ import time
 import math
 
 def pauseForStage(stage):
+  """
+  Hold python execution in null loop until stage is stopped.
+  """
   while stage.getMotionStatus():
-    # Hold python execution in null loop until stage is stopped.
     pass
   
 def clamp(value, min_value, max_value):
-    return max(min(max_value, value), min_value)
+  """
+  Constrain a value to between a minimum and maximum.
+  """
+  return max(min(max_value, value), min_value)
   
 class ConstrainToBeam(object):
   """
   For constaining the movement of a robotic stage group + camera to keep a
   laser beam centered on the camera.
   """
+  
   def __init__(self, controller, group_id, camera, **kwargs):
+    """
+    Initialize a constraint on the movement of a LBP on a stage group to travel
+    along a beam.
+    
+    Keyword arguments accepted to constrain the region of group travel.
+    Assume group of ILS250CC stages if no kwargs given. Units are those
+    that the stages are currently programmed to.
+    
+    Option=default values are as follows:
+    lower_limit_x=-125 - Lower travel limit.
+    lower_limit_z=-125 - Lower travel limit.
+    upper_limit_x=125 - Upper travel limit.
+    upper_limit_z=125 - Upper travel limit.
+    power=level - Beam-in-view power threshold.
+    """
     self.controller = controller
     self.group_id = group_id
     self.camera = camera
-    # Assume group of ILS250CC stages if no kwargs given.
     self.lower_limit_x = kwargs.pop('lower_limit_x', -125)
     self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
     self.lower_limit_z = kwargs.pop('lower_limit_z', -125)

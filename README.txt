@@ -37,45 +37,35 @@ The Stage module contains commands to manipulate and group individual stages.
 Most stepper-based (particularly CC series) stages are accomodated, as well
 as all stage formats (linear, rotational, pan-tilt, etc).
 
-The various categories of commands are outlined as follows.
 
-I/0 Methods
------------
-
-Status Functions
-----------------
-
-Motion and Position Control
----------------------------
-
-Motion Device Parameters
-------------------------
-
-On-board Programming
---------------------
-
-Not yet implemented.
-
-Trajectory Definition
----------------------
-
-Flow Control and Sequencing
----------------------------
-
-Group Functions
----------------
-
-Not yet implemented.
-
-Digital Filters
----------------
-
-Not implemented.
-
-Master-Slave Mode Definition
-----------------------------
-
-Not yet implemented.
-
-Urls are http://like.this and links can be
-written `like this <http://www.example.com/foo/bar>`_.
+Not implemented controller functions.
+=====================================
+  
+* Torque reduction - Not implememted.
+* Microstep factor - Not implememted.
+* Tachometer constant - Not implememted.
+* Motor voltage - Not implememted.
+* Master-slave jog update interval - Not implememted.
+* Slave axis jog velocity coefficients - Not implememted.
+* Left limit - Not implememted.
+* Right limit - Not implememted.
+* Master-slave relationship - Not implememted.
+* Encoder resolution - Not implememted.
+* Linear Compensation.
+* Jog high speed.
+* Jerk rate.
+* Jog low speed.
+* home search speed low.
+* home search high speed.
+* Home search mode.
+* Update filter parameters.
+* Base velocity for stepper motors.
+* Define label.
+* Jump to label.
+* Generate service request.
+* set device address.
+* Digital Filters
+* Set master-slave ratio.
+* Set master-slave jog update interval.
+* master-slave jog velocity coefficients.
+* master-slave mode.
