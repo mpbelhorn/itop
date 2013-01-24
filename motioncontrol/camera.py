@@ -21,10 +21,26 @@ class LaserBeamProfiler(object):
   
   def read(self):
     """
-    Read last complete line sent by HD-LBP.
+    Read the latest recorded data.
     
-    The output is in the form of a dictionary. Dictionary keys are given in
-    the class ctor.
+    The output is a dictionary that contains the following quantities:
+      'time' - Time since camera reset of measurement (seconds)
+      'power' - Power deposited on CCD (mW). Requires calibration for accuracy.
+      'centroid_x' - Centroid horizontal position from center (micrometers)
+      'centroid_y' - Centroid vertical position from center (micrometers)
+      'centroid_r' - Image radius (micrometers)
+      
+      The following sizes of the x-,y-projected image are also given. See
+      HD-LBP documentation for more information.
+      'level_1' - Projection level 1 (13.5%)
+      'level_2' - Projection level 2 (50.0 %)
+      'level_3' - Projection level 3 (80.0%)
+      'width_1' - Projection width at level 1
+      'width_2' - Projection width at level 2
+      'width_3' - Projection width at level 3
+      'height_1' - Projection height at level 1
+      'height_2' - Projection height at level 1
+      'height_3' - Projection height at level 1
     """
     buffer = ''
     while True:
