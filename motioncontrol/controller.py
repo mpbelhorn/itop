@@ -5,6 +5,7 @@ motion controller.
 
 import serial
 import stage
+import time
 from utilities import pauseForStage
 
 class StageController(object):
@@ -222,7 +223,7 @@ class StageController(object):
     else:
       return False
       
-  def pauseForGroup(self, group_id)
+  def pauseForGroup(self, group_id):
     """
     Holds python execution in loop until group is stopped.
     """
@@ -276,14 +277,15 @@ class StageController(object):
      
     See core group functions for usage of each parameter.
     """
+    if str(group_id) in self.groups():
+      self.groupDelete(group_id)
     stages = [self.axis1, self.axis2, self.axis3]
     for axis in axes:
       stage = stages[axis - 1]
       stage.on()
       stage.goToHome()
       pauseForStage(stage)
-    if str(group_id) in self.groups():
-      self.groupDelete(group_id)
+      time.sleep(1)
     self.groupCreate(group_id, axes)
     self.groupVelocity(group_id, kwargs.pop('velocity', 10))
     self.groupAcceleration(group_id, kwargs.pop('acceleration', 100))
