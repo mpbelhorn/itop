@@ -171,7 +171,6 @@ class StageController(object):
     else:
       self.send('HL', ",".join(map(str,coordinates)), group_id)
 
-  # Create new group.
   def groupCreate(self, group_id, axes = '?'):
     """
     Creates a group with ID group_id over the given axes.
@@ -247,14 +246,12 @@ class StageController(object):
     """
     self.send('HW', delay, group_id)
     
-  # Delete group.
   def groupDelete(self, group_id):
     """
     Deletes group with given ID.
     """
     self.send('HX', '', group_id)
     
-  # Get group size.
   def groupSize(self, group_id):
     """
     Returns the size of the group with given group_id.
