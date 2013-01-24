@@ -27,7 +27,7 @@ class ConstrainToBeam(object):
     self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
     self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
     self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
-    self.power_level = kwargs.pop('power_level', 0.002)
+    self.power_level = kwargs.pop('power_level', 0.005)
     self.r_initial = array([0, 0])
     self.r_final = array([0, 0])
     self.slope = array([0, 0])
@@ -68,10 +68,8 @@ class ConstrainToBeam(object):
         if (x_step > 0 <= beam_offset) or (x_step < 0 >= beam_offset):
           print "Passed the beam."
           return position
-        else:
-          continue
     else:
-      # Something's not right...
+      print "Something's not right..."
       cam_reading = self.camera.read()
       if cam_reading['power'] > self.power_level:
         if -20 < cam_reading['centroid_x'] < 20:
@@ -85,21 +83,21 @@ class ConstrainToBeam(object):
         # the given serial polling frequency. Also, there may be a bug in the
         # code.
         print "ERROR: Beam not detected."
-    self.controller.groupOff(self.group_id)
-    return [0, 0] 
+      self.controller.groupOff(self.group_id)
+      return [0, 0] 
     
   def findBeam(self, z_coordinate):
     """
     Centers the beam on a camera attached to given stage group.
     """
     self.controller.groupVelocity(self.group_id, 30)
-    start_point = [self.lower_limit, z_coordinate]
+    start_point = [self.lower_limit_x, z_coordinate]
     self.controller.groupMoveLine(self.group_id, start_point)
     self.controller.pauseForGroup(self.group_id)
     time.sleep(1)
     self.controller.groupVelocity(self.group_id, 5)
     scan_steps = [50.00, 25.00, 5.00, 1.00, 0.25, 0.12, 0.05, 0.01]
-    scan_range = self.upper_limit - self.lower_limit
+    scan_range = self.upper_limit_x - self.lower_limit_x
     for step_number, step_size in enumerate(scan_steps):
       sign = (-1)**step_number
       stop_point = map(sum, zip(start_point, [sign*scan_range, 0]))
@@ -111,8 +109,8 @@ class ConstrainToBeam(object):
     """
     Finds the trajectory of the stages needed to keep a beam centered on camera.
     """
-    self.r_initial = array(self.findBeam(self.lower_limit))
-    self.r_final = array(self.findBeam(self.upper_limit))
+    self.r_initial = array(self.findBeam(self.lower_limit_z))
+    self.r_final = array(self.findBeam(self.upper_limit_z))
     self.slope = self.r_final - self.r_initial
     
   def position(self, fraction):
