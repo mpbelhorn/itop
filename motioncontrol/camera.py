@@ -29,12 +29,13 @@ class LaserBeamProfiler(object):
     buffer = ''
     while True:
       buffer = buffer + self.io.read(self.io.inWaiting())
-      if '\n' in buffer:
-        lines = buffer.split('\n')
-        if lines[-2]:
+      if ' \n' in buffer:
+        lines = buffer.split(' \n')
+        if len(lines) > 1:
           last_full_line = lines[-2]
-          header, values = last_full_line.split("R ",1)
+          header, values = last_full_line.split(" ",1)
           floats = [float(x) for x in values.split()]
-          output = dict(zip(self.keys, floats))
-          return output
-        buffer = lines[-1]        
+          if len(floats) == 14:
+            output = dict(zip(self.keys, floats))
+            return output
+        buffer = lines[-1]
