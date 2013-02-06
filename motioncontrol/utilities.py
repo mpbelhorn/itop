@@ -11,28 +11,28 @@ def pauseForStage(stage):
   """
   while stage.getMotionStatus():
     pass
-  
+
 def clamp(value, min_value, max_value):
   """
   Constrain a value to between a minimum and maximum.
   """
   return max(min(max_value, value), min_value)
-  
+
 class ConstrainToBeam(object):
   """
   For constaining the movement of a robotic stage group + camera to keep a
   laser beam centered on the camera.
   """
-  
+
   def __init__(self, controller, group_id, camera, **kwargs):
     """
     Initialize a constraint on the movement of a LBP on a stage group to travel
     along a beam.
-    
+
     Keyword arguments accepted to constrain the region of group travel.
     Assume group of ILS250CC stages if no kwargs given. Units are those
     that the stages are currently programmed to.
-    
+
     Option=default values are as follows:
     lower_limit_x=-125 - Lower travel limit.
     lower_limit_z=-125 - Lower travel limit.
@@ -47,15 +47,15 @@ class ConstrainToBeam(object):
     self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
     self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
     self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
-    self.power_level = kwargs.pop('power_level', 0.005)
+    self.power_level = kwargs.pop('power_level', 0.003)
     self.r_initial = array([0, 0])
     self.r_final = array([0, 0])
     self.slope = array([0, 0])
-    
+
   def search(self, start_point, stop_point, step_size):
     """
     Searches through a range of position steps for the beam.
-    
+
     All arguments given in millimeters.
     """
     beam_seen = False
@@ -103,9 +103,9 @@ class ConstrainToBeam(object):
         # the given serial polling frequency. Also, there may be a bug in the
         # code.
         print "ERROR: Beam not detected."
-      self.controller.groupOff(self.group_id)
-      return [0, 0] 
-    
+        self.controller.groupOff(self.group_id)
+        return [0, 0]
+
   def findBeam(self, z_coordinate):
     """
     Centers the beam on a camera attached to given stage group.
@@ -124,7 +124,7 @@ class ConstrainToBeam(object):
       start_point = self.search(start_point, stop_point, step_size)
       scan_range = 2.0 * step_size
     return self.controller.groupPosition(self.group_id)
-  
+
   def findSlope(self):
     """
     Finds the trajectory of the stages needed to keep a beam centered on camera.
@@ -132,7 +132,7 @@ class ConstrainToBeam(object):
     self.r_initial = array(self.findBeam(self.lower_limit_z))
     self.r_final = array(self.findBeam(self.upper_limit_z))
     self.slope = self.r_final - self.r_initial
-    
+
   def position(self, fraction):
     """
     Moves the stage group along the currently defined trajectory.
@@ -141,7 +141,7 @@ class ConstrainToBeam(object):
       print "Cannot exceed stage limits."
     else:
       return (self.r_initial + fraction * self.slope).tolist()
-      
+
 class FocalPoint(object):
   def __init__(self, controller, group_id, camera):
     self.controller = controller
@@ -150,11 +150,11 @@ class FocalPoint(object):
     self.camera = camera
     self.on_beam = ConstrainToBeam(self.controller, self.group_id, self.camera)
     self.beam_crossing_found = False
-    
+
   def moveOnBeam(self, position):
     self.controller.groupMoveLine(self.group_id,
         self.on_beam.position(position))
-    
+
   def findFocalPoint(self, mirror_position):
     self.mirror.on()
     self.mirror.position(250 - mirror_position)
