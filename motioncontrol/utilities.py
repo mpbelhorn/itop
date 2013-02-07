@@ -148,18 +148,18 @@ class FocalPoint(object):
     self.mirror = self.controller.axis1
     self.group_id = group_id
     self.camera = camera
-    self.on_beam = ConstrainToBeam(self.controller, self.group_id, self.camera)
+    self.trajectory = ConstrainToBeam(self.controller, self.group_id, self.camera)
     self.beam_crossing_found = False
 
   def moveOnBeam(self, position):
     self.controller.groupMoveLine(self.group_id,
-        self.on_beam.position(position))
+        self.trajectory.position(position))
 
   def findFocalPoint(self, mirror_position):
     self.mirror.on()
     self.mirror.position(250 - mirror_position)
     pauseForStage(self.mirror)
     # Block the free beam. Done manually for now. TODO: get an automatic block.
-    self.on_beam.findSlope()
+    self.trajectory.findSlope()
     # Unblock the free beam. Done manually for now.
     self.controller.groupVelocity(self.group_id, 5)
