@@ -142,6 +142,12 @@ class ConstrainToBeam(object):
     else:
       return (self.r_initial + fraction * self.slope).tolist()
 
+  def angle(self):
+    """
+    Returns the angle in radians of the outgoing beam relative to the stage z-axis.
+    """
+    return math.atan(self.slope[0] / self.slope[1])
+
 class FocalPoint(object):
   def __init__(self, controller, group_id, camera):
     self.controller = controller
