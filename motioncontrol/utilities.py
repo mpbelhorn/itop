@@ -106,6 +106,45 @@ class ConstrainToBeam(object):
         self.controller.groupOff(self.group_id)
         return [0, 0]
 
+  def advancedSearch(self):
+    """
+    A faster algorithm to find the beam
+    """
+    beam_positions = []
+    self.controller.groupMoveLine(self.group_id, [125, -125])
+    time.sleep(0.250)
+    self.controller.pauseForGroup(self.group_id)
+    time.sleep(0.250)
+    self.controller.groupMoveLine(self.group_id, [-125, -125])
+    beam_seen = False
+    while self.controller.groupIsMoving(self.group_id):
+      if (self.camera.read()['power'] > self.power_level):
+        beam_positions.append(self.controller.groupPosition(self.group_id))
+        beam_seen = True
+      elif beam_seen:
+        # Disable powering off the stages on following error.
+        # TODO - Find reason for following error on command to stop.
+        self.controller.axis2.followingErrorConfiguration('01')
+        self.controller.axis3.followingErrorConfiguration('01')
+        self.controller.groupStop(self.group_id)
+        self.controller.pauseForGroup(self.group_id)
+        break
+    time.sleep(1)
+    self.controller.axis2.followingErrorConfiguration('03')
+    self.controller.axis3.followingErrorConfiguration('03')
+    if len(beam_positions) == 0:
+      print "Beam not seen!"
+      return None
+    beam_x_position = (sum([position[0] for position in beam_positions])
+        / float(len(beam_positions)))
+    print beam_x_position
+    self.controller.groupMoveLine(self.group_id, [beam_x_position, -125])
+    self.controller.pauseForGroup(self.group_id)
+    beam_offset = self.camera.read()['centroid_x'] / 1000.0
+    self.controller.groupMoveLine(self.group_id,
+        [beam_x_position - beam_offset, -125])
+
+
   def findBeam(self, z_coordinate):
     """
     Centers the beam on a camera attached to given stage group.
