@@ -49,7 +49,7 @@ class StageController(object):
 
   def readStatus(self):
     """
-    Read the first error message in the error FIFO buffer.
+    Read the status buffer.
     """
     self.send('TS')
     return self.read()
@@ -67,6 +67,19 @@ class StageController(object):
     """
     self.send('TB?')
     return self.read()
+
+  def errors(self):
+    """
+    Read all the error messages in the error FIFO buffer.
+    """
+    messages = []
+    self.send('TB?')
+    messages.append(self.read())
+    while messages[-1].split(',')[0] != '0':
+      self.send('TB?')
+      messages.append(self.read())
+    print messages
+    return messages
 
   def readFirmwareVersion(self):
     """

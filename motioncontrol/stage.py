@@ -137,17 +137,7 @@ class Stage(object):
     """
     self.send('ST')
 
-  def followingError(self, error = '?'):
-    """
-    Sets or returns the maximum following error threshold.
-    """
-    self.send('FE', error)
-    if (error == '?'):
-      error = self.controller.read()
-      print error+self.units()
-    return float(error)
-
-  def stepResoltion(self, resolution = '?'):
+  def stepResolution(self, resolution = '?'):
     """
     Sets or returns the encoder full-step resolution for a Newport Unidrive
     compatible programmable driver with step motor axis.
@@ -192,11 +182,11 @@ class Stage(object):
       response = self.controller.read()
       units = ['encoder-counts', 'motor-steps', 'mm', u'\u03BCm', 'in', 'mil',
                u'\u03BCin', u'\u00B0', 'grade', 'rad', 'mrad', u'\u03BCrad']
-      return units[int(response)]
+      return units[int(response.strip())]
 
   def followingErrorThreshold(self, error = '?'):
     """
-    Sets the maximum allowed following error.
+    Sets or returnbs the maximum allowed following error.
     """
     self.send('FE', error)
     if (error == '?'):
@@ -219,7 +209,7 @@ class Stage(object):
 
     Common values are
     0x03 0b0000011 default
-    0x01 0b0000001 Do not stop on following error
+    0x05 0b0000101 Abort motion on following error
     """
     self.send('ZF', configuration)
     if (configuration == '?'):

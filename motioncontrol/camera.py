@@ -44,6 +44,8 @@ class LaserBeamProfiler(object):
       'height_2' - Projection height at level 1
       'height_3' - Projection height at level 1
     """
+    # Clear the current contents of the read buffer.
+    self.io.flushInput()
     buffer = ''
     while True:
       buffer = buffer + self.io.read(self.io.inWaiting())
