@@ -78,7 +78,6 @@ class StageController(object):
     while messages[-1].split(',')[0] != '0':
       self.send('TB?')
       messages.append(self.read())
-    print messages
     return messages
 
   def readFirmwareVersion(self):
@@ -116,7 +115,7 @@ class StageController(object):
     self.send('HA', acceleration, group_id)
     if (acceleration == '?'):
       acceleration = self.read()
-      print acceleration
+    return acceleration
 
   def groups(self):
     """
@@ -124,7 +123,6 @@ class StageController(object):
     """
     self.send('HB')
     group_ids = self.read()
-    print group_ids
     return group_ids
 
   def groupMoveArc(self, group_id, coordinates = '?'):
@@ -137,9 +135,9 @@ class StageController(object):
     if (coordinates == '?'):
       self.send('HC', coordinates, group_id)
       coordinates = self.read()
-      print coordinates
     else:
       self.send('HC', ",".join(map(str,coordinates)), group_id)
+    return coordinates
 
   def groupDeceleration(self, group_id, deceleration = '?'):
     """
@@ -150,7 +148,7 @@ class StageController(object):
     self.send('HD', deceleration, group_id)
     if (deceleration == '?'):
       deceleration = self.read()
-      print deceleration
+    return deceleration
 
   def groupEStopDeceleration(self, group_id, deceleration = '?'):
     """
@@ -161,7 +159,7 @@ class StageController(object):
     self.send('HE', deceleration, group_id)
     if (deceleration == '?'):
       deceleration = self.read()
-      print deceleration
+    return deceleration
 
   def groupOff(self, group_id):
     """
@@ -178,21 +176,26 @@ class StageController(object):
     self.send('HJ', jerk, group_id)
     if (jerk == '?'):
       jerk = self.read()
-      print jerk
+    return jerk
 
-  def groupMoveLine(self, group_id, coordinates = '?'):
+  def groupMoveLine(self, group_id, coordinates = '?', **kwargs):
     """
     Moves a group along a line.
 
     The line is defined by a list of endpoint coordinates:
       [axis1, axis2, ..., axisN]
+
+    Takes the optional keyword boolean wait to pause python execution
+      for group to come to a stop. Default is wait=False.
     """
     if (coordinates == '?'):
       self.send('HL', coordinates, group_id)
       coordinates = self.read()
-      print coordinates
     else:
       self.send('HL', ",".join(map(str,coordinates)), group_id)
+    if kwargs.pop('wait', False):
+      self.pauseForGroup(group_id)
+    return coordinates
 
   def groupCreate(self, group_id, axes = '?'):
     """
@@ -204,9 +207,9 @@ class StageController(object):
     if (axes == '?'):
       self.send('HN', axes, group_id)
       axes = self.read()
-      print axes
     else:
       self.send('HN', ",".join(map(str,axes)), group_id)
+    return axes
 
   def groupOn(self, group_id):
     """
@@ -223,7 +226,6 @@ class StageController(object):
     """
     self.send('HP', '', group_id)
     coordinates = [float(x.strip()) for x in self.read().split(',')]
-    print coordinates
     return coordinates
 
   # Wait for group via point buffer. - NOT IMPLEMENTED.
@@ -261,7 +263,7 @@ class StageController(object):
     self.send('HV', velocity, group_id)
     if (velocity == '?'):
       velocity = self.read()
-      print velocity
+    return velocity
 
   def groupWaitForStop(self, group_id, delay = '0'):
     """
@@ -281,7 +283,7 @@ class StageController(object):
     """
     self.send('HZ', '', group_id)
     size = self.read()
-    print size
+    return size
 
   def initializeGroup(self, group_id, axes, **kwargs):
     """
