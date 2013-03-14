@@ -51,6 +51,19 @@ class ConstrainToBeam(object):
     self.r_initial = array([0, 0])
     self.r_final = array([0, 0])
     self.slope = array([0, 0])
+    self.slope3D = array([0, 0, 0]) # (x,y,z)
+
+  def centerBeam(self):
+    """
+    Centers the camera on the beam if beam is visible.
+    """
+    if self.camera.read()['power'] > self.power_level:
+      jitter = [self.camera.read()['centroid_x'] for i in range(10)]
+      beam_x = sum(jitter) / 10.0
+      self.controller.groupMoveLine(self.group_id, (
+          array(self.controller.groupPosition(self.group_id)) -
+          array([beam_x / 1000.0, 0])))
+      self.controller.pauseForGroup(self.group_id)
 
   def search(self, start_point, stop_point, step_size):
     """
@@ -108,85 +121,63 @@ class ConstrainToBeam(object):
 
   def advancedSearch(self):
     """
-    A faster algorithm to find the beam
+    A faster algorithm to find the beam trajectory.
     """
+    # Move camera into starting point.
     self.controller.groupVelocity(self.group_id, 40)
-    beam_positions = []
-    self.controller.groupMoveLine(self.group_id, [-125, -125])
-    time.sleep(0.250)
-    self.controller.pauseForGroup(self.group_id)
+    self.controller.groupMoveLine(self.group_id, [-125, -125], wait=True)
+    time.sleep(0.125)
     self.controller.groupVelocity(self.group_id, 10)
-    time.sleep(0.250)
+
+    # Scan for downstream beam crossing.
     self.controller.groupMoveLine(self.group_id, [125, -125])
-    beam_seen = False
+    beam_positions = []
     while self.controller.groupIsMoving(self.group_id):
       if (self.camera.read()['power'] > self.power_level):
         beam_positions.append(self.controller.groupPosition(self.group_id))
-        beam_seen = True
-      # elif beam_seen:
-      #   # TODO - Fix unresolved following error on command to stop.
-      #   self.controller.groupStop(self.group_id)
-      #   break
-    self.controller.groupVelocity(self.group_id, 40)
-    time.sleep(1)
-    if len(beam_positions) == 0:
+      elif beam_positions:
+        # TODO - Fix unresolved following error on command to stop.
+        # self.controller.groupStop(self.group_id)
+        self.controller.groupVelocity(self.group_id, 40)
+        break
+    self.controller.pauseForGroup(self.group_id)
+    time.sleep(0.125)
+    if not beam_positions:
       print "Beam not seen!"
       return None
-    beam_x_position = (sum([position[0] for position in beam_positions])
-        / float(len(beam_positions)))
-    print beam_x_position
-    self.controller.groupMoveLine(self.group_id, [beam_x_position, -125])
-    self.controller.pauseForGroup(self.group_id)
+
+    # Go back to the beam.
+    beam_x = [sum(xs) for xs in zip(*beam_positions)][0] / float(len(beam_positions))
+    self.controller.groupMoveLine(self.group_id, [beam_x, -125], wait=True)
     self.controller.groupVelocity(self.group_id, 10)
-    self.controller.groupMoveLine(1, (
-        array(self.controller.groupPosition(self.group_id)) -
-        array([self.camera.read()['centroid_x']/1000, 0])))
-    self.controller.pauseForGroup(self.group_id)
-    time.sleep(1)
-    jitter = [self.camera.read()['centroid_x'] for i in range(10)]
-    beam_x_position = sum(jitter) / 10.0
-    self.controller.groupMoveLine(1, (
-        array(self.controller.groupPosition(self.group_id)) -
-        array([beam_x_position / 1000.0, 0])))
-    self.controller.pauseForGroup(self.group_id)
-    jitter = [self.camera.read()['centroid_x'] for i in range(10)]
-    beam_x_position = sum(jitter) / 10.0
-    self.controller.groupMoveLine(1, (
-        array(self.controller.groupPosition(self.group_id)) -
-        array([beam_x_position / 1000.0, 0])))
-    self.controller.pauseForGroup(self.group_id)
+    self.centerBeam()
+    self.centerBeam()
     self.r_initial = array(self.controller.groupPosition(self.group_id))
-    self.controller.groupMoveLine(self.group_id, self.r_initial + array([0,30]))
-    self.controller.pauseForGroup(self.group_id)
-    jitter = [self.camera.read()['centroid_x'] for i in range(10)]
-    beam_x_position = sum(jitter) / 10.0
-    downstream_sample = (array(self.controller.groupPosition(self.group_id)) -
-        array([beam_x_position / 1000.0, 0]))
+    downstream_elevation = self.camera.read()['centroid_y'] / 1000.0
+
+    # Calculate rough trajectory of the beam.
+    self.controller.groupMoveLine(self.group_id, self.r_initial + array([0, 30]), wait=True)
+    self.centerBeam()
+    downstream_sample = self.controller.groupPosition(self.group_id)
     print downstream_sample
     upstream_sample = [self.r_initial[0] + (((self.upper_limit_z - self.r_initial[1]) /
         (downstream_sample[1] - self.r_initial[1])) *
         (downstream_sample[0] - self.r_initial[0])), self.upper_limit_z]
     print upstream_sample
     self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(self.group_id, upstream_sample)
-    self.controller.pauseForGroup(self.group_id)
+    self.controller.groupMoveLine(self.group_id, upstream_sample, wait=True)
     self.controller.groupVelocity(self.group_id, 10)
-    self.controller.pauseForGroup(self.group_id)
-    time.sleep(1)
-    jitter = [self.camera.read()['centroid_x'] for i in range(10)]
-    beam_x_position = sum(jitter) / 10.0
-    self.controller.groupMoveLine(1, (
-        array(self.controller.groupPosition(self.group_id)) -
-        array([beam_x_position / 1000.0, 0])))
-    self.controller.pauseForGroup(self.group_id)
-    jitter = [self.camera.read()['centroid_x'] for i in range(10)]
-    beam_x_position = sum(jitter) / 10.0
-    self.controller.groupMoveLine(1, (
-        array(self.controller.groupPosition(self.group_id)) -
-        array([beam_x_position / 1000.0, 0])))
+
+    # Refine trajectory of the beam.
+    self.centerBeam()
     self.r_final = array(self.controller.groupPosition(self.group_id))
     self.slope = self.r_final - self.r_initial
-    return self.slope
+    upstream_elevation = self.camera.read()['centroid_y'] / 1000.0
+    self.slope3D = array([
+        self.slope[0],
+        upstream_elevation - downstream_elevation,
+        self.slope[1]])
+    return self.slope3D
 
   def findBeam(self, z_coordinate):
     """
@@ -194,8 +185,7 @@ class ConstrainToBeam(object):
     """
     self.controller.groupVelocity(self.group_id, 30)
     start_point = [self.lower_limit_x, z_coordinate]
-    self.controller.groupMoveLine(self.group_id, start_point)
-    self.controller.pauseForGroup(self.group_id)
+    self.controller.groupMoveLine(self.group_id, start_point, wait=True)
     time.sleep(1)
     self.controller.groupVelocity(self.group_id, 5)
     scan_steps = [50.00, 25.00, 5.00, 1.00, 0.25, 0.12, 0.05, 0.01]
