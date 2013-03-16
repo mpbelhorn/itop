@@ -196,6 +196,10 @@ class ConstrainToBeam(object):
     else:
       return (self.r_initial + fraction * self.slope).tolist()
 
+  def moveOnBeam(self, fraction):
+    self.controller.groupMoveLine(self.group_id,
+        self.position(fraction))
+
   def angle(self):
     """
     Returns the angle in radians of the outgoing beam relative to the
@@ -220,9 +224,6 @@ class FocalPoint(object):
     self.slope = array([0, 0])
     self.r_focal = array([0, 0])
 
-  def moveOnBeam(self, position):
-    self.controller.groupMoveLine(self.group_id,
-        self.trajectory.position(position))
 
   def findFocalPoint(self):
     self.mirror.on()
