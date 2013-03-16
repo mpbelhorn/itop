@@ -1,7 +1,7 @@
 """
 Utility classes for iTOP mirror measurements.
 """
-from numpy import array
+from numpy import array, std, mean
 import time
 import math
 
@@ -59,11 +59,10 @@ class ConstrainToBeam(object):
     """
     if self.camera.read()['power'] > self.power_level:
       jitter = [self.camera.read()['centroid_x'] for i in range(10)]
-      beam_x = sum(jitter) / 10.0
+      beam_x = mean(jitter)
       self.controller.groupMoveLine(self.group_id, (
           array(self.controller.groupPosition(self.group_id)) -
-          array([beam_x / 1000.0, 0])))
-      self.controller.pauseForGroup(self.group_id)
+          array([beam_x / 1000.0, 0])), wait=True)
 
   def search(self, start_point, stop_point, step_size):
     """
@@ -119,17 +118,17 @@ class ConstrainToBeam(object):
         self.controller.groupOff(self.group_id)
         return [0, 0]
 
-  def advancedSearch(self):
+  def findBeam(self, position):
     """
-    A faster algorithm to find the beam trajectory.
+    Scans in X for single beam and centers camera on beam.
     """
     # Move camera into starting point.
     self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(self.group_id, [-125, -125], wait=True)
+    self.controller.groupMoveLine(self.group_id, [position, -125], wait=True)
     time.sleep(0.125)
     self.controller.groupVelocity(self.group_id, 10)
 
-    # Scan for downstream beam crossing.
+    # Scan for beam crossing.
     self.controller.groupMoveLine(self.group_id, [125, -125])
     beam_positions = []
     while self.controller.groupIsMoving(self.group_id):
@@ -145,22 +144,30 @@ class ConstrainToBeam(object):
     if not beam_positions:
       print "Beam not seen!"
       return None
-
     # Go back to the beam.
-    beam_x = [sum(xs) for xs in zip(*beam_positions)][0] / float(len(beam_positions))
+    beam_x = mean(beam_positions, 0)[0]
     self.controller.groupMoveLine(self.group_id, [beam_x, -125], wait=True)
     self.controller.groupVelocity(self.group_id, 10)
     self.centerBeam()
     self.centerBeam()
-    self.r_initial = array(self.controller.groupPosition(self.group_id))
+    return self.controller.groupPosition(self.group_id)
+
+  def findSlope(self):
+    """
+    Find trajectory of single beam.
+    """
+    # Find the beam at most downstream position.
+    self.r_initial = self.findBeam(-125)
     downstream_elevation = self.camera.read()['centroid_y'] / 1000.0
 
     # Calculate rough trajectory of the beam.
-    self.controller.groupMoveLine(self.group_id, self.r_initial + array([0, 30]), wait=True)
+    self.controller.groupMoveLine(self.group_id,
+        self.r_initial + array([0, 30]), wait=True)
     self.centerBeam()
     downstream_sample = self.controller.groupPosition(self.group_id)
     print downstream_sample
-    upstream_sample = [self.r_initial[0] + (((self.upper_limit_z - self.r_initial[1]) /
+    upstream_sample = [self.r_initial[0] + (
+        ((self.upper_limit_z - self.r_initial[1]) /
         (downstream_sample[1] - self.r_initial[1])) *
         (downstream_sample[0] - self.r_initial[0])), self.upper_limit_z]
     print upstream_sample
@@ -179,36 +186,10 @@ class ConstrainToBeam(object):
         self.slope[1]])
     return self.slope3D
 
-  def findBeam(self, z_coordinate):
-    """
-    Centers the beam on a camera attached to given stage group.
-    """
-    self.controller.groupVelocity(self.group_id, 30)
-    start_point = [self.lower_limit_x, z_coordinate]
-    self.controller.groupMoveLine(self.group_id, start_point, wait=True)
-    time.sleep(1)
-    self.controller.groupVelocity(self.group_id, 5)
-    scan_steps = [50.00, 25.00, 5.00, 1.00, 0.25, 0.12, 0.05, 0.01]
-    scan_range = self.upper_limit_x - self.lower_limit_x
-    for step_number, step_size in enumerate(scan_steps):
-      sign = (-1)**step_number
-      stop_point = map(sum, zip(start_point, [sign*scan_range, 0]))
-      start_point = self.search(start_point, stop_point, step_size)
-      scan_range = 2.0 * step_size
-    return self.controller.groupPosition(self.group_id)
-
-  def findSlope(self):
-    """
-    Finds the trajectory of the stages needed to keep a beam centered on camera.
-    """
-    self.r_initial = array(self.findBeam(self.lower_limit_z))
-    self.r_final = array(self.findBeam(self.upper_limit_z))
-    self.slope = self.r_final - self.r_initial
-    return self.slope
-
   def position(self, fraction):
     """
-    Moves the stage group along the currently defined trajectory.
+    Returns the XZ coordinates of the stage group at given fraction of the
+    trajectory.
     """
     if fraction < 0 or fraction > 1:
       print "Cannot exceed stage limits."
@@ -217,7 +198,8 @@ class ConstrainToBeam(object):
 
   def angle(self):
     """
-    Returns the angle in radians of the outgoing beam relative to the stage z-axis.
+    Returns the angle in radians of the outgoing beam relative to the
+    stage z-axis.
     """
     return math.atan(self.slope[0] / self.slope[1])
 
@@ -227,7 +209,8 @@ class FocalPoint(object):
     self.mirror = self.controller.axis1
     self.group_id = group_id
     self.camera = camera
-    self.trajectory = ConstrainToBeam(self.controller, self.group_id, self.camera)
+    self.trajectory = ConstrainToBeam(
+        self.controller, self.group_id, self.camera)
     self.beam_crossing_found = False
     self.lower_limit_x = kwargs.pop('lower_limit_x', -125)
     self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
@@ -251,7 +234,8 @@ class FocalPoint(object):
     self.mirror.position(blockedPos)
     pauseForStage(self.mirror)
 
-    self.slope = self.trajectory.findSlope()
+    self.trajectory.findSlope()
+    self.slope = self.trajectory.slope
 
     # Unblock the free beam. Done manually for now.
     self.mirror.position(unblockedPos)

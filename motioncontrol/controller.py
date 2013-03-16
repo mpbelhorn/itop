@@ -1,5 +1,5 @@
 """
-This module provides methods for controlling and communicating with an EPS300
+This module provides methods for controlling and communicating with an EPS30x
 motion controller.
 """
 
@@ -19,11 +19,11 @@ class StageController(object):
     """
     Creates an I/O handle on a Newport EPS300 motion controller and its axes.
 
-    Arguments:
+    Argumentx:
     serial_device -- Path string to serial port used by the controller.
     """
     self.io = serial.Serial(serial_device, 19200, timeout = 1)
-    self.io_end = '\r'
+    self.io_end = '\r\n'
     self.axis1 = stage.Stage(1, self)
     self.axis2 = stage.Stage(2, self)
     self.axis3 = stage.Stage(3, self)
