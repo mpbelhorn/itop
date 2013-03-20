@@ -1,7 +1,8 @@
 """
 Utility classes for iTOP mirror measurements.
 """
-from numpy import array, std, mean
+from numpy import array, std, mean, dot
+from numpy import linalg
 import time
 import math
 
@@ -47,76 +48,50 @@ class ConstrainToBeam(object):
     self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
     self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
     self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
-    self.power_level = kwargs.pop('power_level', 0.003)
+    self.power_level = kwargs.pop('power_level', 0.004)
     self.r_initial = None
     self.r_final = None
     self.slope = None
     self.slope3D = None # (x,y,z)
 
+  def position(self, fraction=None):
+    """
+    Returns the 3D position of the beam at the current 2D stage position.
+
+    If given an optional argument 'fraction', returns the coordinates of the
+    beam at the given fraction of the available stage group trajectory.
+    """
+    position = None
+    if fraction is not None:
+      try:
+        position = (self.r_initial + fraction * self.slope3D).tolist()
+      except TypeError:
+        print "Trajectory is not initilized"
+    else:
+      profile = self.camera.read()
+      if (profile['power'] > self.power_level):
+        position = self.controller.groupPosition(self.group_id)
+        elevation = profile['centroid_y'] / 1000.0
+        position.insert(1, elevation)
+      else:
+        print "Beam not visible"
+    return position
+
   def centerBeam(self):
     """
     Centers the camera on the beam if beam is visible.
     """
-    if self.camera.read()['power'] > self.power_level:
+    if self.camera.read()['power'] >= self.power_level:
       jitter = [self.camera.read()['centroid_x'] for i in range(10)]
       beam_x = mean(jitter)
+      # TODO - Change addition or subtraction based on camera direction.
       self.controller.groupMoveLine(self.group_id, (
-          array(self.controller.groupPosition(self.group_id)) -
+          array(self.controller.groupPosition(self.group_id)) +
           array([beam_x / 1000.0, 0])), wait=True)
-
-  def search(self, start_point, stop_point, step_size):
-    """
-    Searches through a range of position steps for the beam.
-
-    All arguments given in millimeters.
-    """
-    beam_seen = False
-    x_start = clamp(start_point[0], self.lower_limit_x, self.upper_limit_x)
-    x_stop = clamp(stop_point[0], self.lower_limit_x, self.upper_limit_x)
-    z_start = clamp(start_point[1], self.lower_limit_z, self.upper_limit_z)
-    z_stop = clamp(stop_point[1], self.lower_limit_z, self.upper_limit_z)
-    displacement = math.hypot((x_stop - x_start), (z_stop - z_start))
-    if displacement == 0:
-      return None
-    count = int(math.floor(displacement/abs(float(step_size))))
-    x_step = (x_stop - x_start) / float(count)
-    z_step = (z_stop - z_start) / float(count)
-    x_steps = [x_start + x_step*i for i in xrange(count)]
-    z_steps = [z_start + z_step*i for i in xrange(count)]
-    steps = map(list, zip(x_steps, z_steps))
-    steps.append([x_stop, z_stop])
-    for position in steps:
-      self.controller.groupMoveLine(self.group_id, position)
-      while self.controller.groupIsMoving(self.group_id):
-        if (self.camera.read()['power'] > self.power_level):
-          beam_seen = True
-      cam_reading = self.camera.read()
-      if (cam_reading['power'] < self.power_level and beam_seen):
-        print "Passed the beam."
-        return position
-      elif (cam_reading['power'] > self.power_level):
-        beam_seen = True
-        beam_offset = cam_reading['centroid_x'] - (x_step * 500.)
-        if (x_step > 0 <= beam_offset) or (x_step < 0 >= beam_offset):
-          print "Passed the beam."
-          return position
+      return True
     else:
-      print "Something's not right..."
-      cam_reading = self.camera.read()
-      if cam_reading['power'] > self.power_level:
-        if -20 < cam_reading['centroid_x'] < 20:
-          print "On the beam within thermal fluctuations."
-          return self.controller.groupPosition(self.group_id)
-      elif beam_seen:
-        print "ERROR: Beam center not in reach of camera center."
-      else:
-        # The beam was not detected! The beam may be out of range, blocked, or
-        # the stage moved too fast to register the beam on camera over with
-        # the given serial polling frequency. Also, there may be a bug in the
-        # code.
-        print "ERROR: Beam not detected."
-        self.controller.groupOff(self.group_id)
-        return [0, 0]
+      print "ERROR: Insufficient exposed power."
+      return False
 
   def findBeam(self, position):
     """
@@ -124,12 +99,12 @@ class ConstrainToBeam(object):
     """
     # Move camera into starting point.
     self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(self.group_id, [position, -125], wait=True)
+    self.controller.groupMoveLine(self.group_id, [-125, position], wait=True)
     time.sleep(0.125)
     self.controller.groupVelocity(self.group_id, 10)
 
     # Scan for beam crossing.
-    self.controller.groupMoveLine(self.group_id, [125, -125])
+    self.controller.groupMoveLine(self.group_id, [125, position])
     beam_positions = []
     while self.controller.groupIsMoving(self.group_id):
       if (self.camera.read()['power'] > self.power_level):
@@ -145,68 +120,65 @@ class ConstrainToBeam(object):
       print "Beam not seen!"
       return None
     # Go back to the beam.
+    print beam_positions
     beam_x = mean(beam_positions, 0)[0]
-    self.controller.groupMoveLine(self.group_id, [beam_x, -125], wait=True)
+    self.controller.groupMoveLine(self.group_id, [beam_x, position], wait=True)
     self.controller.groupVelocity(self.group_id, 10)
-    self.centerBeam()
-    self.centerBeam()
-    return self.controller.groupPosition(self.group_id)
+    if not self.centerBeam():
+      self.controller.groupMoveLine(
+          self.group_id, [beam_x - 3.0, position], wait=True)
+      if not self.centerBeam():
+        self.controller.groupMoveLine(
+            self.group_id, [beam_x + 6.0, position], wait=True)
+    if self.centerBeam():
+      print "Beam found"
+    return self.position()
 
   def findTrajectory(self):
     """
     Find trajectory of single beam.
     """
-    # Find the beam at most downstream position.
-    self.r_initial = self.findBeam(-125)
-    downstream_elevation = self.camera.read()['centroid_y'] / 1000.0
+    # Find the beam at most upstream position.
+    self.r_initial = None
+    while self.r_initial is None:
+      self.r_initial = array(self.findBeam(-125))
 
     # Calculate rough trajectory of the beam.
-    self.controller.groupMoveLine(self.group_id,
-        self.r_initial + array([0, 30]), wait=True)
+    step = self.r_initial + array([0, 0, 30])
+    self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
     self.centerBeam()
-    downstream_sample = self.controller.groupPosition(self.group_id)
-    print downstream_sample
-    upstream_sample = [self.r_initial[0] + (
-        ((self.upper_limit_z - self.r_initial[1]) /
-        (downstream_sample[1] - self.r_initial[1])) *
-        (downstream_sample[0] - self.r_initial[0])), self.upper_limit_z]
-    print upstream_sample
+    upstream_sample = self.position()
+    downstream_sample = [self.r_initial[0] + (
+        ((self.upper_limit_z - self.r_initial[2]) /
+        (upstream_sample[2] - self.r_initial[2])) *
+        (upstream_sample[0] - self.r_initial[0])),
+        self.r_initial[1],
+        self.upper_limit_z]
     self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(self.group_id, upstream_sample, wait=True)
+    self.controller.groupMoveLine(self.group_id, downstream_sample[0::2], wait=True)
     self.controller.groupVelocity(self.group_id, 10)
 
     # Refine trajectory of the beam.
     self.centerBeam()
-    self.r_final = array(self.controller.groupPosition(self.group_id))
-    self.slope = self.r_final - self.r_initial
-    upstream_elevation = self.camera.read()['centroid_y'] / 1000.0
-    self.slope3D = array([
-        self.slope[0],
-        upstream_elevation - downstream_elevation,
-        self.slope[1]])
+    self.r_final = array(self.position())
+    self.slope3D = self.r_final - self.r_initial
+    self.slope = self.slope3D[0::2]
     return self.slope3D
 
-  def position(self, fraction):
-    """
-    Returns the XZ coordinates of the stage group at given fraction of the
-    trajectory.
-    """
-    try:
-      return (self.r_initial + clamp(fraction, 0, 1) * self.slope).tolist()
-    except TypeError:
-      print "Trajectory is not initilized"
-      return None
-
   def moveOnBeam(self, fraction):
-    self.controller.groupMoveLine(self.group_id,
-        self.position(fraction))
+      """
+      Moves the stage group along the beam trajectory to the given fraction
+      of available group path.
+      """
+      self.controller.groupMoveLine(self.group_id,
+          (self.position(fraction))[0::2])
 
   def angle(self):
     """
     Returns the angle in radians of the outgoing beam relative to the
     stage z-axis.
     """
-    return math.atan(self.slope[0] / self.slope[1])
+    return (self.slope3D / self.slope[1])
 
 class FocalPoint(object):
   """
@@ -233,19 +205,87 @@ class FocalPoint(object):
     Initilizes the trajectories of both beams.
     """
     # Block beam 'B' and find beam 'A' trajectory.
-    raw_input("Block beam 'B'. Press any key to continue.")
+    raw_input("Clear(Block) beam 'A'('B'). Press enter to continue.")
     self.beam_a.findTrajectory()
     # Block beam 'A' and find beam 'B' trajectory.
-    raw_input("Block beam 'A'. Press any key to continue.")
+    raw_input("Clear(Block) beam 'B'('A'). Press enter to continue.")
     self.beam_b.findTrajectory()
 
-  def findFocalPoints(self):
+  def findFocalPoints(self, refresh=False):
     """
     Finds the focal points (assuming astigmatism) of the beams.
     """
     # Initialize the beam trajectories if necessary.
-    if self.beam_a.slope3D is None:
-      pass
+    if (self.beam_a.slope3D is None) or (self.beam_b.slope3D is None) or refresh:
+      self.findTrajectories()
+    else:
+      print "Trajectories already initialized."
+    # Find the tangential focal plane.
+    # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
+    slope_a = self.beam_a.slope3D
+    upstream_a = self.beam_a.r_initial
+    slope_b = self.beam_b.slope3D
+    upstream_b = self.beam_b.r_initial
+    tangential_coefficients = array([
+        [slope_a[2], -slope_a[0]], [slope_b[2], -slope_b[0]]])
+    tangential_ordinates = array([
+        slope_a[2] * upstream_a[0] - slope_a[0] * upstream_a[2],
+        slope_b[2] * upstream_b[0] - slope_b[0] * upstream_b[2]])
+    tangential_solution = linalg.solve(
+        tangential_coefficients, tangential_ordinates)
     # Find the sagittal focal plane.
-    # Find the meridional focal plane.
+    sagittal_coefficients = array([
+        [slope_a[2], -slope_a[1]], [slope_b[2], -slope_b[1]]])
+    sagittal_ordinates = array([
+        slope_a[2] * upstream_a[1] - slope_a[1] * upstream_a[2],
+        slope_b[2] * upstream_b[1] - slope_b[1] * upstream_b[2]])
+    sagittal_solution = linalg.solve(
+        sagittal_coefficients, sagittal_ordinates)
     # Find the circle of least confusion.
+    #   This will have to wait until the camera can be remotely
+    #   positioned vertically. Until then, the vertical spot width data
+    #   needed to locate the CoLC is unreliable.
+    beam_a_tangential_fraction = (tangential_solution[1] - upstream_a[2]) / slope_a[2]
+    beam_b_tangential_fraction = (tangential_solution[1] - upstream_b[2]) / slope_b[2]
+    self.tangential_focus_a = self.beam_a.position(beam_a_tangential_fraction)
+    self.tangential_focus_b = self.beam_b.position(beam_b_tangential_fraction)
+    beam_a_sagittal_fraction = (sagittal_solution[1] - upstream_a[2]) / slope_a[2]
+    beam_b_sagittal_fraction = (sagittal_solution[1] - upstream_b[2]) / slope_b[2]
+    self.sagittal_focus_a = self.beam_a.position(beam_a_sagittal_fraction)
+    self.sagittal_focus_b = self.beam_b.position(beam_b_sagittal_fraction)
+
+def refract(ray, normal, origin_index, final_index):
+  """
+  Returns the normalized direction of a given ray (normalized or not) after
+  refraction through a boundary between two media with given normal vector and
+  indexes of refraction
+  """
+  d = array(ray) / linalg.norm(ray)
+  n = array(normal) / linalg.norm(normal)
+  index_ratio = origin_index / final_index
+  incidence = dot(-d, n)
+  complement = math.sqrt(1.0 - index_ratio**2 * (1.0 - incidence**2))
+  sign = 1.0
+  if incidence < 0:
+    sign = -1.0
+  return index_ratio * d + sign * (index_ratio * incidence - complement) * n
+
+def reconstructMirrorNormal(
+    upstream_ray,
+    **kwargs):
+  """
+  Reconstructs the mirror normal vector given the downstream ray
+  (incoming to front face) beam propagation vector and the upstream
+  ray (outgoing from front face).
+  """
+
+  downstream_ray = kwargs.pop('downstream_ray', [0, 0, -1])
+  face_normal = kwargs.pop('face_normal', [0, 0, 1])
+  index_outside = kwargs.pop('index_outside', 1.000277)
+  index_inside = kwargs.pop('index_inside', 1.4608)
+  refraction = refract(
+      downstream_ray, face_normal, index_outside, index_inside)
+  reflection = -refract(
+      -upstream_ray, face_normal, index_outside, index_inside)
+  return (reflection - refraction) / (linalg.norm(reflection - refraction))
+
