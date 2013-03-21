@@ -197,19 +197,44 @@ class StageController(object):
       self.pauseForGroup(group_id)
     return coordinates
 
-  def groupCreate(self, group_id, axes = '?'):
+  def groupCreate(self, group_id, axes = '?', **kwargs):
     """
     Creates a group with ID group_id over the given axes.
 
     The axes are given as an ordered list of the physical axis numbers:
       [axis1, axis2, ..., axisN]
+
+    Keyword arguments:
+     home=False - Reset stage coordinate system.
+     velocity=10 - Set group velocity (Units/s)
+     acceleration=100 - Set group acceleration (Units/s^2)
+     deceleration=100 - Set group deceleration (Units/s^s)
+     jerk=0 - Set group jerk rate (Units/s^3).
+     estop=200 - Set group emergency stop deceleration (Units/s^2)
     """
     if (axes == '?'):
       self.send('HN', axes, group_id)
-      axes = self.read()
+      axes = [int(axis.strip()) for axis in self.read().split(',')]
     else:
+      if str(group_id) in self.groups():
+        self.groupDelete(group_id)
+      stages = [self.axis1, self.axis2, self.axis3]
+      if kwargs.pop('home', False):
+        for axis in axes:
+          stage = stages[axis - 1]
+          stage.on()
+          stage.goToHome()
+          pauseForStage(stage)
+          time.sleep(1)
       self.send('HN', ",".join(map(str,axes)), group_id)
+      self.groupVelocity(group_id, kwargs.pop('velocity', 10))
+      self.groupAcceleration(group_id, kwargs.pop('acceleration', 30))
+      self.groupDeceleration(group_id, kwargs.pop('deceleration', 30))
+      self.groupJerk(group_id, kwargs.pop('jerk', 0))
+      self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
+      self.groupOn(group_id)
     return axes
+
 
   def groupOn(self, group_id):
     """
@@ -285,34 +310,3 @@ class StageController(object):
     size = self.read()
     return size
 
-  def initializeGroup(self, group_id, axes, **kwargs):
-    """
-    Creates and initilizes a group.
-
-    Default values are provided for all kinematic parameters unless alternatives
-    are given in the form of keyword arguments. The units are those that the
-    stages are currently set to. Possible option=default values are:
-     velocity=10 - Set group velocity (Units/s)
-     acceleration=100 - Set group acceleration (Units/s^2)
-     deceleration=100 - Set group deceleration (Units/s^s)
-     jerk=1000 - Set group jerk rate (Units/s^3)
-     estop=200 - Set group emergency stop deceleration (Units/s^2)
-
-    See core group functions for usage of each parameter.
-    """
-    if str(group_id) in self.groups():
-      self.groupDelete(group_id)
-    stages = [self.axis1, self.axis2, self.axis3]
-    for axis in axes:
-      stage = stages[axis - 1]
-      stage.on()
-      stage.goToHome()
-      pauseForStage(stage)
-      time.sleep(1)
-    self.groupCreate(group_id, axes)
-    self.groupVelocity(group_id, kwargs.pop('velocity', 10))
-    self.groupAcceleration(group_id, kwargs.pop('acceleration', 30))
-    self.groupDeceleration(group_id, kwargs.pop('deceleration', 30))
-    self.groupJerk(group_id, kwargs.pop('jerk', 500))
-    self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
-    self.groupOn(group_id)

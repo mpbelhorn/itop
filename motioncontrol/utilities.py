@@ -270,15 +270,12 @@ def refract(ray, normal, origin_index, final_index):
     sign = -1.0
   return index_ratio * d + sign * (index_ratio * incidence - complement) * n
 
-def reconstructMirrorNormal(
-    upstream_ray,
-    **kwargs):
+def reconstructMirrorNormal(upstream_ray, **kwargs):
   """
   Reconstructs the mirror normal vector given the downstream ray
   (incoming to front face) beam propagation vector and the upstream
   ray (outgoing from front face).
   """
-
   downstream_ray = kwargs.pop('downstream_ray', [0, 0, -1])
   face_normal = kwargs.pop('face_normal', [0, 0, 1])
   index_outside = kwargs.pop('index_outside', 1.000277)
@@ -289,3 +286,14 @@ def reconstructMirrorNormal(
       -upstream_ray, face_normal, index_outside, index_inside)
   return (reflection - refraction) / (linalg.norm(reflection - refraction))
 
+class LbpBeamAlignment(object):
+  """
+  For establishing alignment and positioning of LBP with respect to beams.
+  """
+  def __init__(self, controller, group_id, camera):
+    """
+    Set pointers to the LBP and stage group controller.
+    """
+    self.controller = controller
+    self.group_id = group_id
+    self.camera = camera
