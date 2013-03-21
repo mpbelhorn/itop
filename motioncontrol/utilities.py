@@ -101,19 +101,21 @@ class ConstrainToBeam(object):
     self.controller.groupVelocity(self.group_id, 40)
     self.controller.groupMoveLine(self.group_id, [-125, position], wait=True)
     time.sleep(0.125)
-    self.controller.groupVelocity(self.group_id, 10)
+    group_configuration = self.controller.groupConfiguration(self.group_id)
+    self.controller.groupDelete(self.group_id)
 
     # Scan for beam crossing.
-    self.controller.groupMoveLine(self.group_id, [125, position])
+    scan_axis = self.controller.axes[group_configuration['axes'][0] - 1]
+    scan_axis.velocity(10)
+    scan_axis.position(125)
     beam_positions = []
-    while self.controller.groupIsMoving(self.group_id):
+    while scan_axis.getMotionStatus():
       if (self.camera.read()['power'] > self.power_level):
-        beam_positions.append(self.controller.groupPosition(self.group_id))
+        beam_positions.append([scan_axis.position(), position])
       elif beam_positions:
-        # TODO - Fix unresolved following error on command to stop.
-        # self.controller.groupStop(self.group_id)
-        self.controller.groupVelocity(self.group_id, 40)
-        break
+        scan_axis.stop()
+        pauseForStage(scan_axis)
+    self.controller.groupCreate(**group_configuration)
     self.controller.pauseForGroup(self.group_id)
     time.sleep(0.125)
     if not beam_positions:
@@ -265,26 +267,25 @@ def refract(ray, normal, origin_index, final_index):
   index_ratio = origin_index / final_index
   incidence = dot(-d, n)
   complement = math.sqrt(1.0 - index_ratio**2 * (1.0 - incidence**2))
-  sign = 1.0
-  if incidence < 0:
-    sign = -1.0
+  sign = 1.0 if incidence > 0 else -1.0
   return index_ratio * d + sign * (index_ratio * incidence - complement) * n
 
-def reconstructMirrorNormal(upstream_ray, **kwargs):
+def reconstructMirrorNormal(downstream_ray, **kwargs):
   """
-  Reconstructs the mirror normal vector given the downstream ray
-  (incoming to front face) beam propagation vector and the upstream
+  Reconstructs the mirror normal vector given the upstream ray
+  (incoming to front face) beam propagation vector and the downstream
   ray (outgoing from front face).
   """
-  downstream_ray = kwargs.pop('downstream_ray', [0, 0, -1])
+  upstream_ray = kwargs.pop('upstream_ray', [0, 0, -1])
   face_normal = kwargs.pop('face_normal', [0, 0, 1])
   index_outside = kwargs.pop('index_outside', 1.000277)
   index_inside = kwargs.pop('index_inside', 1.4608)
-  refraction = refract(
-      downstream_ray, face_normal, index_outside, index_inside)
-  reflection = -refract(
-      -upstream_ray, face_normal, index_outside, index_inside)
-  return (reflection - refraction) / (linalg.norm(reflection - refraction))
+  inner_upstream = refract(
+      array(upstream_ray), face_normal, index_outside, index_inside)
+  inner_downstream = -refract(
+      -array(downstream_ray), face_normal, index_outside, index_inside)
+  return ((inner_downstream - inner_upstream) /
+      (linalg.norm(inner_downstream - inner_upstream)))
 
 class LbpBeamAlignment(object):
   """

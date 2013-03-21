@@ -114,15 +114,17 @@ class Stage(object):
     """
     self.send('OR')
 
-  def position(self, absolute_position = '?'):
+  def position(self, position = None):
     """
-    Moves the stage to an absolute position.
+    Moves the stage to an absolute position. If no argument is
+    given, the current position of the stage is returned.
     """
-    self.send('PA', absolute_position)
-    if (absolute_position == '?'):
-      absolute_position = self.controller.read()
-      print absolute_position, self.units()
-    return float(absolute_position)
+    if (position is None):
+      self.send('TP')
+      position = float(self.controller.read())
+    else:
+      self.send('PA', position)
+    return float(position)
 
   def move(self, relative_position):
     """
@@ -186,7 +188,7 @@ class Stage(object):
 
   def followingErrorThreshold(self, error = '?'):
     """
-    Sets or returnbs the maximum allowed following error.
+    Sets or returns the maximum allowed following error.
     """
     self.send('FE', error)
     if (error == '?'):

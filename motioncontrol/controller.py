@@ -27,6 +27,7 @@ class StageController(object):
     self.axis1 = stage.Stage(1, self)
     self.axis2 = stage.Stage(2, self)
     self.axis3 = stage.Stage(3, self)
+    self.axes = [self.axis1, self.axis2, self.axis3]
     self.readFirmwareVersion()
 
   def send(self, command, parameter = '', axis = ''):
