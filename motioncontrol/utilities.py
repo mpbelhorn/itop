@@ -1,8 +1,8 @@
 """
 Utility classes for iTOP mirror measurements.
 """
-from numpy import array, std, mean, dot
-from numpy import linalg
+import numpy as np
+from numpy import array, std, mean, dot, linalg
 import time
 import math
 
@@ -286,6 +286,40 @@ def reconstructMirrorNormal(downstream_ray, **kwargs):
       -array(downstream_ray), face_normal, index_outside, index_inside)
   return ((inner_downstream - inner_upstream) /
       (linalg.norm(inner_downstream - inner_upstream)))
+
+def radiusFromNormals(beam_a_normal, beam_b_normal, x_displacement, y_displacement):
+  """
+  Calculates the radius of curvature given two normal vectors and their
+  relative displacements in the xy plane.
+  """
+  x_sum = beam_a_normal[0] + beam_b_normal[0]
+  y_sum = beam_a_normal[1] + beam_b_normal[1]
+  z_difference = beam_a_normal[2]**2 - beam_b_normal[2]**2
+  return -(x_displacement * x_sum + y_displacement * y_sum) / z_difference
+
+def rotationMatrix(theta, axis):
+  """
+  Returns the matrix describing the rotation about an axis '[x,y,z]'
+  by an angle 'theta'.
+  """
+  axis = axis/np.sqrt(np.dot(axis, axis))
+  a = np.cos(theta/2)
+  b,c,d = axis * np.sin(theta/2)
+  return np.array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
+                   [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
+                   [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
+
+def rotateVector(vector, theta, axis):
+  """
+  Rotates a given vector by the angle theta about a given axis.
+  """
+  return np.dot(rotationMatrix(theta, axis), vector)
+
+def normalize(vector):
+  """
+  Returns the normalized representation of the given vector.
+  """
+  return vector / np.sqrt(np.dot(vector, vector))
 
 class LbpBeamAlignment(object):
   """
