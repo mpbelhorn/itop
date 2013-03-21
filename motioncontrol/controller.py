@@ -114,7 +114,7 @@ class StageController(object):
     """
     self.send('HA', acceleration, group_id)
     if (acceleration == '?'):
-      acceleration = self.read()
+      acceleration = float(self.read().strip())
     return acceleration
 
   def groups(self):
@@ -147,7 +147,7 @@ class StageController(object):
     """
     self.send('HD', deceleration, group_id)
     if (deceleration == '?'):
-      deceleration = self.read()
+      deceleration = float(self.read().strip())
     return deceleration
 
   def groupEStopDeceleration(self, group_id, deceleration = '?'):
@@ -158,7 +158,7 @@ class StageController(object):
     """
     self.send('HE', deceleration, group_id)
     if (deceleration == '?'):
-      deceleration = self.read()
+      deceleration = float(self.read().strip())
     return deceleration
 
   def groupOff(self, group_id):
@@ -175,7 +175,7 @@ class StageController(object):
     """
     self.send('HJ', jerk, group_id)
     if (jerk == '?'):
-      jerk = self.read()
+      jerk = float(self.read().strip())
     return jerk
 
   def groupMoveLine(self, group_id, coordinates = '?', **kwargs):
@@ -235,12 +235,28 @@ class StageController(object):
       self.groupOn(group_id)
     return axes
 
-
   def groupOn(self, group_id):
     """
     Turns on power to all axis in a group.
     """
     self.send('HO', '', group_id)
+
+  def groupConfiguration(self, group_id):
+    """
+    Returns a dictionary of the configuration parameters
+    needed to recreate the group using groupCreate()
+    """
+    configuration = dict()
+    if str(group_id) in self.groups():
+      configuration = dict([
+          ('group_id', group_id),
+          ('axes', self.groupCreate(group_id)),
+          ('velocity', self.groupVelocity(group_id)),
+          ('acceleration', self.groupAcceleration(group_id)),
+          ('deceleration', self.groupDeceleration(group_id)),
+          ('jerk', self.groupJerk(group_id)),
+          ('estop', self.groupEStopDeceleration(group_id))])
+    return configuration
 
   def groupPosition(self, group_id):
     """
@@ -287,7 +303,7 @@ class StageController(object):
     """
     self.send('HV', velocity, group_id)
     if (velocity == '?'):
-      velocity = self.read()
+      velocity = float(self.read().strip())
     return velocity
 
   def groupWaitForStop(self, group_id, delay = '0'):
