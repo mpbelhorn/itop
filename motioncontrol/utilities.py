@@ -195,14 +195,16 @@ class FocalPoint(object):
     self.group_id = group_id
     self.camera = camera
 
-    self.beam_a = ConstrainToBeam(self.controller, self.group_id, self.camera)
-    self.beam_b = ConstrainToBeam(self.controller, self.group_id, self.camera)
-
     self.lower_limit_x = kwargs.pop('lower_limit_x', -125)
     self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
     self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
     self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
     self.power_level = kwargs.pop('power_level', 0.003)
+    self.beam_a = ConstrainToBeam(self.controller,
+        self.group_id, self.camera, power_level=self.power_level)
+    self.beam_b = ConstrainToBeam(self.controller,
+        self.group_id, self.camera, power_level=self.power_level)
+
 
   def findTrajectories(self):
     """
