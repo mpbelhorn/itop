@@ -260,6 +260,25 @@ class FocalPoint(object):
     self.sagittal_focus_a = self.beam_a.position(beam_a_sagittal_fraction)
     self.sagittal_focus_b = self.beam_b.position(beam_b_sagittal_fraction)
 
+  def radius(self,
+      x_displacement, y_displacement,
+      correction_about_y, correction_about_x):
+    """
+    Returns the radius of curvature after correcting for the rotated camera
+    coordinate system with the given correction angles (radians).
+    """
+    downstream_a = normalize(
+        rotateVector(
+        rotateVector(self.beam_a.slope3D, correction_about_x, [1,0,0]),
+        correction_about_y, [0,1,0]))
+    downstream_b = normalize(
+        rotateVector(
+        rotateVector(self.beam_b.slope3D, correction_about_x, [1,0,0]),
+        correction_about_y, [0,1,0]))
+    normal_a = reconstructMirrorNormal(downstream_a)
+    normal_b = reconstructMirrorNormal(downstream_b)
+    return radiusFromNormals(normal_a, normal_b, x_displacement, y_displacement)
+
 def refract(ray, normal, origin_index, final_index):
   """
   Returns the normalized direction of a given ray (normalized or not) after
@@ -321,11 +340,11 @@ def rotateVector(vector, theta, axis):
 
 def normalize(vector):
   """
-  Returns the normalized representation of the given vector.
+  Returns a normalized vector parallel to the given vector.
   """
   return vector / np.sqrt(np.dot(vector, vector))
 
-class LbpBeamAlignment(object):
+class BeamAlignment(object):
   """
   For establishing alignment and positioning of LBP with respect to beams.
   """
