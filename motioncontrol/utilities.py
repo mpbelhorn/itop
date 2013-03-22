@@ -48,7 +48,7 @@ class ConstrainToBeam(object):
     self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
     self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
     self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
-    self.power_level = kwargs.pop('power_level', 0.004)
+    self.power_level = kwargs.pop('power_level', 0.003)
     self.r_initial = None
     self.r_final = None
     self.slope = None
