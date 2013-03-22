@@ -142,8 +142,14 @@ class ConstrainToBeam(object):
     """
     # Find the beam at most upstream position.
     self.r_initial = None
-    while self.r_initial is None:
-      self.r_initial = array(self.findBeam(-125))
+    for i in range(3):
+      intercept = self.findBeam(-125)
+      if intercept is not None:
+        self.r_initial = array(intercept)
+        break
+    else:
+      print "Cannot find beam. Check beam power and camera height."
+      return None
 
     # Calculate rough trajectory of the beam.
     step = self.r_initial + array([0, 0, 30])
