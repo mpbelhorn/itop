@@ -69,7 +69,7 @@ class ConstrainToBeam(object):
         print "Trajectory is not initilized"
     else:
       profile = self.camera.read()
-      if (profile['power'] > self.power_level):
+      if (profile['power'] >= self.power_level):
         position = self.controller.groupPosition(self.group_id)
         elevation = profile['centroid_y'] / 1000.0
         position.insert(1, elevation)
@@ -148,7 +148,9 @@ class ConstrainToBeam(object):
     # Calculate rough trajectory of the beam.
     step = self.r_initial + array([0, 0, 30])
     self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
-    self.centerBeam()
+    while not self.centerBeam():
+      step = step - array([0, 0, 10])
+      self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
     upstream_sample = self.position()
     downstream_sample = [self.r_initial[0] + (
         ((self.upper_limit_z - self.r_initial[2]) /
