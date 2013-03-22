@@ -49,7 +49,7 @@ class Stage(object):
     self.send('ID')
     return self.controller.read()
 
-  def getMotionStatus(self):
+  def isMoving(self):
     """
     Return false for stopped, true for in motion.
     """

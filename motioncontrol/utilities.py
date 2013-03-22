@@ -10,7 +10,7 @@ def pauseForStage(stage):
   """
   Hold python execution in null loop until stage is stopped.
   """
-  while stage.getMotionStatus():
+  while stage.isMoving():
     pass
 
 def clamp(value, min_value, max_value):
@@ -109,7 +109,7 @@ class ConstrainToBeam(object):
     scan_axis.velocity(10)
     scan_axis.position(125)
     beam_positions = []
-    while scan_axis.getMotionStatus():
+    while scan_axis.isMoving():
       if (self.camera.read()['power'] > self.power_level):
         beam_positions.append([scan_axis.position(), position])
       elif beam_positions:
