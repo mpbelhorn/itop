@@ -183,12 +183,23 @@ class ConstrainToBeam(object):
       self.controller.groupMoveLine(self.group_id,
           (self.position(fraction))[0::2])
 
-  def angle(self):
+  def angles(self, reverse=False):
     """
-    Returns the angle in radians of the outgoing beam relative to the
-    stage z-axis.
+    Returns the yxz-convention (alpha, beta, gamma) Euler angles needed to
+    rotate the stage coordinate system into the beam coordinate system.
+
+    Conventionally, the incoming beam x-axis is always taken to be in the
+    table/stage xz-plane, and thus gamma == 0. This convention is chosen
+    to correspond to the beam polarization.
     """
-    return (self.slope3D / self.slope[1])
+    sign = -1 if reverse else 1
+    d = sign * normalize(self.slope3D)
+    # The alpha angle is signed and related to the xz-projection.
+    alpha = np.arcsin(normalize(d[0::2])[0])
+    # The polar angle about y doesn't change with rotations about y, thus:
+    beta = -np.arcsin(d[1])
+    gamma = 0.0;
+    return alpha, beta, gamma
 
 class FocalPoint(object):
   """
