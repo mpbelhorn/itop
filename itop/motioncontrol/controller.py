@@ -6,7 +6,6 @@ motion controller.
 import serial
 import stage
 import time
-from utilities import pauseForStage
 
 class StageController(object):
   """
@@ -224,8 +223,7 @@ class StageController(object):
         for axis in axes:
           stage = stages[axis - 1]
           stage.on()
-          stage.goToHome()
-          pauseForStage(stage)
+          stage.goToHome(wait=True)
           time.sleep(1)
       self.send('HN', ",".join(map(str,axes)), group_id)
       self.groupVelocity(group_id, kwargs.pop('velocity', 10))

@@ -1,10 +1,9 @@
 """
 A class to read the data from a Newport HD-LBP laser beam profiler.
 """
-
 import serial
 
-class LaserBeamProfiler(object):
+class Profiler(object):
   """
   Provides an interface to a Newport HD-LBP over serial link.
   """

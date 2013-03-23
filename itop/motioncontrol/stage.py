@@ -54,10 +54,7 @@ class Stage(object):
     Return false for stopped, true for in motion.
     """
     self.send('MD?')
-    if '0' in self.controller.read():
-      return True
-    else:
-      return False
+    return True if '0' in self.controller.read() else False
 
   def on(self):
     """
@@ -108,13 +105,15 @@ class Stage(object):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
-  def goToHome(self):
+  def goToHome(self, **kwargs):
     """
     Moves the stage to the home position.
     """
     self.send('OR')
+    if kwargs.pop('wait', False):
+      self.pauseForStage()
 
-  def position(self, position = None):
+  def position(self, position=None, **kwargs):
     """
     Moves the stage to an absolute position. If no argument is
     given, the current position of the stage is returned.
@@ -124,20 +123,33 @@ class Stage(object):
       position = float(self.controller.read())
     else:
       self.send('PA', position)
+    if kwargs.pop('wait', False):
+      self.pauseForStage()
     return float(position)
 
-  def move(self, relative_position):
+  def move(self, relative_position, **kwargs):
     """
     Moves the stage the given relative position.
     """
     self.send('PR', relative_position)
+    if kwargs.pop('wait', False):
+      self.pauseForStage()
     return float(relative_position)
 
-  def stop(self):
+  def pauseForStage(self):
+    """
+    Hold python execution in null loop until stage is stopped.
+    """
+    while self.isMoving():
+      pass
+
+  def stop(self, **kwargs):
     """
     Stops motion on this axis with predefined acceleration.
     """
     self.send('ST')
+    if kwargs.pop('wait', False):
+      self.pauseForStage()
 
   def stepResolution(self, resolution = '?'):
     """
