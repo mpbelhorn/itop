@@ -2,6 +2,17 @@
 README.txt
 setup.py
 docs/Git Branching Model.txt
-motioncontrol/__init__.py
-motioncontrol/controller.py
-motioncontrol/stage.py
+itop/__init__.py
+itop/beam/__init__.py
+itop/beam/alignment.py
+itop/beam/beam.py
+itop/beam/focus.py
+itop/beam/profiler.py
+itop/math/__init__.py
+itop/math/linalg.py
+itop/math/optics.py
+itop/motioncontrol/__init__.py
+itop/motioncontrol/controller.py
+itop/motioncontrol/stage.py
+itop/utilities/__init__.py
+itop/utilities/utilities.py
