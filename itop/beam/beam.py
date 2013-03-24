@@ -64,20 +64,36 @@ class Beam(object):
         print "Beam not visible"
     return position
 
+  def jitter(self, samples=10):
+    """
+    Returns the average position in mm of the beam centroid and its
+    standard error in the camera frame after a number of samples if
+    the beam is visible, otherwise None is returned.
+    """
+    output = None
+    positions = []
+    if self.camera.read()['power'] >= self.power_level:
+      for i in range(samples):
+        readout = self.camera.read()
+        positions.append([readout['centroid_x'], readout['centroid_y']])
+      position = np.mean(zip(*positions)) / 1000.0
+      error = np.std(zip(*positions)) / 1000.0
+      output = [position, error]
+    return output
+
   def centerBeam(self):
     """
     Centers the camera on the beam if beam is visible.
     """
-    if self.camera.read()['power'] >= self.power_level:
-      jitter = [self.camera.read()['centroid_x'] for i in range(10)]
-      beam_x = np.mean(jitter)
-      # TODO - Change addition or subtraction based on camera direction.
+    jitter = self.jitter()
+    if jitter is not None:
+      # The HDLBP software axis orientation must be correctly set for
+      # the direction the camera is facing relative to the stage.
       self.controller.groupMoveLine(self.group_id, (
           np.array(self.controller.groupPosition(self.group_id)) +
-          np.array([beam_x / 1000.0, 0])), wait=True)
+          np.array(jitter[0][0], 0)), wait=True)
       return True
     else:
-      print "ERROR: Insufficient exposed power."
       return False
 
   def findBeam(self, position):
