@@ -48,25 +48,25 @@ class BeamAlignment(object):
         np.array([0, self.height_offset, 0]))[:2]
     self.angles = [angle for angle in self.beam_a.angles()]
 
-    def save(self, file_path):
-      """
-      Saves the beam alignment data to a JSON.
-      """
-      data = {}
-      data['height_offset'] = self.height_offset
-      data['angles'] = self.angles
-      data['x_displacement'] = self.x_displacement
-      data['y_displacement'] = self.y_displacement
+  def save(self, file_path):
+    """
+    Saves the beam alignment data to a JSON.
+    """
+    data = {}
+    data['height_offset'] = self.height_offset
+    data['angles'] = self.angles
+    data['x_displacement'] = self.x_displacement
+    data['y_displacement'] = self.y_displacement
 
-      with open(file_path, 'wb') as fp:
-          json.dump(data, fp)
+    with open(file_path, 'wb') as fp:
+      json.dump(data, fp)
 
-    def load(self, file_path):
-      """
-      Loads the beam alignment data from a saved file.
-      """
-      with open(file_path, 'rb') as fp:
-          data = json.load(fp)
+  def load(self, file_path):
+    """
+    Loads the beam alignment data from a saved file.
+    """
+    with open(file_path, 'rb') as fp:
+      data = json.load(fp)
       self.height_offset = data['height_offset']
       self.angles = data['angles']
       self.x_displacement = data['x_displacement']
