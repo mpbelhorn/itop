@@ -45,14 +45,14 @@ class Profiler(object):
     """
     # Clear the current contents of the read buffer.
     self.io.flushInput()
-    buffer = ''
+    readout = ''
     while True:
-      buffer = buffer + self.io.read(self.io.inWaiting())
-      if ' \n' in buffer:
-        lines = buffer.split(' \n')
+      readout = readout + self.io.read(self.io.inWaiting())
+      if ' \n' in readout:
+        lines = readout.split(' \n')
         if len(lines) > 2:
           last_full_line = lines[-2]
-          header, values = last_full_line.split(" ",1)
+          values = last_full_line.split(" ", 1)[1]
           floats = [float(x) for x in values.split()]
           if len(floats) == 14:
             output = dict(zip(self.keys, floats))

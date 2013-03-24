@@ -4,7 +4,7 @@ motion controller.
 """
 
 import serial
-import stage
+import itop.motioncontrol.stage as stage
 import time
 
 class StageController(object):
@@ -87,7 +87,10 @@ class StageController(object):
     self.send('VE?')
     return self.read()
 
-  def wait(milliseconds='0'):
+  def wait(self, milliseconds='0'):
+    """
+    Pause internal command execution foe given time.
+    """
     self.send('WT', milliseconds)
 
   def eStop(self):
@@ -136,7 +139,7 @@ class StageController(object):
       self.send('HC', coordinates, group_id)
       coordinates = self.read()
     else:
-      self.send('HC', ",".join(map(str,coordinates)), group_id)
+      self.send('HC', ",".join(map(str, coordinates)), group_id)
     return coordinates
 
   def groupDeceleration(self, group_id, deceleration = '?'):
@@ -192,7 +195,7 @@ class StageController(object):
       self.send('HL', coordinates, group_id)
       coordinates = self.read()
     else:
-      self.send('HL', ",".join(map(str,coordinates)), group_id)
+      self.send('HL', ",".join(map(str, coordinates)), group_id)
     if kwargs.pop('wait', False):
       self.pauseForGroup(group_id)
     return coordinates
@@ -225,7 +228,7 @@ class StageController(object):
           stage.on()
           stage.goToHome(wait=True)
           time.sleep(1)
-      self.send('HN', ",".join(map(str,axes)), group_id)
+      self.send('HN', ",".join(map(str, axes)), group_id)
       self.groupVelocity(group_id, kwargs.pop('velocity', 10))
       self.groupAcceleration(group_id, kwargs.pop('acceleration', 30))
       self.groupDeceleration(group_id, kwargs.pop('deceleration', 30))

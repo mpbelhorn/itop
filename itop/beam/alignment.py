@@ -1,4 +1,8 @@
-from beam import Beam
+"""
+A module for checking the beam alignment by direct imaging.
+"""
+
+from itop.beam.beam import Beam
 import numpy as np
 import json
 

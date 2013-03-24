@@ -20,7 +20,7 @@ Using any of these subpackages requires an explicit import.
  utilities                 --- Misc. funtions.
 """
 
-from beam.alignment import BeamAlignment
-from beam.focus import FocalPoint
-from beam.profiler import Profiler
-from motioncontrol.controller import StageController
+from itop.beam.alignment import BeamAlignment
+from itop.beam.focus import FocalPoint
+from itop.beam.profiler import Profiler
+from itop.motioncontrol.controller import StageController

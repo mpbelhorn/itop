@@ -1,6 +1,8 @@
 """
 A module for the mathematics of optics.
 """
+from numpy import array, linalg, dot
+import math
 
 def refract(ray, normal, origin_index, final_index):
   """
@@ -8,13 +10,14 @@ def refract(ray, normal, origin_index, final_index):
   refraction through a boundary between two media with given normal vector and
   indexes of refraction
   """
-  d = array(ray) / linalg.norm(ray)
-  n = array(normal) / linalg.norm(normal)
+  original_direction = array(ray) / linalg.norm(ray)
+  normal = array(normal) / linalg.norm(normal)
   index_ratio = origin_index / final_index
-  incidence = dot(-d, n)
+  incidence = dot(-original_direction, normal)
   complement = math.sqrt(1.0 - index_ratio**2 * (1.0 - incidence**2))
   sign = 1.0 if incidence > 0 else -1.0
-  return index_ratio * d + sign * (index_ratio * incidence - complement) * n
+  return (index_ratio * original_direction +
+      sign * (index_ratio * incidence - complement) * normal)
 
 def reconstructMirrorNormal(downstream_ray, **kwargs):
   """
@@ -33,7 +36,9 @@ def reconstructMirrorNormal(downstream_ray, **kwargs):
   return ((inner_downstream - inner_upstream) /
       (linalg.norm(inner_downstream - inner_upstream)))
 
-def radiusFromNormals(beam_a_normal, beam_b_normal, x_displacement, y_displacement):
+def radiusFromNormals(
+    beam_a_normal, beam_b_normal,
+    x_displacement, y_displacement):
   """
   Calculates the radius of curvature given two normal vectors and their
   relative displacements in the xy plane.

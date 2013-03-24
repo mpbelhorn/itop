@@ -1,4 +1,8 @@
-from beam import Beam
+"""
+A module for tracking the focal point of a spherical mirror.
+"""
+
+from itop.beam.beam import Beam
 import numpy as np
 import itop.math as im
 
@@ -14,15 +18,12 @@ class FocalPoint(object):
     self.camera = camera
     self.mirror = mirror
 
-    self.lower_limit_x = kwargs.pop('lower_limit_x', -125)
-    self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
-    self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
-    self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
-    self.power_level = kwargs.pop('power_level', 0.003)
-    self.beam_a = Beam(self.controller,
-        self.group_id, self.camera, power_level=self.power_level)
-    self.beam_b = Beam(self.controller,
-        self.group_id, self.camera, power_level=self.power_level)
+    self.beam_a = Beam(self.controller, self.group_id, self.camera)
+    self.beam_b = Beam(self.controller, self.group_id, self.camera)
+    self.tangential_focus_a = None
+    self.tangential_focus_b = None
+    self.sagittal_focus_a = None
+    self.sagittal_focus_b = None
 
   def findTrajectories(self):
     """
@@ -40,7 +41,9 @@ class FocalPoint(object):
     Finds the focal points (assuming astigmatism) of the beams.
     """
     # Initialize the beam trajectories if necessary.
-    if (self.beam_a.slope3D is None) or (self.beam_b.slope3D is None) or refresh:
+    if ((self.beam_a.slope3D is None) or
+        (self.beam_b.slope3D is None) or
+        refresh):
       self.findTrajectories()
     else:
       print "Trajectories already initialized."
@@ -69,16 +72,23 @@ class FocalPoint(object):
     #   This will have to wait until the camera can be remotely
     #   positioned vertically. Until then, the vertical spot width data
     #   needed to locate the CoLC is unreliable.
-    beam_a_tangential_fraction = (tangential_solution[1] - upstream_a[2]) / slope_a[2]
-    beam_b_tangential_fraction = (tangential_solution[1] - upstream_b[2]) / slope_b[2]
+    beam_a_tangential_fraction = (
+        (tangential_solution[1] - upstream_a[2]) / slope_a[2])
+    beam_b_tangential_fraction = (
+        (tangential_solution[1] - upstream_b[2]) / slope_b[2])
     self.tangential_focus_a = self.beam_a.position(beam_a_tangential_fraction)
     self.tangential_focus_b = self.beam_b.position(beam_b_tangential_fraction)
-    beam_a_sagittal_fraction = (sagittal_solution[1] - upstream_a[2]) / slope_a[2]
-    beam_b_sagittal_fraction = (sagittal_solution[1] - upstream_b[2]) / slope_b[2]
+    beam_a_sagittal_fraction = (
+        (sagittal_solution[1] - upstream_a[2]) / slope_a[2])
+    beam_b_sagittal_fraction = (
+        (sagittal_solution[1] - upstream_b[2]) / slope_b[2])
     self.sagittal_focus_a = self.beam_a.position(beam_a_sagittal_fraction)
     self.sagittal_focus_b = self.beam_b.position(beam_b_sagittal_fraction)
 
   def data(self):
+    """
+    Returns a list of the focal point data.
+    """
     return [self.mirror.position(),
             self.beam_a.slope3D,
             self.beam_b.slope3D,
@@ -96,12 +106,15 @@ class FocalPoint(object):
     """
     downstream_a = im.linalg.normalize(
         im.linalg.rotateVector(
-        im.linalg.rotateVector(self.beam_a.slope3D, correction_about_x, [1,0,0]),
-        correction_about_y, [0,1,0]))
+            im.linalg.rotateVector(
+                self.beam_a.slope3D, correction_about_x, [1,0,0]),
+            correction_about_y, [0,1,0]))
     downstream_b = im.linalg.normalize(
         im.linalg.rotateVector(
-        im.linalg.rotateVector(self.beam_b.slope3D, correction_about_x, [1,0,0]),
-        correction_about_y, [0,1,0]))
+            im.linalg.rotateVector(
+                self.beam_b.slope3D, correction_about_x, [1,0,0]),
+            correction_about_y, [0,1,0]))
     normal_a = im.optics.reconstructMirrorNormal(downstream_a)
     normal_b = im.optics.reconstructMirrorNormal(downstream_b)
-    return radiusFromNormals(normal_a, normal_b, x_displacement, y_displacement)
+    return im.optics.radiusFromNormals(
+        normal_a, normal_b, x_displacement, y_displacement)

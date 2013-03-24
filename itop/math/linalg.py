@@ -6,12 +6,12 @@ import numpy as np
 
 def rotationMatrix(theta, axis):
   """
-  Returns the matrix describing the rotation about an axis '[x,y,z]'
-  by an angle 'theta'.
+  Applies the Euler–Rodrigues formula to return the matrix describing the
+  rotation about an axis '[x,y,z]' by an angle 'theta'.
   """
   axis = axis/np.sqrt(np.dot(axis, axis))
   a = np.cos(theta/2)
-  b,c,d = axis * np.sin(theta/2)
+  b, c, d = axis * np.sin(theta/2)
   return np.array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
                    [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
                    [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])

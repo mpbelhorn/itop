@@ -1,7 +1,10 @@
+"""
+A module for tracking and parameterizing a beam segment in 3D space.
+"""
+
 import numpy as np
 import itop.math as im
 import time
-import math
 
 class Beam(object):
   """
@@ -148,7 +151,8 @@ class Beam(object):
         self.r_initial[1],
         self.upper_limit_z]
     self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(self.group_id, downstream_sample[0::2], wait=True)
+    self.controller.groupMoveLine(
+        self.group_id, downstream_sample[0::2], wait=True)
     self.controller.groupVelocity(self.group_id, 10)
 
     # Refine trajectory of the beam.
@@ -181,5 +185,5 @@ class Beam(object):
     alpha = np.arcsin(im.linalg.normalize(d[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:
     beta = -np.arcsin(d[1])
-    gamma = 0.0;
+    gamma = 0.0
     return alpha, beta, gamma
