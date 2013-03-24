@@ -82,8 +82,8 @@ class Stage(object):
     """
     Given the argument '+' or '-', moves stage that hardware limit.
     """
-    self.send('MT', position)
-    if (position == '?'):
+    self.send('MT', direction)
+    if (direction == '?'):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
@@ -91,8 +91,8 @@ class Stage(object):
     """
     Initiates continuous motion in the given '+' or '-' direction.
     """
-    self.send('MV', position)
-    if (position == '?'):
+    self.send('MV', direction)
+    if (direction == '?'):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
@@ -100,8 +100,8 @@ class Stage(object):
     """
     Moves to the nearest index in the given '+' or '-' direction.
     """
-    self.send('MZ', position)
-    if (position == '?'):
+    self.send('MZ', direction)
+    if (direction == '?'):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
@@ -317,7 +317,7 @@ class Stage(object):
       print velocity, self.units()+'/s'
     return float(velocity)
 
-  def waitUntilPosition(position):
+  def waitUntilPosition(self, position):
     """
     Pause EPS command execution until stage is at position.
 
@@ -325,7 +325,7 @@ class Stage(object):
     """
     self.send('WP', position)
 
-  def waitUntilStopped(time=''):
+  def waitUntilStopped(self, time=''):
     """
     Pause EPS command execution time [ms] after stage is stopped.
 
