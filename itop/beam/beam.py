@@ -90,7 +90,7 @@ class Beam(object):
       # the direction the camera is facing relative to the stage.
       self.controller.groupMoveLine(self.group_id, (
           np.array(self.controller.groupPosition(self.group_id)) +
-          np.array(jitter[0][0], 0)), wait=True)
+          np.array([jitter[0][0], 0])), wait=True)
       return True
     else:
       return False
