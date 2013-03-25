@@ -3,7 +3,7 @@ A module for tracking and parameterizing a beam segment in 3D space.
 """
 
 import numpy as np
-import itop.math as im
+import itop.math.linalg as itlin
 import time
 
 class Beam(object):
@@ -193,9 +193,9 @@ class Beam(object):
     to correspond to the beam polarization.
     """
     sign = -1 if reverse else 1
-    d = sign * im.linalg.normalize(self.slope)
+    d = sign * itlin.normalize(self.slope)
     # The alpha angle is signed and related to the xz-projection.
-    alpha = np.arcsin(im.linalg.normalize(d[0::2])[0])
+    alpha = np.arcsin(itlin.normalize(d[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:
     beta = -np.arcsin(d[1])
     gamma = 0.0

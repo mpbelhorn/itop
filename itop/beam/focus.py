@@ -4,7 +4,8 @@ A module for tracking the focal point of a spherical mirror.
 
 from itop.beam.beam import Beam
 import numpy as np
-import itop.math as im
+import itop.math.linalg as linalg
+import itop.math.optics as optics
 
 class FocalPoint(object):
   """
@@ -84,37 +85,50 @@ class FocalPoint(object):
         (sagittal_solution[1] - upstream_b[2]) / slope_b[2])
     self.sagittal_focus_a = self.beam_a.position(beam_a_sagittal_fraction)
     self.sagittal_focus_b = self.beam_b.position(beam_b_sagittal_fraction)
+    return self.data()
 
   def data(self):
     """
-    Returns a list of the focal point data.
+    Returns a list of the stage-frame-of-reference focal point data.
     """
     return [self.mirror.position(),
-            self.beam_a.slope,
-            self.beam_b.slope,
+            self.beam_a.slope.tolist(),
+            self.beam_b.slope.tolist(),
             self.tangential_focus_a,
             self.tangential_focus_b,
             self.sagittal_focus_a,
-            self.sagittal_focus_b]
+            self.sagittal_focus_b,
+            self.radius()]
 
-  def radius(self,
-      x_displacement, y_displacement,
-      correction_about_y, correction_about_x):
+  def radius(self):
     """
-    Returns the radius of curvature after correcting for the rotated camera
-    coordinate system with the given correction angles (radians).
+    Return the radius of curvature of a mirror based on the relative change
+    in direction of two reflected parallel beams with known spatial
+    displacement.
+
+    The beams are taken to travel in the -z_beam direction. Thus outgoing
+    slope coordinates must be rotated into the beam frame by applying a
+    rotation of theta about the y-axis followed by a rotation of phi about the
+    x'-axis. Theta and phi are the first and second elements in the list
+    itop.beam.alignment.BeamAlignment.angles.
     """
-    downstream_a = im.linalg.normalize(
-        im.linalg.rotateVector(
-            im.linalg.rotateVector(
-                self.beam_a.slope, correction_about_x, [1,0,0]),
-            correction_about_y, [0,1,0]))
-    downstream_b = im.linalg.normalize(
-        im.linalg.rotateVector(
-            im.linalg.rotateVector(
-                self.beam_b.slope, correction_about_x, [1,0,0]),
-            correction_about_y, [0,1,0]))
-    normal_a = im.optics.reconstructMirrorNormal(downstream_a)
-    normal_b = im.optics.reconstructMirrorNormal(downstream_b)
-    return im.optics.radiusFromNormals(
-        normal_a, normal_b, x_displacement, y_displacement)
+    if self.alignment is None:
+      return None
+    else:
+      x_displacement = self.alignment.x_displacement
+      y_displacement = self.alignment.y_displacement
+      theta = self.alignment.angles[0]
+      phi = self.alignment.angles[1]
+      # TODO - Calculate uncertainty.
+      downstream_a = linalg.normalize(
+          linalg.rotateVector(
+              linalg.rotateVector(
+                  self.beam_a.slope, theta, [0,1,0]), phi, [1,0,0]))
+      downstream_b = linalg.normalize(
+          linalg.rotateVector(
+              linalg.rotateVector(
+                  self.beam_b.slope, theta, [0,1,0]), phi, [1,0,0]))
+      normal_a = optics.reconstructMirrorNormal(downstream_a)
+      normal_b = optics.reconstructMirrorNormal(downstream_b)
+      return optics.radiusFromNormals(
+          normal_a, normal_b, x_displacement, y_displacement)
