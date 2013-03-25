@@ -75,8 +75,8 @@ class Beam(object):
       for i in range(samples):
         readout = self.camera.read()
         positions.append([readout['centroid_x'], readout['centroid_y']])
-      position = np.mean(zip(*positions)) / 1000.0
-      error = np.std(zip(*positions)) / 1000.0
+      position = np.mean(zip(*positions), 1) / 1000.0
+      error = np.std(zip(*positions), 1) / 1000.0
       output = [position, error]
     return output
 
