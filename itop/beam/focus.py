@@ -41,17 +41,17 @@ class FocalPoint(object):
     Finds the focal points (assuming astigmatism) of the beams.
     """
     # Initialize the beam trajectories if necessary.
-    if ((self.beam_a.slope3D is None) or
-        (self.beam_b.slope3D is None) or
+    if ((self.beam_a.slope is None) or
+        (self.beam_b.slope is None) or
         refresh):
       self.findTrajectories()
     else:
       print "Trajectories already initialized."
     # Find the tangential focal plane.
     # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
-    slope_a = self.beam_a.slope3D
+    slope_a = self.beam_a.slope
     upstream_a = self.beam_a.r_initial
-    slope_b = self.beam_b.slope3D
+    slope_b = self.beam_b.slope
     upstream_b = self.beam_b.r_initial
     tangential_coefficients = np.array([
         [slope_a[2], -slope_a[0]], [slope_b[2], -slope_b[0]]])
@@ -90,8 +90,8 @@ class FocalPoint(object):
     Returns a list of the focal point data.
     """
     return [self.mirror.position(),
-            self.beam_a.slope3D,
-            self.beam_b.slope3D,
+            self.beam_a.slope,
+            self.beam_b.slope,
             self.tangential_focus_a,
             self.tangential_focus_b,
             self.sagittal_focus_a,
@@ -107,12 +107,12 @@ class FocalPoint(object):
     downstream_a = im.linalg.normalize(
         im.linalg.rotateVector(
             im.linalg.rotateVector(
-                self.beam_a.slope3D, correction_about_x, [1,0,0]),
+                self.beam_a.slope, correction_about_x, [1,0,0]),
             correction_about_y, [0,1,0]))
     downstream_b = im.linalg.normalize(
         im.linalg.rotateVector(
             im.linalg.rotateVector(
-                self.beam_b.slope3D, correction_about_x, [1,0,0]),
+                self.beam_b.slope, correction_about_x, [1,0,0]),
             correction_about_y, [0,1,0]))
     normal_a = im.optics.reconstructMirrorNormal(downstream_a)
     normal_b = im.optics.reconstructMirrorNormal(downstream_b)

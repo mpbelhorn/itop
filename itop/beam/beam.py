@@ -38,8 +38,7 @@ class Beam(object):
     self.power_level = kwargs.pop('power_level', 0.003)
     self.r_initial = None
     self.r_final = None
-    self.slope = None
-    self.slope3D = None # (x,y,z)
+    self.slope = None # (x,y,z)
 
   def position(self, fraction=None):
     """
@@ -51,7 +50,7 @@ class Beam(object):
     position = None
     if fraction is not None:
       try:
-        position = (self.r_initial + fraction * self.slope3D).tolist()
+        position = (self.r_initial + fraction * self.slope).tolist()
       except TypeError:
         print "Trajectory is not initilized"
     else:
@@ -174,9 +173,8 @@ class Beam(object):
     # Refine trajectory of the beam.
     self.centerBeam()
     self.r_final = np.array(self.position())
-    self.slope3D = self.r_final - self.r_initial
-    self.slope = self.slope3D[0::2]
-    return self.slope3D
+    self.slope = self.r_final - self.r_initial
+    return self.slope
 
   def moveOnBeam(self, fraction):
       """
@@ -196,7 +194,7 @@ class Beam(object):
     to correspond to the beam polarization.
     """
     sign = -1 if reverse else 1
-    d = sign * im.linalg.normalize(self.slope3D)
+    d = sign * im.linalg.normalize(self.slope)
     # The alpha angle is signed and related to the xz-projection.
     alpha = np.arcsin(im.linalg.normalize(d[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:
