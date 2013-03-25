@@ -55,6 +55,8 @@ class FocalPoint(object):
     proximal -- Boolean (False). Implies refresh. The beams are relocated
                 assuming they are very near the last trajectories.
     """
+    self.mirror.position(mirror_position, wait=True)
+
     # Initialize the beam trajectories if necessary.
     if proximal:
       self.findTrajectories(proximal=True)
