@@ -24,3 +24,4 @@ from itop.beam.alignment import BeamAlignment
 from itop.beam.focus import FocalPoint
 from itop.beam.profiler import Profiler
 from itop.motioncontrol.controller import StageController
+

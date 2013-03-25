@@ -43,10 +43,24 @@ class BeamAlignment(object):
       except ValueError:
         print "Offset must be a signed floating-point number or nothing."
     self.beam_b.findTrajectory()
-    self.x_displacement, self.y_displacement = (
+    self.x_displacement, self.y_displacement = self.displacements()
+    self.angles = self.beamStageAngles()
+
+  def displacements(self):
+    """
+    Calculates beam displacements given the trajectories and camera offset.
+    """
+    x_displacement, y_displacement = (
         self.beam_b.r_initial - self.beam_a.r_initial +
         np.array([0, self.height_offset, 0]))[:2]
-    self.angles = [angle for angle in self.beam_a.angles()]
+    return (x_displacement, y_displacement)
+
+  def beamStageAngles(self):
+    """
+    Returns the yxz-convention Euler angles to rotate the stage coordinate
+    system into the beam coordinate system.
+    """
+    return [angle for angle in self.beam_a.angles()]
 
   def save(self, file_path):
     """
