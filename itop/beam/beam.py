@@ -102,7 +102,6 @@ class Beam(object):
     # Move camera into starting point.
     self.controller.groupVelocity(self.group_id, 40)
     self.controller.groupMoveLine(self.group_id, [-125, position], wait=True)
-    time.sleep(0.125)
     group_configuration = self.controller.groupConfiguration(self.group_id)
     self.controller.groupDelete(self.group_id)
 
