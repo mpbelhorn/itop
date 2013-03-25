@@ -21,6 +21,7 @@ class FocalPoint(object):
 
     self.beam_a = Beam(self.controller, self.group_id, self.camera)
     self.beam_b = Beam(self.controller, self.group_id, self.camera)
+    self.alignment = None
     self.tangential_focus_a = None
     self.tangential_focus_b = None
     self.sagittal_focus_a = None
