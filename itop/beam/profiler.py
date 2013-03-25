@@ -57,3 +57,34 @@ class Profiler(object):
           if len(floats) == 14:
             output = dict(zip(self.keys, floats))
             return output
+
+class BeamTracker(object):
+  """
+  A class to represent an HD-LBP on a pair of ILS series stages.
+  """
+  def __init__(self, controller, group_id, profiler):
+    """
+    Creates a beam tracker.
+    """
+    self.controller = controller
+    self.group_id = group_id
+    self.profiler = profiler
+
+  def stagePosition(self):
+    """
+    Returns the stage position of the stage. If passed a set of coordinates,
+    also moves stage to that position.
+    """
+    pass
+
+  def beamPosition(self):
+    """
+    If visible, returns the position of the beam. Otherwise returns None
+    """
+    pass
+
+  def beamVisible(self):
+    """
+    Returns true if beam is in the frame.
+    """
+    pass
