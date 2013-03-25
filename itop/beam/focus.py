@@ -26,23 +26,38 @@ class FocalPoint(object):
     self.sagittal_focus_a = None
     self.sagittal_focus_b = None
 
-  def findTrajectories(self):
+  def findTrajectories(self, proximal=False):
     """
     Initilizes the trajectories of both beams.
+
+    Takes one keyword argument.
+    proximal -- Boolean (False). If true, the last trajectory data is used
+                to narrow the search for the new trajectory.
     """
+    starting_x_coordinate = -125
+    if proximal and self.beam_a.slope is not None:
+      starting_x_coordinate = self.beam_a.r_initial[0] - 10.0
     # Block beam 'B' and find beam 'A' trajectory.
     raw_input("Clear(Block) beam 'A'('B'). Press enter to continue.")
-    self.beam_a.findTrajectory()
+    self.beam_a.findTrajectory(starting_x_coordinate)
     # Block beam 'A' and find beam 'B' trajectory.
     raw_input("Clear(Block) beam 'B'('A'). Press enter to continue.")
-    self.beam_b.findTrajectory()
+    self.beam_b.findTrajectory(starting_x_coordinate)
 
-  def findFocalPoints(self, refresh=False):
+  def findFocalPoints(self, mirror_position, refresh=False, proximal=False):
     """
     Finds the focal points (assuming astigmatism) of the beams.
+
+    Takes two optional keyword arguments.
+    refresh  -- Boolean (False). If true, the trajectory data is cleared
+                and the beams are relocated.
+    proximal -- Boolean (False). Implies refresh. The beams are relocated
+                assuming they are very near the last trajectories.
     """
     # Initialize the beam trajectories if necessary.
-    if ((self.beam_a.slope is None) or
+    if proximal:
+      self.findTrajectories(proximal=True)
+    elif ((self.beam_a.slope is None) or
         (self.beam_b.slope is None) or
         refresh):
       self.findTrajectories()

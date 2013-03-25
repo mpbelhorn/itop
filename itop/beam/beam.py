@@ -95,13 +95,14 @@ class Beam(object):
     else:
       return False
 
-  def findBeam(self, position):
+  def findBeam(self, z_position, starting_x_point=-125.0, reverse=False):
     """
     Scans in X for single beam and centers camera on beam.
     """
     # Move camera into starting point.
     self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(self.group_id, [-125, position], wait=True)
+    self.controller.groupMoveLine(
+        self.group_id, [starting_x_point, z_position], wait=True)
     group_configuration = self.controller.groupConfiguration(self.group_id)
     self.controller.groupDelete(self.group_id)
 
@@ -112,7 +113,7 @@ class Beam(object):
     beam_positions = []
     while scan_axis.isMoving():
       if (self.camera.read()['power'] > self.power_level):
-        beam_positions.append([scan_axis.position(), position])
+        beam_positions.append([scan_axis.position(), z_position])
       elif beam_positions:
         scan_axis.stop(wait=True)
     self.controller.groupCreate(**group_configuration)
@@ -124,32 +125,36 @@ class Beam(object):
     # Go back to the beam.
     print beam_positions
     beam_x = np.mean(beam_positions, 0)[0]
-    self.controller.groupMoveLine(self.group_id, [beam_x, position], wait=True)
+    self.controller.groupMoveLine(self.group_id, [beam_x, z_position], wait=True)
     self.controller.groupVelocity(self.group_id, 10)
     if not self.centerBeam():
       self.controller.groupMoveLine(
-          self.group_id, [beam_x - 3.0, position], wait=True)
+          self.group_id, [beam_x - 3.0, z_position], wait=True)
       if not self.centerBeam():
         self.controller.groupMoveLine(
-            self.group_id, [beam_x + 6.0, position], wait=True)
+            self.group_id, [beam_x + 6.0, z_position], wait=True)
     if self.centerBeam():
       print "Beam found"
     return self.position()
 
-  def findTrajectory(self):
+  def findTrajectory(self, starting_x_point=-125):
     """
     Find trajectory of single beam.
     """
     # Find the beam at most upstream position.
     self.r_initial = None
-    for i in range(3):
-      intercept = self.findBeam(-125)
-      if intercept is not None:
-        self.r_initial = np.array(intercept)
-        break
+    intercept = self.findBeam(-125, starting_x_point=starting_x_point)
+    if intercept is not None:
+      self.r_initial = np.array(intercept)
     else:
-      print "Cannot find beam. Check beam power and camera height."
-      return None
+      for i in range(3):
+        intercept = self.findBeam(-125)
+        if intercept is not None:
+          self.r_initial = np.array(intercept)
+          break
+      else:
+        print "Cannot find beam. Check beam power and camera height."
+        return None
 
     # Calculate rough trajectory of the beam.
     step = self.r_initial + np.array([0, 0, 30])
