@@ -135,18 +135,24 @@ class FocalPoint(object):
     else:
       x_displacement = self.alignment.x_displacement
       y_displacement = self.alignment.y_displacement
-      phi = self.alignment.angles[0]
-      theta = self.alignment.angles[1]
+      angles = self.alignment.angles
       # TODO - Calculate uncertainty.
-      downstream_a = linalg.normalize(
-          linalg.rotateVector(
-              linalg.rotateVector(
-                  self.beam_a.slope, phi, [0,1,0]), theta, [1,0,0]))
-      downstream_b = linalg.normalize(
-          linalg.rotateVector(
-              linalg.rotateVector(
-                  self.beam_b.slope, phi, [0,1,0]), theta, [1,0,0]))
+      alternates = []
+      for i in self.beam_a.slope_uncertainty:
+        for j in self.beam_b.slope_uncertainty:
+          da = linalg.rotateYxzTaitBryan(i, angles)
+          db = linalg.rotateYxzTaitBryan(j, angles)
+          na = optics.reconstructMirrorNormal(da)
+          nb = optics.reconstructMirrorNormal(db)
+          alternates.append(
+              optics.radiusFromNormals(na, nb, x_displacement, y_displacement))
+      uncertainty = np.std(alternates)
+      downstream_a = linalg.rotateYxzTaitBryan(
+          self.beam_a.slope, self.alignment.angles)
+      downstream_b = linalg.rotateYxzTaitBryan(
+          self.beam_b.slope, self.alignment.angles)
       normal_a = optics.reconstructMirrorNormal(downstream_a)
       normal_b = optics.reconstructMirrorNormal(downstream_b)
-      return optics.radiusFromNormals(
-          normal_a, normal_b, x_displacement, y_displacement)
+      return [optics.radiusFromNormals(
+          normal_a, normal_b, x_displacement, y_displacement),
+          uncertainty]

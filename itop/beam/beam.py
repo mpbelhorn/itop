@@ -39,6 +39,7 @@ class Beam(object):
     self.r_initial = None
     self.r_final = None
     self.slope = None # (x,y,z)
+    self.slope_uncertainty = None
 
   def position(self, fraction=None):
     """
@@ -188,10 +189,39 @@ class Beam(object):
     self.controller.groupVelocity(self.group_id, 10)
 
     # Refine trajectory of the beam.
-    self.centerBeam()
-    self.r_final = np.array(self.position())
-    self.slope = self.r_final - self.r_initial
-    return self.slope
+    while True:
+      centered = self.centerBeam()
+      if centered is None:
+        # TODO - Cross this bridge when we get there.
+        pass
+      elif centered:
+        self.r_final = np.array(centered[0])
+        r_final_uncertainty = centered[1]
+        self.slope_uncertainty = [r_initial_uncertainty, r_final_uncertainty]
+        self.slope = self.r_final - self.r_initial
+        return self.slope
+
+  def slopeUncertainty(self):
+    """
+    Returns a list of the four 1 sigma alternate trajectories based on the
+    upstream and downstream intercept uncertainties.
+    """
+    if not self.slope_uncertainty:
+      return None
+    signs = [[ 1, 1,-1,-1],
+             [ 1,-1,-1, 1],
+             [-1,-1, 1, 1],
+             [-1, 1, 1,-1]]
+    alternates = []
+    for i in range(4):
+      r0 = np.array(self.r_initial)
+      rf = np.array(self.r_final)
+      r0[0] += signs[i][0] * self.slope_uncertainty[0][0]
+      r0[1] += signs[i][1] * self.slope_uncertainty[0][1]
+      rf[0] += signs[i][2] * self.slope_uncertainty[1][0]
+      rf[1] += signs[i][3] * self.slope_uncertainty[1][1]
+      alternates.append((itlin.normalize(rf - r0)).tolist())
+    return alternates
 
   def moveOnBeam(self, fraction):
       """
