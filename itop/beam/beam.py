@@ -85,13 +85,24 @@ class Beam(object):
     Centers the camera on the beam if beam is visible. If the beam is already
     centered, the function returns the position of the beam in the relative
     to the stage group home + uncertainty. If the beam is visible and not
-    centered, the camera is moved toward the center and False is returned.
-    If the beam is not visible, None is returned.
+    centered, the camera is moved to the center. If the beam is not visible,
+    None is returned.
     """
-    jitter = self.jitter()
-    if jitter is not None:
-      # The HDLBP software axis orientation must be correctly set for
-      # the direction the camera is facing relative to the stage.
+    jitter = self.jitter(1)
+    if jitter is None:
+      return None
+    # Do quick sampling to get centroid close to center.
+    while abs(jitter[0][0]) > 0.5:
+      stage_position = self.controller.groupPosition(self.group_id)
+      if len(stage_position) == 2: # If no y-axis stage,
+        stage_position.insert(1, 0.0) # Add a y offset
+      centroid = list(jitter[0]) + [0]
+      position = np.array(stage_position) + np.array(centroid)
+      self.controller.groupMoveLine(
+          self.group_id, position[0::2], wait=True)
+      jitter = self.jitter(1)
+    while True:
+      jitter = self.jitter(10)
       stage_position = self.controller.groupPosition(self.group_id)
       if len(stage_position) == 2: # If no y-axis stage,
         stage_position.insert(1, 0.0) # Add a y offset
@@ -100,11 +111,9 @@ class Beam(object):
       if abs(jitter[0][0]) > abs(jitter[1][0]):
         self.controller.groupMoveLine(
             self.group_id, position[0::2], wait=True)
-        return False
-      # TODO - Get full stage uncertainties.
-      return [position.tolist(), list(jitter[1]) + [0.0005]]
-    else:
-      return None
+      else:
+        # TODO - Get full stage uncertainties.
+        return [position.tolist(), list(jitter[1]) + [0.0005]]
 
   def findBeam(self, z_position, starting_x_point=-125.0, reverse=False):
     """
