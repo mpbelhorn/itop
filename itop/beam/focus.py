@@ -4,8 +4,7 @@ A module for tracking the focal point of a spherical mirror.
 
 from itop.beam.beam import Beam
 import numpy as np
-import itop.math.linalg as linalg
-import itop.math.optics as optics
+from itop.math import linalg, optics
 
 class FocalPoint(object):
   """
@@ -103,6 +102,7 @@ class FocalPoint(object):
         (sagittal_solution[1] - upstream_b[2]) / slope_b[2])
     self.sagittal_focus_a = self.beam_a.position(beam_a_sagittal_fraction)
     self.sagittal_focus_b = self.beam_b.position(beam_b_sagittal_fraction)
+    # TODO - If stage can move to focal point, verify the position is correct.
     return self.data()
 
   def data(self):

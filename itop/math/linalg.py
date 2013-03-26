@@ -22,6 +22,19 @@ def rotateVector(vector, theta, axis):
   """
   return np.dot(rotationMatrix(theta, axis), vector)
 
+def rotateYxzTaitBryan(vector, angles):
+  """
+  Returns the vector rotated under the yx'z'' Tait-Bryan convention Euler
+  angles. Angles must be an interable over (phi, theta, psi)
+  """
+  axes = [[0, 1, 0],
+          [1, 0, 0],
+          [0, 0, 1]]
+  output = vector
+  for axis, angle in enumerate(angles):
+      output = rotateVector(output, angle, axes[axis])
+  return output
+
 def normalize(vector):
   """
   Returns a normalized vector parallel to the given vector.
