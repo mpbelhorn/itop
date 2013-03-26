@@ -215,10 +215,10 @@ class Beam(object):
     """
     if not self.intercept_uncertainties:
       return None
-    signs = [[ 1, 1,-1,-1],
-             [ 1,-1,-1, 1],
-             [-1,-1, 1, 1],
-             [-1, 1, 1,-1]]
+    signs = [[ 1,  1, -1, -1],
+             [ 1, -1, -1,  1],
+             [-1, -1,  1,  1],
+             [-1,  1,  1, -1]]
     alternates = []
     for i in range(4):
       r0 = np.array(self.intercepts[0])
