@@ -138,8 +138,8 @@ class FocalPoint(object):
       angles = self.alignment.angles
       # TODO - Calculate uncertainty.
       alternates = []
-      for i in self.beam_a.slope_uncertainty:
-        for j in self.beam_b.slope_uncertainty:
+      for i in self.beam_a.slopeUncertainty():
+        for j in self.beam_b.slopeUncertainty():
           da = linalg.rotateYxzTaitBryan(i, angles)
           db = linalg.rotateYxzTaitBryan(j, angles)
           na = optics.reconstructMirrorNormal(da)
