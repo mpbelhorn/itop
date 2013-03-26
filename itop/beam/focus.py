@@ -105,13 +105,66 @@ class FocalPoint(object):
     # TODO - If stage can move to focal point, verify the position is correct.
     return self.data()
 
+  def focus(self, intercepts_a, intercepts_b, plane='T'):
+    """
+    Returns the focal point for the given beam intercepts.
+
+    The beam intercepts are lists of the form (p_upstream, p_downstream)
+    where the p_upstream and p_downstream are (x,y,z) points on the beam
+    in the specified relative positions.
+
+    Takes the following optional keyword argument:
+    plane  --  Selects the (T)angential or (S)agittal focal plane.
+               Accpetable values are 'T' (default) or 'S'
+    """
+    index = 1 if plane is 'S' else 0
+    sa = intercepts_a[1] - intercepts_a[0]
+    sb = intercepts_b[1] - intercepts_b[0]
+    coefficients = np.array([[sa[2], -sa[index]], [sb[2], -sb[index]]])
+    ordinates = np.array([sa[2] * intercepts_a[index] - sa[index] * intercepts_a[2],
+                          sb[2] * intercepts_b[index] - sb[index] * intercepts_b[2]])
+    solution = np.linalg.solve(coefficients, ordinates)
+    fraction_a = ((solution[1] - intercepts_a[2]) / sa[2])
+    fraction_b = ((solution[1] - intercepts_b[2]) / sb[2])
+    focus_a = (intercepts_a + fraction_a * sa)
+    focus_b = (intercepts_b + fraction_b * sb)
+    return (focus_a, focus_b)
+
+  def foci(self, intercepts_a, uncertainties_a,
+      intercepts_b, uncertainties_b, plane='T'):
+    """
+    Returns the focal point and its uncertainty for the given beam intercepts.
+
+    The beam intercepts are lists of the form (p_upstream, p_downstream)
+    where the p_upstream and p_downstream are (x,y,z) points on the beam
+    in the specified relative positions.
+
+    Takes the following optional keyword argument:
+    plane  --  Selects the (T)angential or (S)agittal focal plane.
+               Accpetable values are 'T' (default) or 'S'
+    """
+    index = 1 if plane is 'S' else 0
+    foci = []
+    limits = []
+    signs_list = [[ 0, 0],
+                  [ 1,-1],
+                  [-1, 1]]
+    for signs in signs_list:
+      offset = np.array([0, 0, 0])
+      ri_a = intercepts_a[0] + signs[0] * (offset + np.array(uncertainties_a[0][index]))
+      rf_a = intercepts_a[1] + signs[0] * (offset + np.array(uncertainties_a[1][index]))
+      ri_b = intercepts_b[0] + signs[1] * (offset + np.array(uncertainties_b[0][index]))
+      rf_b = intercepts_b[1] + signs[1] * (offset + np.array(uncertainties_b[1][index]))
+      foci.append(self.focus([ri_a, rf_a], [ri_b, rf_b], plane=plane))
+    return [foci[0], [foci[1], foci[2]]]
+
   def data(self):
     """
     Returns a list of the stage-frame-of-reference focal point data.
     """
     return [self.mirror.position(),
-            self.beam_a.slope.tolist(),
-            self.beam_b.slope.tolist(),
+            [self.beam_a.slope.tolist()],
+            [self.beam_b.slope.tolist()],
             self.tangential_focus_a,
             self.tangential_focus_b,
             self.sagittal_focus_a,
