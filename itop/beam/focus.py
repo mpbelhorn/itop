@@ -126,8 +126,8 @@ class FocalPoint(object):
 
     The beams are taken to travel in the -z_beam direction. Thus outgoing
     slope coordinates must be rotated into the beam frame by applying a
-    rotation of theta about the y-axis followed by a rotation of phi about the
-    x'-axis. Theta and phi are the first and second elements in the list
+    rotation of phi about the y-axis followed by a rotation of theta about the
+    x'-axis. phi and theta are the first and second elements in the list
     itop.beam.alignment.BeamAlignment.angles.
     """
     if self.alignment is None:
@@ -135,17 +135,17 @@ class FocalPoint(object):
     else:
       x_displacement = self.alignment.x_displacement
       y_displacement = self.alignment.y_displacement
-      theta = self.alignment.angles[0]
-      phi = self.alignment.angles[1]
+      phi = self.alignment.angles[0]
+      theta = self.alignment.angles[1]
       # TODO - Calculate uncertainty.
       downstream_a = linalg.normalize(
           linalg.rotateVector(
               linalg.rotateVector(
-                  self.beam_a.slope, theta, [0,1,0]), phi, [1,0,0]))
+                  self.beam_a.slope, phi, [0,1,0]), theta, [1,0,0]))
       downstream_b = linalg.normalize(
           linalg.rotateVector(
               linalg.rotateVector(
-                  self.beam_b.slope, theta, [0,1,0]), phi, [1,0,0]))
+                  self.beam_b.slope, phi, [0,1,0]), theta, [1,0,0]))
       normal_a = optics.reconstructMirrorNormal(downstream_a)
       normal_b = optics.reconstructMirrorNormal(downstream_b)
       return optics.radiusFromNormals(

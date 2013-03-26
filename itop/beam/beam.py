@@ -190,18 +190,18 @@ class Beam(object):
 
   def angles(self, reverse=False):
     """
-    Returns the yxz-convention (alpha, beta, gamma) Euler angles needed to
-    rotate the stage coordinate system into the beam coordinate system.
+    Returns the yxz-convention (phi, theta, psi) Tait-Bryan angles needed
+    to rotate the stage coordinate system into the beam coordinate system.
 
     Conventionally, the incoming beam x-axis is always taken to be in the
-    table/stage xz-plane, and thus gamma == 0. This convention is chosen
+    table/stage xz-plane, and thus psi == 0. This convention is chosen
     to correspond to the beam polarization.
     """
     sign = -1 if reverse else 1
     d = sign * itlin.normalize(self.slope)
     # The alpha angle is signed and related to the xz-projection.
-    alpha = np.arcsin(itlin.normalize(d[0::2])[0])
+    phi = np.arcsin(itlin.normalize(d[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:
-    beta = -np.arcsin(d[1])
-    gamma = 0.0
-    return alpha, beta, gamma
+    theta = -np.arcsin(d[1])
+    psi = 0.0
+    return phi, theta, psi
