@@ -36,10 +36,9 @@ class Beam(object):
     self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
     self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
     self.power_level = kwargs.pop('power_level', 0.003)
-    self.r_initial = None
-    self.r_final = None
+    self.intercepts = [None, None]
+    self.intercept_uncertainties = [None, None]
     self.slope = None # (x,y,z)
-    self.slope_uncertainty = None
 
   def position(self, fraction=None):
     """
@@ -51,7 +50,7 @@ class Beam(object):
     position = None
     if fraction is not None:
       try:
-        position = (self.r_initial + fraction * self.slope).tolist()
+        position = (self.intercepts[0] + fraction * self.slope).tolist()
       except TypeError:
         print "Trajectory is not initilized"
     else:
@@ -151,23 +150,23 @@ class Beam(object):
     Find trajectory of single beam.
     """
     # Find the beam at most upstream position.
-    self.r_initial = None
+    self.intercepts[0] = None
     intercept = self.findBeam(-125, starting_x_point=starting_x_point)
     if intercept is not None:
-      self.r_initial = np.array(intercept[0])
+      self.intercepts[0] = np.array(intercept[0])
     else:
       for i in range(3):
         intercept = self.findBeam(-125)
         if intercept is not None:
-          self.r_initial = np.array(intercept[0])
+          self.intercepts[0] = np.array(intercept[0])
           break
       else:
         print "Cannot find beam. Check beam power and camera height."
         return None
-    r_initial_uncertainty = intercept[1]
+    self.intercept_uncertainties[0] = intercept[1]
 
     # Calculate rough trajectory of the beam.
-    step = self.r_initial + np.array([0, 0, 30])
+    step = self.intercepts[0] + np.array([0, 0, 30])
     self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
     while True:
       centered = self.centerBeam()
@@ -177,11 +176,11 @@ class Beam(object):
       elif centered:
         break
     upstream_sample = self.position()
-    downstream_sample = [self.r_initial[0] + (
-        ((self.upper_limit_z - self.r_initial[2]) /
-        (upstream_sample[2] - self.r_initial[2])) *
-        (upstream_sample[0] - self.r_initial[0])),
-        self.r_initial[1],
+    downstream_sample = [self.intercepts[0][0] + (
+        ((self.upper_limit_z - self.intercepts[0][2]) /
+        (upstream_sample[2] - self.intercepts[0][2])) *
+        (upstream_sample[0] - self.intercepts[0][0])),
+        self.intercepts[0][1],
         self.upper_limit_z]
     self.controller.groupVelocity(self.group_id, 40)
     self.controller.groupMoveLine(
@@ -195,10 +194,9 @@ class Beam(object):
         # TODO - Cross this bridge when we get there.
         pass
       elif centered:
-        self.r_final = np.array(centered[0])
-        r_final_uncertainty = centered[1]
-        self.slope_uncertainty = [r_initial_uncertainty, r_final_uncertainty]
-        self.slope = self.r_final - self.r_initial
+        self.intercepts[1] = np.array(centered[0])
+        self.intercept_uncertainties[1] = centered[1]
+        self.slope = self.intercepts[1] - self.intercepts[0]
         return self.slope
 
   def slopeUncertainty(self):
@@ -206,7 +204,7 @@ class Beam(object):
     Returns a list of the four 1 sigma alternate trajectories based on the
     upstream and downstream intercept uncertainties.
     """
-    if not self.slope_uncertainty:
+    if not self.intercept_uncertainties:
       return None
     signs = [[ 1, 1,-1,-1],
              [ 1,-1,-1, 1],
@@ -214,12 +212,12 @@ class Beam(object):
              [-1, 1, 1,-1]]
     alternates = []
     for i in range(4):
-      r0 = np.array(self.r_initial)
-      rf = np.array(self.r_final)
-      r0[0] += signs[i][0] * self.slope_uncertainty[0][0]
-      r0[1] += signs[i][1] * self.slope_uncertainty[0][1]
-      rf[0] += signs[i][2] * self.slope_uncertainty[1][0]
-      rf[1] += signs[i][3] * self.slope_uncertainty[1][1]
+      r0 = np.array(self.intercepts[0])
+      rf = np.array(self.intercepts[1])
+      r0[0] += signs[i][0] * self.intercept_uncertainties[0][0]
+      r0[1] += signs[i][1] * self.intercept_uncertainties[0][1]
+      rf[0] += signs[i][2] * self.intercept_uncertainties[1][0]
+      rf[1] += signs[i][3] * self.intercept_uncertainties[1][1]
       alternates.append((itlin.normalize(rf - r0)).tolist())
     return alternates
 

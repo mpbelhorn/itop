@@ -36,12 +36,12 @@ class FocalPoint(object):
     """
     starting_x_coordinate = -125
     if proximal and self.beam_a.slope is not None:
-      starting_x_coordinate = self.beam_a.r_initial[0] - 10.0
+      starting_x_coordinate = self.beam_a.intercepts[0][0] - 10.0
     # Block beam 'B' and find beam 'A' trajectory.
-    raw_input("Clear(Block) beam 'A'('B'). Press enter to continue.")
+    raw_input("Clear beam 'A' and block beam 'B'. Press enter to continue.")
     self.beam_a.findTrajectory(starting_x_coordinate)
     # Block beam 'A' and find beam 'B' trajectory.
-    raw_input("Clear(Block) beam 'B'('A'). Press enter to continue.")
+    raw_input("Clear beam 'B' and block beam 'A'. Press enter to continue.")
     self.beam_b.findTrajectory(starting_x_coordinate)
 
   def findFocalPoints(self, mirror_position, refresh=False, proximal=False):
@@ -68,9 +68,9 @@ class FocalPoint(object):
     # Find the tangential focal plane.
     # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
     slope_a = self.beam_a.slope
-    upstream_a = self.beam_a.r_initial
+    upstream_a = self.beam_a.intercepts[0]
     slope_b = self.beam_b.slope
-    upstream_b = self.beam_b.r_initial
+    upstream_b = self.beam_b.intercepts[0]
     tangential_coefficients = np.array([
         [slope_a[2], -slope_a[0]], [slope_b[2], -slope_b[0]]])
     tangential_ordinates = np.array([

@@ -51,7 +51,7 @@ class BeamAlignment(object):
     Calculates beam displacements given the trajectories and camera offset.
     """
     x_displacement, y_displacement = (
-        self.beam_b.r_initial - self.beam_a.r_initial +
+        self.beam_b.intercepts[0] - self.beam_a.intercepts[0] +
         np.array([0, self.height_offset, 0]))[:2]
     return (x_displacement, y_displacement)
 
