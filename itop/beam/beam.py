@@ -70,30 +70,41 @@ class Beam(object):
     the beam is visible, otherwise None is returned.
     """
     output = None
-    positions = []
+    centroids = []
     if self.camera.read()['power'] >= self.power_level:
       for i in range(samples):
         readout = self.camera.read()
-        positions.append([readout['centroid_x'], readout['centroid_y']])
-      position = np.mean(zip(*positions), 1) / 1000.0
-      error = np.std(zip(*positions), 1) / 1000.0
-      output = [position, error]
+        centroids.append([readout['centroid_x'], readout['centroid_y']])
+      centroid = np.mean(zip(*centroids), 1) / 1000.0
+      error = np.std(zip(*centroids), 1) / 1000.0
+      output = [centroid, error]
     return output
 
   def centerBeam(self):
     """
-    Centers the camera on the beam if beam is visible.
+    Centers the camera on the beam if beam is visible. If the beam is already
+    centered, the function returns the position of the beam in the relative
+    to the stage group home + uncertainty. If the beam is visible and not
+    centered, the camera is moved toward the center and False is returned.
+    If the beam is not visible, None is returned.
     """
     jitter = self.jitter()
     if jitter is not None:
       # The HDLBP software axis orientation must be correctly set for
       # the direction the camera is facing relative to the stage.
-      self.controller.groupMoveLine(self.group_id, (
-          np.array(self.controller.groupPosition(self.group_id)) +
-          np.array([jitter[0][0], 0])), wait=True)
-      return True
+      stage_position = self.controller.groupPosition(self.group_id)
+      if len(stage_position) == 2: # If no y-axis stage,
+        stage_position.insert(1, 0.0) # Add a y offset
+      centroid = list(jitter[0]) + [0]
+      position = np.array(stage_position) + np.array(centroid)
+      if abs(jitter[0][0]) > abs(jitter[1][0]):
+        self.controller.groupMoveLine(
+            self.group_id, position[0::2], wait=True)
+        return False
+      # TODO - Get full stage uncertainties.
+      return [position.tolist(), list(jitter[1]) + [0.0005]]
     else:
-      return False
+      return None
 
   def findBeam(self, z_position, starting_x_point=-125.0, reverse=False):
     """
@@ -123,19 +134,16 @@ class Beam(object):
       print "Beam not seen!"
       return None
     # Go back to the beam.
-    print beam_positions
     beam_x = np.mean(beam_positions, 0)[0]
     self.controller.groupMoveLine(self.group_id, [beam_x, z_position], wait=True)
     self.controller.groupVelocity(self.group_id, 10)
-    if not self.centerBeam():
-      self.controller.groupMoveLine(
-          self.group_id, [beam_x - 3.0, z_position], wait=True)
-      if not self.centerBeam():
+    while True:
+      centered = self.centerBeam()
+      if centered is None:
         self.controller.groupMoveLine(
-            self.group_id, [beam_x + 6.0, z_position], wait=True)
-    if self.centerBeam():
-      print "Beam found"
-    return self.position()
+            self.group_id, [beam_x - 3.0, z_position], wait=True)
+      elif centered:
+        return centered
 
   def findTrajectory(self, starting_x_point=-125):
     """
@@ -145,23 +153,28 @@ class Beam(object):
     self.r_initial = None
     intercept = self.findBeam(-125, starting_x_point=starting_x_point)
     if intercept is not None:
-      self.r_initial = np.array(intercept)
+      self.r_initial = np.array(intercept[0])
     else:
       for i in range(3):
         intercept = self.findBeam(-125)
         if intercept is not None:
-          self.r_initial = np.array(intercept)
+          self.r_initial = np.array(intercept[0])
           break
       else:
         print "Cannot find beam. Check beam power and camera height."
         return None
+    r_initial_uncertainty = intercept[1]
 
     # Calculate rough trajectory of the beam.
     step = self.r_initial + np.array([0, 0, 30])
     self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
-    while not self.centerBeam():
-      step = step - np.array([0, 0, 10])
-      self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
+    while True:
+      centered = self.centerBeam()
+      if centered is None:
+        step = step + np.array([0, 0, -10])
+        self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
+      elif centered:
+        break
     upstream_sample = self.position()
     downstream_sample = [self.r_initial[0] + (
         ((self.upper_limit_z - self.r_initial[2]) /

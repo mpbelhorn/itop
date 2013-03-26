@@ -19,7 +19,6 @@ Using any of these subpackages requires an explicit import.
  motioncontrol             --- Interface to EPS30x Stages
  utilities                 --- Misc. funtions.
 """
-
 from itop.beam.alignment import BeamAlignment
 from itop.beam.focus import FocalPoint
 from itop.beam.profiler import Profiler
