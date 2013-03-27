@@ -54,14 +54,14 @@ def focus(intercepts_a, intercepts_b, plane='T'):
   sb = intercepts_b[1] - intercepts_b[0]
   # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
   coefficients = array([[sa[2], -sa[index]], [sb[2], -sb[index]]])
-  ordinates = array([sa[2] * intercepts_a[index] - sa[index] * intercepts_a[2],
-                     sb[2] * intercepts_b[index] - sb[index] * intercepts_b[2]])
+  ordinates = array([sa[2] * intercepts_a[0][index] - sa[index] * intercepts_a[0][2],
+                     sb[2] * intercepts_b[0][index] - sb[index] * intercepts_b[0][2]])
   solution = linalg.solve(coefficients, ordinates)
-  fraction_a = ((solution[1] - intercepts_a[2]) / sa[2])
-  fraction_b = ((solution[1] - intercepts_b[2]) / sb[2])
-  focus_a = (intercepts_a + fraction_a * sa)
-  focus_b = (intercepts_b + fraction_b * sb)
-  return (focus_a, focus_b)
+  fraction_a = ((solution[1] - intercepts_a[0][2]) / sa[2])
+  fraction_b = ((solution[1] - intercepts_b[0][2]) / sb[2])
+  focus_a = (intercepts_a[0] + fraction_a * sa)
+  focus_b = (intercepts_b[0] + fraction_b * sb)
+  return [focus_a, focus_b]
 
 
 def focusWithUncertainty(intercepts_a, uncertainties_a,
@@ -79,9 +79,9 @@ def focusWithUncertainty(intercepts_a, uncertainties_a,
   """
   index = 1 if plane is 'S' else 0
   foci = []
-  signs_list = [[ 0, 0],
-                [ 1,-1],
-                [-1, 1]]
+  signs_list = [[ 0, 0],  # Central Value
+                [ 1,-1],  # Upstream Limit
+                [-1, 1]]  # Downstream Limit
   for signs in signs_list:
     offset = array([0, 0, 0])
     ri_a = intercepts_a[0] + signs[0] * (
@@ -94,7 +94,12 @@ def focusWithUncertainty(intercepts_a, uncertainties_a,
         offset + array(uncertainties_b[1][index]))
     foci.append(focus([ri_a, rf_a], [ri_b, rf_b], plane=plane))
   # TODO - If stage can move to focal point, verify the position is correct.
-  return [foci[0], [foci[1], foci[2]]]
+  delta1_a = (foci[1][0] - foci[0][0]).tolist()
+  delta2_a = (foci[2][0] - foci[0][0]).tolist()
+  delta1_b = (foci[1][1] - foci[0][1]).tolist()
+  delta2_b = (foci[2][1] - foci[0][1]).tolist()
+  return [[foci[0][0].tolist(), [delta1_a, delta2_a]],
+          [foci[0][1].tolist(), [delta1_b, delta2_b]]]
 
 def radiusFromNormals(
     beam_a_normal, beam_b_normal,

@@ -73,15 +73,15 @@ class FocalPoint(object):
     return optics.focusWithUncertainty(
         self.beam_a.intercepts, self.beam_a.intercept_uncertainties,
         self.beam_b.intercepts, self.beam_b.intercept_uncertainties,
-        plane=plane),
+        plane=plane)
 
   def data(self):
     """
     Returns a list of the stage-frame-of-reference focal point data.
     """
     return [self.mirror.position(),
-            [self.beam_a.slope.tolist()],
-            [self.beam_b.slope.tolist()],
+            self.beam_a.slope.tolist(),
+            self.beam_b.slope.tolist(),
             self.focus('T'),
             self.focus('S'),
             self.radius()]
