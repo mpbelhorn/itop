@@ -71,13 +71,15 @@ class BeamAlignment(object):
     data['angles'] = self.angles
     data['x_displacement'] = self.x_displacement
     data['y_displacement'] = self.y_displacement
+    data['beam_a'] = self.beam_a.dump()
+    data['beam_b'] = self.beam_b.dump()
 
     with open(file_path, 'wb') as fp:
       json.dump(data, fp)
 
   def load(self, file_path):
     """
-    Loads the beam alignment data from a saved file.
+    Loads the beam alignment data from a saved JSON file.
     """
     with open(file_path, 'rb') as fp:
       data = json.load(fp)
@@ -85,3 +87,5 @@ class BeamAlignment(object):
       self.angles = data['angles']
       self.x_displacement = data['x_displacement']
       self.y_displacement = data['y_displacement']
+      self.beam_a.load(data.get('beam_a'))
+      self.beam_b.load(data.get('beam_b'))

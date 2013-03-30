@@ -80,8 +80,8 @@ class FocalPoint(object):
     Returns a list of the stage-frame-of-reference focal point data.
     """
     return [self.mirror.position(),
-            self.beam_a.slope.tolist(),
-            self.beam_b.slope.tolist(),
+            self.beam_a.slope.dump(),
+            self.beam_b.slope.dump(),
             self.focus('T'),
             self.focus('S'),
             self.radius()]

@@ -60,7 +60,7 @@ class Profiler(object):
 
 class BeamTracker(object):
   """
-  A class to represent an HD-LBP on a pair of ILS series stages.
+  A class to represent an HD-LBP on a set of ILS series stages.
   """
   def __init__(self, controller, group_id, profiler):
     """

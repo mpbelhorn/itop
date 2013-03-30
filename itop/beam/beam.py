@@ -63,6 +63,41 @@ class Beam(object):
         print "Beam not visible"
     return position
 
+  def dump(self):
+    """
+    Returns the beam trajectory data as a serializable dictionary
+    of lists instead of numpy array-types.
+
+    The dictionary keys are the same name as the instance variables
+    (intercepts, intercept_uncertainties, slope)
+    """
+    data = {}
+    try:
+      data['intercepts'] = [item.tolist() for item in self.intercepts]
+      data['intercept_uncertainties'] = self.intercept_uncertainties
+      data['slope'] = self.slope.tolist()
+    except AttributeError:
+      # Must be default values. Why save them anyways?
+      data['intercepts'] = self.intercepts
+      data['uncertainties'] = self.intercept_uncertainties
+      data['slope'] = self.slope
+    return data
+
+  def load(self, data):
+    """
+    Restores the trajectory data from a dictionary of the type returned by
+    dump().
+    """
+    if data is not None:
+      try:
+        self.intercepts = [np.array(item) for
+            item in data['intercepts'] if item is not None]
+        self.intercept_uncertainties = data['intercept_uncertainties']
+        self.slope = (
+            np.array(data['slope']) if data['slope'] is not None else None)
+      except KeyError:
+        print "Data is invalid. Values unchanged."
+
   def jitter(self, samples=10):
     """
     Returns the average position in mm of the beam centroid and its
