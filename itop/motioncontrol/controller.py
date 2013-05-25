@@ -328,3 +328,31 @@ class StageController(object):
     size = self.read()
     return size
 
+  def gpioDirections(self, directions=None):
+    """
+    Sets the given GPIO ports directions as input or output. If no input is
+    give, returns the current setting.
+
+    The directions are given as a binary number with each bit representing one
+    of two GPIO ports (A,B), either can be set to 1 (output) or 0 (input).
+    """
+    if directions is None:
+      self.send('BO', '?')
+      return self.read()
+    else:
+      self.send('BO', hex(directions).replace('x', '') + 'H')
+
+  def gpioState(self, status=None):
+    """
+    Sets the state of the GPIO pins on both ports (A,B) according to
+    a given 16 bit binary input 'status'. If no input is given, returns
+    the current status.
+
+    Bit 0-7 (8-15) correspond to port A (B).
+    """
+    if status is None:
+      self.send('SB','?')
+      return self.read()
+    else:
+      self.send('SB', hex(status).replace('x', '') + 'H')
+
