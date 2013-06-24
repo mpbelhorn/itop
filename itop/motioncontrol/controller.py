@@ -201,40 +201,77 @@ class StageController(object):
       self.pauseForGroup(group_id)
     return coordinates
 
-  def groupCreate(self, group_id, axes = '?', **kwargs):
+  def groupCreate(self, axes=None, group_id=1, home=False,
+      velocity=10, acceleration=30, deceleration=30, jerk=0, estop=200):
     """
-    Creates a group with ID group_id over the given axes.
+    Creates a group of two or more axes over the given axes.
+
+    If no axes are given, command returns the axes assigned to the group with
+    ID=1 or, if supplied, the given optional group ID (see keyword arguments).
+
+    The defined groups on the controller must have contiguous integer IDs from
+    1 to MAX_GROUPS where
+
+        MAX_GROUPS = floor(AXES_ON_CONTROLLER/2)
+
+    and MAX_AXES is the number of axes on the controller.
 
     The axes are given as an ordered list of the physical axis numbers:
       [axis1, axis2, ..., axisN]
 
     Keyword arguments:
-     home=False - Reset stage coordinate system.
-     velocity=10 - Set group velocity (Units/s)
-     acceleration=100 - Set group acceleration (Units/s^2)
-     deceleration=100 - Set group deceleration (Units/s^s)
-     jerk=0 - Set group jerk rate (Units/s^3).
-     estop=200 - Set group emergency stop deceleration (Units/s^2)
+      'group_id' (1):
+          The group ID to set/overwrite.
+      'home' (False):
+          Move axes to their home positions and reset the stage
+          coordinate system.
+      'velocity' (10|V_MAX):
+          Set group velocity (Units/s). Defaults to 10 units/s or maximum
+          allowed velocity if V_MAX < 10.
+      'acceleration' (30|A_MAX):
+          Set group acceleration (Units/s^2). Defaults to 100 units/s^2 or
+          maximum allowed acceleration if A_MAX < 100.
+      'deceleration' (30|D_MAX):
+          Set group deceleration (Units/s^s). Same limits as for acceleration.
+      'jerk' (0):
+          Set group jerk rate (Units/s^3). Defaults to trapezoid motion
+          profile. If jerk != 0, the group will move in an S-curve profile
+          which is harder to stop/change motion characteristics despite
+          being smoother.
+      'estop' (200):
+          Set group emergency stop deceleration (Units/s^2). Maximum allowed
+          value is 2 * 10^9 * MIN_ENCODER_RESOLUTION.
     """
-    if (axes == '?'):
-      self.send('HN', axes, group_id)
+    group_id = kwargs.pop('group_id', 1)
+    if axes is None:
+      self.send('HN', '?', group_id)
       axes = [int(axis.strip()) for axis in self.read().split(',')]
     else:
-      if str(group_id) in self.groups():
-        self.groupDelete(group_id)
-      stages = [self.axis1, self.axis2, self.axis3]
-      if kwargs.pop('home', False):
-        for axis in axes:
-          stage = stages[axis - 1]
+      # NOTE - Deleting a lower ID group when more than one group exists
+      #   is untested.
+      self.groupDelete(group_id)
+      kinematics = {
+          'velocity': velocity,
+          'acceleration': acceleration,
+          'deceleration': deceleration,
+          }
+      for axis in axes:
+        stage = self.axes[axis - 1]
+        kinematics['velocity'] = min(
+            kinematics['velocity'], stage.velocityLimit())
+        kinematics['acceleration'] = min(
+            kinematics['acceleration'], stage.accelerationLimit())
+        kinematics['deceleration'] = min(
+            kinematics['deceleration'], stage.accelerationLimit())
+        if home:
           stage.on()
           stage.goToHome(wait=True)
-          time.sleep(1)
       self.send('HN', ",".join(map(str, axes)), group_id)
-      self.groupVelocity(group_id, kwargs.pop('velocity', 10))
-      self.groupAcceleration(group_id, kwargs.pop('acceleration', 30))
-      self.groupDeceleration(group_id, kwargs.pop('deceleration', 30))
-      self.groupJerk(group_id, kwargs.pop('jerk', 0))
-      self.groupEStopDeceleration(group_id, kwargs.pop('estop', 200))
+      self.groupVelocity(group_id, kinematics['velocity'])
+      self.groupAcceleration(group_id, kinematics['acceleration'])
+      self.groupDeceleration(group_id, kinematics['deceleration'])
+      self.groupJerk(group_id, jerk)
+      self.groupEStopDeceleration(group_id, estop)
       self.groupOn(group_id)
     return axes
 
