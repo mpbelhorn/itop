@@ -27,6 +27,7 @@ class StageController(object):
     self.axis2 = stage.Stage(2, self)
     self.axis3 = stage.Stage(3, self)
     self.axes = [self.axis1, self.axis2, self.axis3]
+    self.gpioDirections(0b01)
     self.readFirmwareVersion()
 
   def send(self, command, parameter = '', axis = ''):
@@ -89,7 +90,7 @@ class StageController(object):
 
   def wait(self, milliseconds='0'):
     """
-    Pause internal command execution foe given time.
+    Pause internal command execution for given time.
     """
     self.send('WT', milliseconds)
 
@@ -338,7 +339,7 @@ class StageController(object):
     """
     if directions is None:
       self.send('BO', '?')
-      return self.read()
+      return int(self.read().strip().replace('H', ''), 16)
     else:
       self.send('BO', hex(directions).replace('x', '') + 'H')
 
@@ -352,7 +353,21 @@ class StageController(object):
     """
     if status is None:
       self.send('SB','?')
-      return self.read()
+      return int(self.read().strip().replace('H', ''), 16)
     else:
       self.send('SB', hex(status).replace('x', '') + 'H')
 
+  def shutterState(self, shutter_id, shutter_open):
+    """
+    Sets the shutter with given id  (0 or 1) to the state given by
+    shutter_open (true or false).
+    """
+    shutter_status = bool(self.gpioState() & (1<<(shutter_id + 8)))
+    if shutter_open is shutter_status:
+      return
+    elif shutter_open:
+      self.gpioState(1<<shutter_id)
+    else:
+      self.gpioState(1<<(shutter_id + 2))
+    time.sleep(0.1)
+    self.gpioState(0)
