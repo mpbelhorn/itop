@@ -270,7 +270,6 @@ class Stage(object):
     self.send('AU', acceleration)
     if (acceleration == '?'):
       acceleration = self.controller.read()
-      print acceleration+self.units()+'/s^2'
     return float(acceleration)
 
   def backlashCompensation(self, compensation = '?'):
@@ -314,7 +313,6 @@ class Stage(object):
     self.send('VU', velocity)
     if (velocity == '?'):
       velocity = self.controller.read()
-      print velocity, self.units()+'/s'
     return float(velocity)
 
   def waitUntilPosition(self, position):
