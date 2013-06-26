@@ -12,33 +12,20 @@ class Beam(object):
   laser beam centered on the camera.
   """
 
-  def __init__(self, controller, group_id, camera, **kwargs):
+  def __init__(self, tracker):
     """
     Initialize a constraint on the movement of a LBP on a stage group to travel
     along a beam.
 
-    Keyword arguments accepted to constrain the region of group travel.
-    Assume group of ILS250CC stages if no kwargs given. Units are those
-    that the stages are currently programmed to.
-
-    Option=default values are as follows:
-    lower_limit_x=-125 - Lower travel limit.
-    lower_limit_z=-125 - Lower travel limit.
-    upper_limit_x=125 - Upper travel limit.
-    upper_limit_z=125 - Upper travel limit.
-    power=level - Beam-in-view power threshold.
     """
-    self.controller = controller
-    self.group_id = group_id
-    self.camera = camera
-    self.lower_limit_x = kwargs.pop('lower_limit_x', -125)
-    self.upper_limit_x = kwargs.pop('upper_limit_x',  125)
-    self.lower_limit_z = kwargs.pop('lower_limit_z', -125)
-    self.upper_limit_z = kwargs.pop('upper_limit_z',  125)
-    self.power_level = kwargs.pop('power_level', 0.003)
-    self.intercepts = [None, None]
-    self.intercept_uncertainties = [None, None]
-    self.slope = None # (x,y,z)
+    self.tracker = tracker
+    self.trajectory = {
+        'slope': None,
+        'upstream point': None,
+        'upstream error': None,
+        'downstream point': None,
+        'downstream error': None,
+        }
 
   def position(self, fraction=None):
     """
@@ -50,17 +37,12 @@ class Beam(object):
     position = None
     if fraction is not None:
       try:
-        position = (self.intercepts[0] + fraction * self.slope).tolist()
+        position = (self.trajectory['upstream point'] +
+            fraction * self.trajectory['slope']).tolist()
       except TypeError:
         print "Trajectory is not initilized"
     else:
-      profile = self.camera.read()
-      if (profile['power'] >= self.power_level):
-        position = self.controller.groupPosition(self.group_id)
-        elevation = profile['centroid_y'] / 1000.0
-        position.insert(1, elevation)
-      else:
-        print "Beam not visible"
+      position = self.tracker.beamPosition()
     return position
 
   def dump(self):
@@ -71,49 +53,45 @@ class Beam(object):
     The dictionary keys are the same name as the instance variables
     (intercepts, intercept_uncertainties, slope)
     """
-    data = {}
+    data = []
     try:
-      data['intercepts'] = [item.tolist() for item in self.intercepts]
-      data['intercept_uncertainties'] = self.intercept_uncertainties
-      data['slope'] = self.slope.tolist()
+      data = [(k, v.tolist()) for k, v in self.trajectory.items()]
     except AttributeError:
       # Must be default values. Why save them anyways?
-      data['intercepts'] = self.intercepts
-      data['uncertainties'] = self.intercept_uncertainties
-      data['slope'] = self.slope
+      data = [(k, None) for k, v in self.trajectory.items()]
     return data
 
   def load(self, data):
     """
-    Restores the trajectory data from a dictionary of the type returned by
+    Restores the trajectory data from a list of the type returned by
     dump().
     """
-    if data is not None:
-      try:
-        self.intercepts = [np.array(item) for
-            item in data['intercepts'] if item is not None]
-        self.intercept_uncertainties = data['intercept_uncertainties']
-        self.slope = (
-            np.array(data['slope']) if data['slope'] is not None else None)
-      except KeyError:
-        print "Data is invalid. Values unchanged."
+    try:
+      if None in [v for k, v in data]:
+        print "Data is incomplete. Values unchanged."
+      else:
+        self.trajectory = dict([(k, np.array(v)) for k, v in data])
+    except TypeError:
+      print "Data is invalid. Values unchanged."
 
-  def jitter(self, samples=10):
+  def jitter(self, number_of_samples=5):
     """
     Returns the average position in mm of the beam centroid and its
-    standard error in the camera frame after a number of samples if
+    standard error in the profiler frame after a number of samples if
     the beam is visible, otherwise None is returned.
     """
-    output = None
-    centroids = []
-    if self.camera.read()['power'] >= self.power_level:
-      for i in range(samples):
-        readout = self.camera.read()
-        centroids.append([readout['centroid_x'], readout['centroid_y']])
-      centroid = np.mean(zip(*centroids), 1) / 1000.0
-      error = np.std(zip(*centroids), 1) / 1000.0
+    first_centroid = self.tracker.centroid()
+    if first_centroid is None:
+      return None
+    else:
+      centroids = []
+      centroids.append(first_centroid)
+      for i in range(number_of_samples - 1):
+        centroids.append(self.tracker.centroid())
+      centroid = np.mean(zip(*centroids), 1)
+      error = np.std(zip(*centroids), 1)
       output = [centroid, error]
-    return output
+      return output
 
   def centerBeam(self):
     """
@@ -123,132 +101,130 @@ class Beam(object):
     centered, the camera is moved to the center. If the beam is not visible,
     None is returned.
     """
-    jitter = self.jitter(1)
-    if jitter is None:
+    centroid = self.tracker.centroid()
+    if centroid is None:
       return None
     # Do quick sampling to get centroid close to center.
-    while abs(jitter[0][0]) > 0.5:
-      stage_position = self.controller.groupPosition(self.group_id)
-      if len(stage_position) == 2: # If no y-axis stage,
-        stage_position.insert(1, 0.0) # Add a y offset
-      centroid = list(jitter[0]) + [0]
+    while map(abs, self.tracker.centroid()) > [0.5, 0.5, 0.5]:
+      stage_position = self.tracker.stagePosition()
+      centroid = self.tracker.centroid()
       position = np.array(stage_position) + np.array(centroid)
-      self.controller.groupMoveLine(
-          self.group_id, position[0::2], wait=True)
-      jitter = self.jitter(1)
+      self.tracker.stagePosition(position, wait=True)
+    # TODO - Replace following while loop with a finite number of iterations?
     while True:
-      jitter = self.jitter(10)
-      stage_position = self.controller.groupPosition(self.group_id)
-      if len(stage_position) == 2: # If no y-axis stage,
-        stage_position.insert(1, 0.0) # Add a y offset
-      centroid = list(jitter[0]) + [0]
+      jitter = self.jitter()
+      stage_position = self.tracker.stagePosition()
+      centroid = jitter[0]
       position = np.array(stage_position) + np.array(centroid)
-      if abs(jitter[0][0]) > abs(jitter[1][0]):
-        self.controller.groupMoveLine(
-            self.group_id, position[0::2], wait=True)
+      if any(map(abs, jitter[0]) > jitter[1]):
+        self.tracker.stagePosition(position, wait=True)
       else:
         # TODO - Get full stage uncertainties.
-        return [position.tolist(), list(jitter[1]) + [0.0005]]
+        return [position.tolist(), jitter[1] + [0.0005]]
 
-  def findBeam(self, z_position, starting_x_point=-125.0, reverse=False):
+  def findBeam(self, x0=-125, y0=12.5, z0=-125, reverse=False):
     """
     Scans in X for single beam and centers camera on beam.
     """
     # Move camera into starting point.
-    self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(
-        self.group_id, [starting_x_point, z_position], wait=True)
-    group_configuration = self.controller.groupConfiguration(self.group_id)
-    self.controller.groupDelete(self.group_id)
+    self.tracker.groupState(1, fast=True)
+    self.tracker.stagePosition([x0, y0, z0], wait=True)
 
     # Scan for beam crossing.
-    scan_axis = self.controller.axes[group_configuration['axes'][0] - 1]
-    scan_axis.velocity(10)
-    scan_axis.position(125)
+    self.tracker.groupState(1, fast=False)
+    x_axis = self.tracker.driver.axes[self.tracker.axes[0] - 1]
+    x_axis.position(125)
     beam_positions = []
-    while scan_axis.isMoving():
-      if (self.camera.read()['power'] > self.power_level):
-        beam_positions.append([scan_axis.position(), z_position])
+    while x_axis.isMoving():
+      current_position = self.tracker.beamPosition()
+      if current_position is not None:
+        beam_positions.append(current_position)
       elif beam_positions:
-        scan_axis.stop(wait=True)
-    self.controller.groupCreate(**group_configuration)
-    self.controller.pauseForGroup(self.group_id)
-    time.sleep(0.125)
+        x_axis.stop(wait=True)
     if not beam_positions:
       print "Beam not seen!"
       return None
     # Go back to the beam.
-    beam_x = np.mean(beam_positions, 0)[0]
-    self.controller.groupMoveLine(self.group_id, [beam_x, z_position], wait=True)
-    self.controller.groupVelocity(self.group_id, 10)
+    beam_x = np.mean(beam_positions, 0)[0] - 2.0
+    self.tracker.stagePosition([beam_x, y0, z0], wait=True)
+    self.tracker.groupState(3, fast=True)
     while True:
       centered = self.centerBeam()
       if centered is None:
-        self.controller.groupMoveLine(
-            self.group_id, [beam_x - 3.0, z_position], wait=True)
-      elif centered:
+        self.tracker.stagePosition([beam_x - 3.0, y0, z0], wait=True)
+      else:
         return centered
 
-  def findTrajectory(self, starting_x_point=-125):
+  def findTrajectory(self, x0=-125, y0=12.5, z0=-125, reverse=False):
     """
     Find trajectory of single beam.
     """
     # Find the beam at most upstream position.
-    self.intercepts[0] = None
-    intercept = self.findBeam(-125, starting_x_point=starting_x_point)
-    if intercept is not None:
-      self.intercepts[0] = np.array(intercept[0])
+    self.trajectory['upstream point'] = None
+    self.trajectory['upstream error'] = None
+    self.trajectory['downstream point'] = None
+    self.trajectory['downstream error'] = None
+    first_point = 'upstream point'
+    first_error = 'upstream error'
+    second_point = 'downstream point'
+    second_error = 'downstream error'
+    if reverse:
+      first_point = 'downstream point'
+      first_error = 'downstream error'
+      second_point = 'upstream point'
+      second_error = 'upstream error'
+    for i in [0, 1, 2, -1, -2]:
+      first_intercept = self.findBeam(x0, y0 + i * 4.0, z0)
+      if first_intercept is not None:
+        self.trajectory[first_point] = np.array(first_intercept[0])
+        self.trajectory[first_error] = np.array(first_intercept[1])
+        break
     else:
-      for i in range(3):
-        intercept = self.findBeam(-125)
-        if intercept is not None:
-          self.intercepts[0] = np.array(intercept[0])
-          break
-      else:
-        print "Cannot find beam. Check beam power and camera height."
-        return None
-    self.intercept_uncertainties[0] = intercept[1]
+      print "Cannot find beam. Check beam power and camera height."
+      return None
 
     # Calculate rough trajectory of the beam.
-    step = self.intercepts[0] + np.array([0, 0, 30])
-    self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
+    sign = 1 if not reverse else -1
+    step = self.trajectory[first_point] + sign * np.array([0, 0, 30])
+    self.tracker.groupState(2, fast=True)
+    self.tracker.stagePosition(step, wait=True)
     while True:
       centered = self.centerBeam()
       if centered is None:
-        step = step + np.array([0, 0, -10])
-        self.controller.groupMoveLine(self.group_id, step[0::2], wait=True)
+        step = step - sign * np.array([0, 0, 10])
+        self.tracker.stagePosition(step, wait=True)
       elif centered:
         break
-    upstream_sample = self.position()
-    downstream_sample = [self.intercepts[0][0] + (
-        ((self.upper_limit_z - self.intercepts[0][2]) /
-        (upstream_sample[2] - self.intercepts[0][2])) *
-        (upstream_sample[0] - self.intercepts[0][0])),
-        self.intercepts[0][1],
-        self.upper_limit_z]
-    self.controller.groupVelocity(self.group_id, 40)
-    self.controller.groupMoveLine(
-        self.group_id, downstream_sample[0::2], wait=True)
-    self.controller.groupVelocity(self.group_id, 10)
+    first_sample = np.array(self.tracker.stagePosition())
+    direction = itlin.normalize(
+        first_sample - self.trajectory[first_point])
+    # TODO - Replace following ILS250 assumption with something more robust.
+    scale = sign * 2 * abs(self.trajectory[first_point][2]) / direction[2]
+    second_sample = self.trajectory[first_point] + scale * direction
+    self.tracker.groupState(1, fast=True)
+    self.tracker.stagePosition(second_sample.tolist()[:2] + [sign * 125], wait=True)
+    self.tracker.groupState(3, fast=True)
 
     # Refine trajectory of the beam.
     while True:
-      centered = self.centerBeam()
-      if centered is None:
+      second_intercept = self.centerBeam()
+      if second_intercept is None:
         # TODO - Cross this bridge when we get there.
         pass
-      elif centered:
-        self.intercepts[1] = np.array(centered[0])
-        self.intercept_uncertainties[1] = centered[1]
-        self.slope = self.intercepts[1] - self.intercepts[0]
-        return self.slope
+      elif second_intercept:
+        self.trajectory[second_point] = np.array(second_intercept[0])
+        self.trajectory[second_error] = np.array(second_intercept[1])
+        self.trajectory['slope'] = (self.trajectory['downstream point'] -
+            self.trajectory['upstream point'])
+        return self.trajectory['slope']
 
   def slopeUncertainty(self):
     """
     Returns a list of the four 1 sigma alternate trajectories based on the
     upstream and downstream intercept uncertainties.
     """
-    if not self.intercept_uncertainties:
+    if (self.trajectory['upstream error'] is None
+        or self.trajectory['downstream error'] is None):
       return None
     signs = [[ 1,  1, -1, -1],
              [ 1, -1, -1,  1],
@@ -256,22 +232,22 @@ class Beam(object):
              [-1,  1,  1, -1]]
     alternates = []
     for i in range(4):
-      r0 = np.array(self.intercepts[0])
-      rf = np.array(self.intercepts[1])
-      r0[0] += signs[i][0] * self.intercept_uncertainties[0][0]
-      r0[1] += signs[i][1] * self.intercept_uncertainties[0][1]
-      rf[0] += signs[i][2] * self.intercept_uncertainties[1][0]
-      rf[1] += signs[i][3] * self.intercept_uncertainties[1][1]
+      r0 = self.trajectory['upstream point']
+      rf = self.trajectory['downstream point']
+      r0[0] += signs[i][0] * self.trajectory['upstream error'][0]
+      r0[1] += signs[i][1] * self.trajectory['upstream error'][1]
+      rf[0] += signs[i][2] * self.trajectory['downstream error'][0]
+      rf[1] += signs[i][3] * self.trajectory['downstream error'][1]
       alternates.append((itlin.normalize(rf - r0)).tolist())
     return alternates
 
-  def moveOnBeam(self, fraction):
+  def moveOnBeam(self, fraction, fast=False):
       """
       Moves the stage group along the beam trajectory to the given fraction
       of available group path.
       """
-      self.controller.groupMoveLine(self.group_id,
-          (self.position(fraction))[0::2])
+      self.tracker.groupState(3, fast)
+      self.tracker.stagePosition(self.position(fraction))
 
   def angles(self, reverse=False):
     """
@@ -283,7 +259,7 @@ class Beam(object):
     to correspond to the beam polarization.
     """
     sign = -1 if reverse else 1
-    d = sign * itlin.normalize(self.slope)
+    d = sign * itlin.normalize(self.trajectory['slope'])
     # The alpha angle is signed and related to the xz-projection.
     phi = np.arcsin(itlin.normalize(d[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:

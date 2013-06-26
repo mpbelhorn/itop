@@ -37,11 +37,16 @@ def reconstructMirrorNormal(downstream_ray, **kwargs):
       (linalg.norm(inner_downstream - inner_upstream)))
 
 
-def focus(intercepts_a, intercepts_b, plane='T'):
+def focus(trajectory_a, trajectory_b, plane='T'):
   """
-  Returns the focal point for the given beam intercepts.
+  Returns the focal point for the given beam trajectories.
 
-  The beam intercepts are lists of the form (p_upstream, p_downstream)
+  The beam trajectories are dictionaries of the form:
+    {upstream xyz intercept,
+     upstream xyz error,
+     downstream xyz intercept,
+     downstream xyz error,
+     xyz slope}
   where the p_upstream and p_downstream are (x,y,z) points on the beam
   in the specified relative positions.
 
@@ -50,28 +55,29 @@ def focus(intercepts_a, intercepts_b, plane='T'):
              Accpetable values are 'T' (default) or 'S'
   """
   index = 1 if plane is 'S' else 0
-  sa = intercepts_a[1] - intercepts_a[0]
-  sb = intercepts_b[1] - intercepts_b[0]
+  iua = trajectory_a['upstream point']
+  iub = trajectory_b['upstream point']
+  ida = trajectory_a['downstream point']
+  idb = trajectory_b['downstream point']
+  sa = ida - iua
+  sb = idb - iub
   # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
   coefficients = array([[sa[2], -sa[index]], [sb[2], -sb[index]]])
-  ordinates = array([sa[2] * intercepts_a[0][index] - sa[index] * intercepts_a[0][2],
-                     sb[2] * intercepts_b[0][index] - sb[index] * intercepts_b[0][2]])
+  ordinates = array([sa[2] * iua[index] - sa[index] * iua[2],
+                     sb[2] * iub[index] - sb[index] * iub[2]])
   solution = linalg.solve(coefficients, ordinates)
-  fraction_a = ((solution[1] - intercepts_a[0][2]) / sa[2])
-  fraction_b = ((solution[1] - intercepts_b[0][2]) / sb[2])
-  focus_a = (intercepts_a[0] + fraction_a * sa)
-  focus_b = (intercepts_b[0] + fraction_b * sb)
+  fraction_a = ((solution[1] - iua[2]) / sa[2])
+  fraction_b = ((solution[1] - iub[2]) / sb[2])
+  focus_a = (iua + fraction_a * sa)
+  focus_b = (iub + fraction_b * sb)
   return [focus_a, focus_b]
 
 
-def focusWithUncertainty(intercepts_a, uncertainties_a,
-    intercepts_b, uncertainties_b, plane='T'):
+def focusWithUncertainty(trajectory_a, trajectory_b, plane='T'):
   """
-  Returns the focal point and its uncertainty for the given beam intercepts.
+  Returns the focal point and its uncertainty for the given beam trajectories.
 
-  The beam intercepts are lists of the form (p_upstream, p_downstream)
-  where the p_upstream and p_downstream are (x,y,z) points on the beam
-  in the specified relative positions.
+  The beam intercepts are dictionaries of the same form as for itop.optics.focus().
 
   Takes the following optional keyword argument:
   plane  --  Selects the (T)angential or (S)agittal focal plane.
@@ -82,17 +88,25 @@ def focusWithUncertainty(intercepts_a, uncertainties_a,
   signs_list = [[ 0, 0],  # Central Value
                 [ 1,-1],  # Upstream Limit
                 [-1, 1]]  # Downstream Limit
+  iua = trajectory_a['upstream point']
+  eua = trajectory_a['upstream error']
+  iub = trajectory_b['upstream point']
+  eub = trajectory_b['upstream error']
+  ida = trajectory_a['downstream point']
+  eda = trajectory_a['downstream error']
+  idb = trajectory_b['downstream point']
+  edb = trajectory_b['downstream error']
+
   for signs in signs_list:
     offset = array([0, 0, 0])
-    ri_a = intercepts_a[0] + signs[0] * (
-        offset + array(uncertainties_a[0][index]))
-    rf_a = intercepts_a[1] + signs[0] * (
-          offset + array(uncertainties_a[1][index]))
-    ri_b = intercepts_b[0] + signs[1] * (
-        offset + array(uncertainties_b[0][index]))
-    rf_b = intercepts_b[1] + signs[1] * (
-        offset + array(uncertainties_b[1][index]))
-    foci.append(focus([ri_a, rf_a], [ri_b, rf_b], plane=plane))
+    ri_a = iua + signs[0] * (offset + array(eua[index]))
+    rf_a = ida + signs[0] * (offset + array(eda[index]))
+    ri_b = iub + signs[1] * (offset + array(eub[index]))
+    rf_b = idb + signs[1] * (offset + array(edb[index]))
+    foci.append(focus(
+        {'upstream point': ri_a, 'downstream point': rf_a},
+        {'upstream point': ri_b, 'downstream point': rf_b},
+        plane=plane))
   # TODO - If stage can move to focal point, verify the position is correct.
   delta1_a = (foci[1][0] - foci[0][0]).tolist()
   delta2_a = (foci[2][0] - foci[0][0]).tolist()

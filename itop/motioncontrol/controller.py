@@ -201,7 +201,7 @@ class StageController(object):
       self.pauseForGroup(group_id)
     return coordinates
 
-  def groupCreate(self, axes=None, group_id=1, home=False,
+  def groupCreate(self, axes=None, group_id=1, home=False, check=False,
       velocity=10, acceleration=30, deceleration=30, jerk=0, estop=200):
     """
     Creates a group of two or more axes over the given axes.
@@ -241,8 +241,9 @@ class StageController(object):
       'estop' (200):
           Set group emergency stop deceleration (Units/s^2). Maximum allowed
           value is 2 * 10^9 * MIN_ENCODER_RESOLUTION.
+      'check' (False):
+          Check that the given kinematic parameters are in range.
     """
-    group_id = kwargs.pop('group_id', 1)
     if axes is None:
       self.send('HN', '?', group_id)
       axes = [int(axis.strip()) for axis in self.read().split(',')]
@@ -255,17 +256,19 @@ class StageController(object):
           'acceleration': acceleration,
           'deceleration': deceleration,
           }
-      for axis in axes:
-        stage = self.axes[axis - 1]
-        kinematics['velocity'] = min(
-            kinematics['velocity'], stage.velocityLimit())
-        kinematics['acceleration'] = min(
-            kinematics['acceleration'], stage.accelerationLimit())
-        kinematics['deceleration'] = min(
-            kinematics['deceleration'], stage.accelerationLimit())
-        if home:
-          stage.on()
-          stage.goToHome(wait=True)
+      if check or home:
+        for axis in axes:
+          if check:
+            stage = self.axes[axis - 1]
+            kinematics['velocity'] = min(
+                kinematics['velocity'], stage.velocityLimit())
+            kinematics['acceleration'] = min(
+                kinematics['acceleration'], stage.accelerationLimit())
+            kinematics['deceleration'] = min(
+                kinematics['deceleration'], stage.accelerationLimit())
+          if home:
+            stage.on()
+            stage.goToHome(wait=True)
       self.send('HN', ",".join(map(str, axes)), group_id)
       self.groupVelocity(group_id, kinematics['velocity'])
       self.groupAcceleration(group_id, kinematics['acceleration'])

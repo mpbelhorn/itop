@@ -11,14 +11,11 @@ class FocalPoint(object):
   Finds, calculates and returns information about the focal point
   and beam crossing positions in general of two beams.
   """
-  def __init__(self, controller, group_id, camera, mirror):
-    self.controller = controller
-    self.mirror = self.controller.axis1
-    self.group_id = group_id
-    self.camera = camera
+  def __init__(self, tracker, mirror):
+    self.tracker = tracker
     self.mirror = mirror
-    self.beam_a = Beam(self.controller, self.group_id, self.camera)
-    self.beam_b = Beam(self.controller, self.group_id, self.camera)
+    self.beam_a = Beam(self.tracker)
+    self.beam_b = Beam(self.tracker)
     self.alignment = None
 
   def findTrajectories(self, proximal=False):
@@ -29,15 +26,23 @@ class FocalPoint(object):
     proximal -- Boolean (False). If true, the last trajectory data is used
                 to narrow the search for the new trajectory.
     """
-    starting_x_coordinate = -125
-    if proximal and self.beam_a.slope is not None:
-      starting_x_coordinate = self.beam_a.intercepts[0][0] - 10.0
+    start_point = [-125, 12.5, -125]
+    if proximal and self.beam_a.trajectory['slope'] is not None:
+      start_point = self.beam_a.trajectory['upstream point'] + np.array([-25, 0, 0])
     # Block beam 'B' and find beam 'A' trajectory.
-    raw_input("Clear beam 'A' and block beam 'B'. Press enter to continue.")
-    self.beam_a.findTrajectory(starting_x_coordinate)
+    shutter = self.tracker.driver.shutterState
+    shutter(1,0)
+    shutter(0,1)
+    self.beam_a.findTrajectory(*start_point)
     # Block beam 'A' and find beam 'B' trajectory.
-    raw_input("Clear beam 'B' and block beam 'A'. Press enter to continue.")
-    self.beam_b.findTrajectory(starting_x_coordinate)
+    shutter(1,1)
+    shutter(0,0)
+    self.beam_b.findTrajectory(
+        *((self.beam_a.trajectory['downstream point'] +
+        np.array([-20, 0, 0])).tolist()), reverse=True)
+    shutter(1,0)
+    shutter(0,0)
+
 
   def findFocalPoints(self, mirror_position, refresh=False, proximal=False):
     """
@@ -54,8 +59,8 @@ class FocalPoint(object):
     # Initialize the beam trajectories if necessary.
     if proximal:
       self.findTrajectories(proximal=True)
-    elif ((self.beam_a.slope is None) or
-        (self.beam_b.slope is None) or
+    elif ((self.beam_a.trajectory['slope'] is None) or
+        (self.beam_b.trajectory['slope'] is None) or
         refresh):
       self.findTrajectories()
     else:
