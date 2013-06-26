@@ -14,7 +14,7 @@ class Profiler(object):
     Establish serial communication with an HD-LBP.
     """
     self.device = device
-    self.io = serial.Serial(device, 57600, timeout=1)
+    self.io = serial.Serial(device, 115200, timeout=1)
     self.keys = ['time', 'centroid_x', 'centroid_y', 'centroid_r',
                  'level_1', 'level_2', 'level_3',
                  'width_1', 'width_2', 'width_3',
