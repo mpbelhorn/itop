@@ -71,20 +71,19 @@ class FocalPoint(object):
                Accpetable values are 'T' (default) or 'S'
     """
     return optics.focusWithUncertainty(
-        self.beam_a.intercepts, self.beam_a.intercept_uncertainties,
-        self.beam_b.intercepts, self.beam_b.intercept_uncertainties,
+        self.beam_a.trajectory, self.beam_b.trajectory,
         plane=plane)
 
   def data(self):
     """
     Returns a list of the stage-frame-of-reference focal point data.
     """
-    return [self.mirror.position(),
-            self.beam_a.slope.dump(),
-            self.beam_b.slope.dump(),
-            self.focus('T'),
-            self.focus('S'),
-            self.radius()]
+    return {'Mirror Position': self.mirror.position(),
+            'Beam A Trajectory': self.beam_a.dump(),
+            'Beam B Trajectory': self.beam_b.dump(),
+            'Tangential Focus': self.focus('T'),
+            'Sagittal Focus': self.focus('S'),
+            'Mirror Radius': self.radius()}
 
   def radius(self):
     """
