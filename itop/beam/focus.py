@@ -36,7 +36,7 @@ class FocalPoint(object):
     proximal -- Boolean (False). If true, the last trajectory data is used
                 to narrow the search for the new trajectory.
     """
-    start_point = [-125, 12.5, -125]
+    start_point = [-125., 20., -125.]
     if proximal and self.beam_a.slope is not None:
       start_point = self.beam_a.upstream_point + np.array([-25, 0, 0])
     # Block beam 'B' and find beam 'A' trajectory.
