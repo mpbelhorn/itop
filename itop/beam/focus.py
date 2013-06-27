@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 A module for tracking the focal point of a spherical mirror.
 """
