@@ -258,8 +258,8 @@ class StageController(object):
           }
       if check or home:
         for axis in axes:
+          stage = self.axes[axis - 1]
           if check:
-            stage = self.axes[axis - 1]
             kinematics['velocity'] = min(
                 kinematics['velocity'], stage.velocityLimit())
             kinematics['acceleration'] = min(
