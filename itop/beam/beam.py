@@ -133,28 +133,28 @@ class Beam(object):
       scan_direction_x (1): Integers +1 (-1) indicate to scan in the
                             positive (negative) x direction.
     """
-    # Move camera into starting point.
-    self.tracker.groupState(1, fast=True)
-    self.tracker.stagePosition([x0, y0, z0], wait=True)
-
-    # Scan for beam crossing.
-    self.tracker.groupState(1, fast=False)
     x_axis = self.tracker.driver.axes[self.tracker.axes[0] - 1]
-    x_axis.position(scan_direction_x * 125)
     beam_positions = []
-    while x_axis.isMoving():
-      current_position = self.tracker.beamPosition()
-      if current_position is not None:
-        beam_positions.append(current_position)
-      elif beam_positions:
-        x_axis.stop(wait=True)
-    if not beam_positions:
-      print "Beam not seen!"
-      return None
-    # Go back to the beam.
     overshoot = scan_direction_x * 2.0
-    beam_x = np.mean(beam_positions, 0)[0]
-    self.tracker.stagePosition([beam_x, y0, z0], wait=True)
+    if not self.tracker.beamVisible():
+      # Move camera into starting point.
+      self.tracker.groupState(1, fast=True)
+      self.tracker.stagePosition([x0, y0, z0], wait=True)
+
+      # Scan for beam crossing.
+      self.tracker.groupState(1, fast=False)
+      x_axis.position(scan_direction_x * 125)
+      while x_axis.isMoving():
+        current_position = self.tracker.beamPosition()
+        if current_position is not None:
+          x_axis.stop(wait=True)
+          self.tracker.stagePosition(current_position, wait=True)
+          break
+      else:
+        print "Beam not seen!"
+        return None
+
+    # The beam should now be in view.
     self.tracker.groupState(3, fast=True)
     while True:
       centered = self.centerBeam()
@@ -174,12 +174,14 @@ class Beam(object):
       scan_direction_z (1): Integers +1 (-1) indicate to scan in the
                             positive (negative) z direction.
     """
-    # Find the beam at most upstream position.
+    # Clear current beam data.
     self.slope = None
     self.upstream_point = None
     self.upstream_error = None
     self.downstream_point = None
     self.downstream_error = None
+
+    # Find the beam at the first z extreme.
     for i in [0, 1, 2, -1, -2]:
       first_intercept = self.findBeam(x0, y0 + i * 4.0, z0, scan_direction_x)
       if first_intercept is not None:
