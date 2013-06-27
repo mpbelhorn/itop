@@ -163,6 +163,19 @@ class Beam(object):
       else:
         return centered
 
+  def distortion(self):
+    """
+    Returns a list of the ratios r(%) = h(%)/w(%) where h(%) and w(%) are the width
+    and height of the beam's best fit gaussian profile at the given percentage of
+    the maximum profile power.
+
+    The default percentages are 13.5%, 50.0% and 80.0%
+    """
+    profile = self.tracker.profiler.read()
+    return (profile['height_1']/profile['width_1'],
+            profile['height_2']/profile['width_2'],
+            profile['height_3']/profile['width_3'])
+
   def findTrajectory(self, x0=-125, y0=12.5, z0=-125,
       scan_direction_x=1, scan_direction_z=1):
     """
