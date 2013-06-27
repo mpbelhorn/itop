@@ -12,7 +12,8 @@ TrajectoryData = namedtuple('TrajectoryData',
      'upstream_point',
      'upstream_error',
      'downstream_point',
-     'downstream_error'])
+     'downstream_error',
+     'distortions'])
 
 class Beam(object):
   """
@@ -32,6 +33,7 @@ class Beam(object):
     self.upstream_error = None
     self.downstream_point = None
     self.downstream_error = None
+    self.distortions = None
 
   def position(self, fraction):
     """
@@ -52,12 +54,13 @@ class Beam(object):
             self.upstream_point,
             self.upstream_error,
             self.downstream_point,
-            self.downstream_error]
+            self.downstream_error
+            self.distortions]
     if None not in data:
         return TrajectoryData(*data)
     else:
       # Must be default values. Why save them anyways?
-      return TrajectoryData(*[None] * 5)
+      return TrajectoryData(*[None] * 6)
 
   def load(self, data):
     """
@@ -70,12 +73,14 @@ class Beam(object):
       self.upstream_error = None
       self.downstream_point = None
       self.downstream_error = None
+      self.distortions = None
     else:
       self.slope = np.array(data[0])
       self.upstream_point = np.array(data[1])
       self.upstream_error = np.array(data[2])
       self.downstream_point = np.array(data[3])
       self.downstream_error = np.array(data[4])
+      self.distortions = data[5]
 
   def jitter(self, number_of_samples=5):
     """
