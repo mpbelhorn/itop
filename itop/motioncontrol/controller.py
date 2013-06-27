@@ -397,17 +397,18 @@ class StageController(object):
     else:
       self.send('SB', hex(status).replace('x', '') + 'H')
 
-  def shutterState(self, shutter_id, shutter_open):
+  def shutterState(self, shutter_id, desired_open):
     """
     Sets the shutter with given id  (0 or 1) to the state given by
     shutter_open (true or false).
     """
-    shutter_status = bool(self.gpioState() & (1<<(shutter_id + 8)))
-    if shutter_open is shutter_status:
+    shutter_is_open = bool(self.gpioState() & (1<<(shutter_id + 8)))
+    if desired_open == shutter_is_open:
       return
-    elif shutter_open:
-      self.gpioState(1<<shutter_id)
-    else:
+    elif desired_open:
       self.gpioState(1<<(shutter_id + 2))
+    else:
+      self.gpioState(1<<shutter_id)
     time.sleep(0.1)
     self.gpioState(0)
+    time.sleep(0.25)

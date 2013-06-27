@@ -31,17 +31,18 @@ class BeamAlignment(object):
     self.tracker.facing_z_direction = 1
     # Block beam 'B' and find beam 'A' trajectory.
     shutter = self.tracker.driver.shutterState
-    shutter(1,0)
-    shutter(0,1)
+    shutter(0, 0)
+    shutter(1, 1)
     self.beam_a.findTrajectory(125, 12, 125, -1, -1)
     # Block beam 'A' and find beam 'B' trajectory.
-    shutter(1,1)
-    shutter(0,0)
+    shutter(1, 0)
+    shutter(0, 1)
     self.beam_b.findTrajectory(125-50, 2, 125, -1, -1)
     self.x_displacement, self.y_displacement = self.displacements()
     self.angles = self.beamStageAngles()
     # Rotate camera to face mirror.
     self.tracker.facing_z_direction = -1
+    shutter(1, 1)
 
   def displacements(self):
     """

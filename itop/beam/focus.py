@@ -40,17 +40,16 @@ class FocalPoint(object):
       start_point = self.beam_a.upstream_point + np.array([-25, 0, 0])
     # Block beam 'B' and find beam 'A' trajectory.
     shutter = self.tracker.driver.shutterState
-    shutter(1,0)
-    shutter(0,1)
+    shutter(0, 0)
+    shutter(1, 1)
     self.beam_a.findTrajectory(*start_point)
     # Block beam 'A' and find beam 'B' trajectory.
-    shutter(1,1)
-    shutter(0,0)
+    shutter(1, 0)
+    shutter(0, 1)
     self.beam_b.findTrajectory(
         *((self.beam_a.downstream_point +
         np.array([-20, 0, 0])).tolist()), scan_direction_z=-1)
-    shutter(1,0)
-    shutter(0,0)
+    shutter(1, 1)
 
 
   def findFocalPoints(self, mirror_position, refresh=False, proximal=False):
