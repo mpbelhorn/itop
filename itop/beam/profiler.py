@@ -75,7 +75,8 @@ class Tracker(object):
       }
 
   def __init__(self, driver, profiler, alignment=None,
-      xyz_axes=[1, 2, 3], power=0.003, group_id=1, **kwargs):
+      xyz_axes=[1, 2, 3], power=0.003, group_id=1,
+      facing_z_direction=-1, **group_kwargs):
     """
     Creates a beam tracker.
 
@@ -112,12 +113,12 @@ class Tracker(object):
     self.alignment = alignment
     self.axes = xyz_axes
     self.group_state = 3 # 1=axes independent, 2=xz grouped, 3=xyz grouped
-    self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
+    self.facing_z_direction = facing_z_direction
 
     # Optional instance variables.
     self.power = power
     self.group_id = group_id
-    self.driver.groupCreate(self.axes, **kwargs)
+    self.driver.groupCreate(self.axes, **group_kwargs)
 
   def stagePosition(self, xyz_coordinates=None, wait=False):
     """
