@@ -193,10 +193,12 @@ class Beam(object):
     self.upstream_error = None
     self.downstream_point = None
     self.downstream_error = None
+    self.distortions = None
 
     # Find the beam at the first z extreme.
     for i in [0, 1, 2, -1, -2]:
       first_intercept = self.findBeam(x0, y0 + i * 4.0, z0, scan_direction_x)
+      first_distortion = self.distortion()
       if first_intercept is not None:
         break
     else:
@@ -228,6 +230,7 @@ class Beam(object):
     # Refine trajectory of the beam.
     while True:
       second_intercept = self.centerBeam()
+      second_distortion = self.distortion()
       if second_intercept is None:
         # TODO - Cross this bridge when we get there.
         pass
@@ -237,11 +240,13 @@ class Beam(object):
           self.upstream_error = np.array(first_intercept[1])
           self.downstream_point = np.array(second_intercept[0])
           self.downstream_error = np.array(second_intercept[1])
+          self.distortions = (first_distortion, second_distortion)
         else:
           self.downstream_point = np.array(first_intercept[0])
           self.downstream_error = np.array(first_intercept[1])
           self.upstream_point = np.array(second_intercept[0])
           self.upstream_error = np.array(second_intercept[1])
+          self.distortions = (second_distortion, first_distortion)
         self.slope = (self.downstream_point - self.upstream_point)
         return self.slope
 
