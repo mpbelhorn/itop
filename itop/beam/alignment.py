@@ -1,25 +1,24 @@
+# -*- coding: utf-8 -*-
 """
 A module for checking the beam alignment by direct imaging.
 """
 
 from itop.beam.beam import Beam
 import numpy as np
-import json
+import cPickle
+import zlib
 
 class BeamAlignment(object):
   """
   For establishing alignment and positioning of LBP with respect to beams.
   """
-  def __init__(self, controller, group_id, camera):
+  def __init__(self, tracker):
     """
-    Set pointers to the LBP and stage group controller.
+    Initialize alignment.
     """
-    self.controller = controller
-    self.group_id = group_id
-    self.camera = camera
-    self.beam_a = Beam(self.controller, self.group_id, self.camera)
-    self.beam_b = Beam(self.controller, self.group_id, self.camera)
-    self.height_offset = None
+    self.tracker = tracker
+    self.beam_a = Beam(self.tracker)
+    self.beam_b = Beam(self.tracker)
     self.angles = [None, None, None]
     self.x_displacement = None
     self.y_displacement = None
@@ -28,31 +27,28 @@ class BeamAlignment(object):
     """
     Initilizes the trajectories of both upstream beams.
     """
+    # Rotate camera to face splitter output.
+    self.tracker.facing_z_direction = 1
     # Block beam 'B' and find beam 'A' trajectory.
-    raw_input("Clear beam 'A' and block beam 'B'. Press enter to continue.")
-    self.beam_a.findTrajectory()
+    shutter = self.tracker.driver.shutterState
+    shutter(1,0)
+    shutter(0,1)
+    self.beam_a.findTrajectory(125, 12, 125, -1, -1)
     # Block beam 'A' and find beam 'B' trajectory.
-    self.height_offset = None
-    while self.height_offset is None:
-      try:
-        response = raw_input(
-            "Clear beam 'B' and block beam 'A'.\n"
-            " Make sure camera is at proper height. "
-            "Enter the vertical offset (Enter for None): ")
-        self.height_offset = 0.0 if response is '' else float(response)
-      except ValueError:
-        print "Offset must be a signed floating-point number or nothing."
-    self.beam_b.findTrajectory()
+    shutter(1,1)
+    shutter(0,0)
+    self.beam_b.findTrajectory(125-50, 2, 125, -1, -1)
     self.x_displacement, self.y_displacement = self.displacements()
     self.angles = self.beamStageAngles()
+    # Rotate camera to face mirror.
+    self.tracker.facing_z_direction = -1
 
   def displacements(self):
     """
     Calculates beam displacements given the trajectories and camera offset.
     """
     x_displacement, y_displacement = (
-        self.beam_b.intercepts[0] - self.beam_a.intercepts[0] +
-        np.array([0, self.height_offset, 0]))[:2]
+        self.beam_b.upstream_point - self.beam_a.upstream_point)[:2]
     return (x_displacement, y_displacement)
 
   def beamStageAngles(self):
@@ -64,26 +60,26 @@ class BeamAlignment(object):
 
   def save(self, file_path):
     """
-    Saves the beam alignment data to a JSON.
+    Saves the beam alignment data to a gzipped serialized object file.
     """
     data = {}
-    data['height_offset'] = self.height_offset
     data['angles'] = self.angles
     data['x_displacement'] = self.x_displacement
     data['y_displacement'] = self.y_displacement
-    data['beam_a'] = self.beam_a.dump()
-    data['beam_b'] = self.beam_b.dump()
+    data['beam_a'] = self.beam_a.trajectory()
+    data['beam_b'] = self.beam_b.trajectory()
 
-    with open(file_path, 'wb') as fp:
-      json.dump(data, fp)
+    with open(file_path, 'wb') as output_file:
+      output_file.write(zlib.compress(
+          cPickle.dumps(data, cPickle.HIGHEST_PROTOCOL),9))
 
   def load(self, file_path):
     """
-    Loads the beam alignment data from a saved JSON file.
+    Loads the beam alignment data from a gzipped serialized object file.
     """
-    with open(file_path, 'rb') as fp:
-      data = json.load(fp)
-      self.height_offset = data['height_offset']
+    with open(file_path, 'rb') as input_file:
+      pickled_data = zlib.decompress(input_file.read())
+      data = cPickle.loads(pickled_data)
       self.angles = data['angles']
       self.x_displacement = data['x_displacement']
       self.y_displacement = data['y_displacement']
