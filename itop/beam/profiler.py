@@ -68,8 +68,8 @@ class Tracker(object):
   # Static configurations dictionary.
   # TODO - This should be a named tuple.
   configurations = {
-      'Fast ILS': {'velocity': 40.0, 'acceleration': 20, 'deceleration': 20},
-      'Slow ILS': {'velocity': 10.0, 'acceleration': 20, 'deceleration': 20},
+      'Fast ILS': {'velocity': 40.0, 'acceleration': 50, 'deceleration': 50},
+      'Slow ILS': {'velocity': 10.0, 'acceleration': 50, 'deceleration': 50},
       'Fast LTA': {'velocity':  5.0, 'acceleration': 20, 'deceleration': 20},
       'Slow LTA': {'velocity':  2.0, 'acceleration': 20, 'deceleration': 20},
       }
