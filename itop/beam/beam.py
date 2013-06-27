@@ -5,6 +5,14 @@ A module for tracking and parameterizing a beam segment in 3D space.
 import numpy as np
 import itop.math.linalg as itlin
 import time
+from collections import namedtuple
+
+TrajectoryData = namedtuple('TrajectoryData',
+    ['slope',
+     'upstream_point',
+     'upstream_error',
+     'downstream_point',
+     'downstream_error'])
 
 class Beam(object):
   """
@@ -19,60 +27,55 @@ class Beam(object):
 
     """
     self.tracker = tracker
-    self.trajectory = {
-        'slope': None,
-        'upstream point': None,
-        'upstream error': None,
-        'downstream point': None,
-        'downstream error': None,
-        }
+    self.slope = None
+    self.upstream_point = None
+    self.upstream_error = None
+    self.downstream_point = None
+    self.downstream_error = None
 
-  def position(self, fraction=None):
+  def position(self, fraction):
     """
-    Returns the 3D position of the beam at the current 2D stage position.
-
-    If given an optional argument 'fraction', returns the coordinates of the
-    beam at the given fraction of the available stage group trajectory.
+    Returns the position in space at a given fraction along path length.
     """
-    position = None
-    if fraction is not None:
-      try:
-        position = (self.trajectory['upstream point'] +
-            fraction * self.trajectory['slope']).tolist()
-      except TypeError:
-        print "Trajectory is not initilized"
+    if self.slope is not None:
+      return (np.array(self.upstream_point) +
+          fraction * np.array(self.slope)).tolist()
     else:
-      position = self.tracker.beamPosition()
-    return position
+      return None
 
-  def dump(self):
+  def trajectory(self):
     """
-    Returns the beam trajectory data as a serializable dictionary
-    of lists instead of numpy array-types.
-
-    The dictionary keys are the same name as the instance variables
-    (intercepts, intercept_uncertainties, slope)
+    Returns the beam trajectory data as a named tuple with the same names as
+    in the class instance.
     """
-    data = []
-    try:
-      data = [(k, v.tolist()) for k, v in self.trajectory.items()]
-    except AttributeError:
+    data = [self.slope,
+            self.upstream_point,
+            self.upstream_error,
+            self.downstream_point,
+            self.downstream_error]
+    if None not in data:
+        return TrajectoryData(*data)
+    else:
       # Must be default values. Why save them anyways?
-      data = [(k, None) for k, v in self.trajectory.items()]
-    return data
+      return TrajectoryData(*[None] * 5)
 
   def load(self, data):
     """
-    Restores the trajectory data from a list of the type returned by
-    dump().
+    Restores the trajectory data from a list or tuple of the type returned by
+    trajectory().
     """
-    try:
-      if None in [v for k, v in data]:
-        print "Data is incomplete. Values unchanged."
-      else:
-        self.trajectory = dict([(k, np.array(v)) for k, v in data])
-    except TypeError:
-      print "Data is invalid. Values unchanged."
+    if None in data:
+      self.slope = None
+      self.upstream_point = None
+      self.upstream_error = None
+      self.downstream_point = None
+      self.downstream_error = None
+    else:
+      self.slope = np.array(data[0])
+      self.upstream_point = np.array(data[1])
+      self.upstream_error = np.array(data[2])
+      self.downstream_point = np.array(data[3])
+      self.downstream_error = np.array(data[4])
 
   def jitter(self, number_of_samples=5):
     """
@@ -122,9 +125,13 @@ class Beam(object):
         # TODO - Get full stage uncertainties.
         return [position.tolist(), jitter[1] + [0.0005]]
 
-  def findBeam(self, x0=-125, y0=12.5, z0=-125, reverse=False):
+  def findBeam(self, x0=-125, y0=12.5, z0=-125, scan_direction_x=1):
     """
     Scans in X for single beam and centers camera on beam.
+
+    The optional arguments are:
+      scan_direction_x (1): Integers +1 (-1) indicate to scan in the
+                            positive (negative) x direction.
     """
     # Move camera into starting point.
     self.tracker.groupState(1, fast=True)
@@ -133,7 +140,7 @@ class Beam(object):
     # Scan for beam crossing.
     self.tracker.groupState(1, fast=False)
     x_axis = self.tracker.driver.axes[self.tracker.axes[0] - 1]
-    x_axis.position(125)
+    x_axis.position(scan_direction_x * 125)
     beam_positions = []
     while x_axis.isMoving():
       current_position = self.tracker.beamPosition()
@@ -145,64 +152,62 @@ class Beam(object):
       print "Beam not seen!"
       return None
     # Go back to the beam.
-    beam_x = np.mean(beam_positions, 0)[0] - 2.0
+    overshoot = scan_direction_x * 2.0
+    beam_x = np.mean(beam_positions, 0)[0]
     self.tracker.stagePosition([beam_x, y0, z0], wait=True)
     self.tracker.groupState(3, fast=True)
     while True:
       centered = self.centerBeam()
       if centered is None:
-        self.tracker.stagePosition([beam_x - 3.0, y0, z0], wait=True)
+        self.tracker.stagePosition([beam_x - overshoot, y0, z0], wait=True)
       else:
         return centered
 
-  def findTrajectory(self, x0=-125, y0=12.5, z0=-125, reverse=False):
+  def findTrajectory(self, x0=-125, y0=12.5, z0=-125,
+      scan_direction_x=1, scan_direction_z=1):
     """
     Find trajectory of single beam.
+
+    The optional arguments are:
+      scan_direction_x (1): Integers +1 (-1) indicate to scan in the
+                            positive (negative) x direction.
+      scan_direction_z (1): Integers +1 (-1) indicate to scan in the
+                            positive (negative) z direction.
     """
     # Find the beam at most upstream position.
-    self.trajectory['upstream point'] = None
-    self.trajectory['upstream error'] = None
-    self.trajectory['downstream point'] = None
-    self.trajectory['downstream error'] = None
-    first_point = 'upstream point'
-    first_error = 'upstream error'
-    second_point = 'downstream point'
-    second_error = 'downstream error'
-    if reverse:
-      first_point = 'downstream point'
-      first_error = 'downstream error'
-      second_point = 'upstream point'
-      second_error = 'upstream error'
+    self.slope = None
+    self.upstream_point = None
+    self.upstream_error = None
+    self.downstream_point = None
+    self.downstream_error = None
     for i in [0, 1, 2, -1, -2]:
-      first_intercept = self.findBeam(x0, y0 + i * 4.0, z0)
+      first_intercept = self.findBeam(x0, y0 + i * 4.0, z0, scan_direction_x)
       if first_intercept is not None:
-        self.trajectory[first_point] = np.array(first_intercept[0])
-        self.trajectory[first_error] = np.array(first_intercept[1])
         break
     else:
       print "Cannot find beam. Check beam power and camera height."
       return None
 
     # Calculate rough trajectory of the beam.
-    sign = 1 if not reverse else -1
-    step = self.trajectory[first_point] + sign * np.array([0, 0, 30])
+    step = first_intercept[0] + scan_direction_z * np.array([0, 0, 30])
     self.tracker.groupState(2, fast=True)
     self.tracker.stagePosition(step, wait=True)
     while True:
       centered = self.centerBeam()
       if centered is None:
-        step = step - sign * np.array([0, 0, 10])
+        step = step - scan_direction_z * np.array([0, 0, 10])
         self.tracker.stagePosition(step, wait=True)
       elif centered:
         break
     first_sample = np.array(self.tracker.stagePosition())
     direction = itlin.normalize(
-        first_sample - self.trajectory[first_point])
+        first_sample - first_intercept[0])
     # TODO - Replace following ILS250 assumption with something more robust.
-    scale = sign * 2 * abs(self.trajectory[first_point][2]) / direction[2]
-    second_sample = self.trajectory[first_point] + scale * direction
+    scale = scan_direction_z * 2 * abs(first_intercept[0][2]) / direction[2]
+    second_sample = first_intercept[0] + scale * direction
     self.tracker.groupState(1, fast=True)
-    self.tracker.stagePosition(second_sample.tolist()[:2] + [sign * 125], wait=True)
+    self.tracker.stagePosition(
+        second_sample.tolist()[:2] + [scan_direction_z * 125], wait=True)
     self.tracker.groupState(3, fast=True)
 
     # Refine trajectory of the beam.
@@ -212,19 +217,25 @@ class Beam(object):
         # TODO - Cross this bridge when we get there.
         pass
       elif second_intercept:
-        self.trajectory[second_point] = np.array(second_intercept[0])
-        self.trajectory[second_error] = np.array(second_intercept[1])
-        self.trajectory['slope'] = (self.trajectory['downstream point'] -
-            self.trajectory['upstream point'])
-        return self.trajectory['slope']
+        if scan_direction_z == 1:
+          self.upstream_point = np.array(first_intercept[0])
+          self.upstream_error = np.array(first_intercept[1])
+          self.downstream_point = np.array(second_intercept[0])
+          self.downstream_error = np.array(second_intercept[1])
+        else:
+          self.downstream_point = np.array(first_intercept[0])
+          self.downstream_error = np.array(first_intercept[1])
+          self.upstream_point = np.array(second_intercept[0])
+          self.upstream_error = np.array(second_intercept[1])
+        self.slope = (self.downstream_point - self.upstream_point)
+        return self.slope
 
   def slopeUncertainty(self):
     """
     Returns a list of the four 1 sigma alternate trajectories based on the
     upstream and downstream intercept uncertainties.
     """
-    if (self.trajectory['upstream error'] is None
-        or self.trajectory['downstream error'] is None):
+    if None in (self.upstream_error, self.downstream_error):
       return None
     signs = [[ 1,  1, -1, -1],
              [ 1, -1, -1,  1],
@@ -232,12 +243,12 @@ class Beam(object):
              [-1,  1,  1, -1]]
     alternates = []
     for i in range(4):
-      r0 = self.trajectory['upstream point']
-      rf = self.trajectory['downstream point']
-      r0[0] += signs[i][0] * self.trajectory['upstream error'][0]
-      r0[1] += signs[i][1] * self.trajectory['upstream error'][1]
-      rf[0] += signs[i][2] * self.trajectory['downstream error'][0]
-      rf[1] += signs[i][3] * self.trajectory['downstream error'][1]
+      r0 = self.upstream_point
+      rf = self.downstream_point
+      r0[0] += signs[i][0] * self.upstream_error[0]
+      r0[1] += signs[i][1] * self.upstream_error[1]
+      rf[0] += signs[i][2] * self.downstream_error[0]
+      rf[1] += signs[i][3] * self.downstream_error[1]
       alternates.append((itlin.normalize(rf - r0)).tolist())
     return alternates
 
@@ -259,7 +270,7 @@ class Beam(object):
     to correspond to the beam polarization.
     """
     sign = -1 if reverse else 1
-    d = sign * itlin.normalize(self.trajectory['slope'])
+    d = sign * itlin.normalize(self.slope)
     # The alpha angle is signed and related to the xz-projection.
     phi = np.arcsin(itlin.normalize(d[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:

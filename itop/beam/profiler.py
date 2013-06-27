@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 A class to read the data from a Newport HD-LBP laser beam profiler.
 """
@@ -65,6 +66,7 @@ class Tracker(object):
   A class to represent an HD-LBP on a set of ESP stages.
   """
   # Static configurations dictionary.
+  # TODO - This should be a named tuple.
   configurations = {
       'Fast ILS': {'velocity': 40.0, 'acceleration': 20, 'deceleration': 20},
       'Slow ILS': {'velocity': 10.0, 'acceleration': 20, 'deceleration': 20},
@@ -72,17 +74,43 @@ class Tracker(object):
       'Slow LTA': {'velocity':  2.0, 'acceleration': 20, 'deceleration': 20},
       }
 
-  def __init__(self, driver, profiler, xyz_axes=[1, 2, 3], **kwargs):
+  def __init__(self, driver, profiler, alignment=None,
+      xyz_axes=[1, 2, 3], **kwargs):
     """
     Creates a beam tracker.
 
+    The tracker needs a reference to an externally defined stage driver and
+    beam profiler.
+
+    The stage driver must be able to control the x,y,z position of the beam
+    profiler. By default, the driver axes are taken to correspond to:
+      axis 1 <-> x-dimension
+      axis 2 <-> y-dimension
+      axis 3 <-> z-dimension
+    This can be overwritten by supplying the optional xyz_axes argument.
+
+    The profiler must be properly configured to output the correct beam power
+    for the given filters and base power. The coordinate system must also be
+    flipped about the horizontal if the LBP is mounted upside-down.
+
+    In order to calculate beam reflection angles correctly, the alignment
+    of the tracker axes with respect to the beam splitter output must be
+    supplied as an optional itop.beam.alignment object. If no alignment is
+    supplied at construction, it must be manually appended to the
+    Tracker.alignment instance variable in order to produce useful data.
+
     Optional keyword arguments:
-    'power' (0.003 mW): LBP
+      'xyz_axes' ([1,2,3]): Sets the axis-dimension map in the order [x,y,z].
+      'alignment' (None): Set an external alignment configuration.
+      'facing_z_direction' (-1): Direction camera is facing in z. Must be ±1.
+      'power' (0.003 mW): Power threshold when beam in view.
     """
     self.driver = driver
     self.profiler = profiler
+    self.alignment = None
     self.axes = xyz_axes
     self.group_state = 3 # 1=axes independent, 2=xz grouped, 3=xyz grouped
+    self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
 
     # Optional instance variables.
     self.power = kwargs.pop('power', 0.003)
@@ -147,7 +175,8 @@ class Tracker(object):
     if output is None:
       return None
     else:
-      return [output['centroid_x'] / 1000.0, output['centroid_y'] / 1000.0, 0.0]
+      return [-1 * self.facing_z_direction * output['centroid_x'] / 1000.0,
+              output['centroid_y'] / 1000.0, 0.0]
 
   def beamPosition(self):
     """

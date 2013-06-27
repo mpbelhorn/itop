@@ -5,6 +5,15 @@ A module for tracking the focal point of a spherical mirror.
 from itop.beam.beam import Beam
 import numpy as np
 from itop.math import linalg, optics
+from collections import namedtuple
+
+FocusData = namedtuple('FocusData',
+    ['mirror_position',
+     'beam_a_trajectory',
+     'beam_b_trajectory',
+     'tangential_focus',
+     'sagittal_focus',
+     'mirror_radius'])
 
 class FocalPoint(object):
   """
@@ -27,8 +36,8 @@ class FocalPoint(object):
                 to narrow the search for the new trajectory.
     """
     start_point = [-125, 12.5, -125]
-    if proximal and self.beam_a.trajectory['slope'] is not None:
-      start_point = self.beam_a.trajectory['upstream point'] + np.array([-25, 0, 0])
+    if proximal and self.beam_a.slope is not None:
+      start_point = self.beam_a.upstream_point + np.array([-25, 0, 0])
     # Block beam 'B' and find beam 'A' trajectory.
     shutter = self.tracker.driver.shutterState
     shutter(1,0)
@@ -38,8 +47,8 @@ class FocalPoint(object):
     shutter(1,1)
     shutter(0,0)
     self.beam_b.findTrajectory(
-        *((self.beam_a.trajectory['downstream point'] +
-        np.array([-20, 0, 0])).tolist()), reverse=True)
+        *((self.beam_a.downstream_point +
+        np.array([-20, 0, 0])).tolist()), scan_direction_z=-1)
     shutter(1,0)
     shutter(0,0)
 
@@ -59,8 +68,8 @@ class FocalPoint(object):
     # Initialize the beam trajectories if necessary.
     if proximal:
       self.findTrajectories(proximal=True)
-    elif ((self.beam_a.trajectory['slope'] is None) or
-        (self.beam_b.trajectory['slope'] is None) or
+    elif ((self.beam_a.slope is None) or
+        (self.beam_b.slope is None) or
         refresh):
       self.findTrajectories()
     else:
@@ -76,19 +85,20 @@ class FocalPoint(object):
                Accpetable values are 'T' (default) or 'S'
     """
     return optics.focusWithUncertainty(
-        self.beam_a.trajectory, self.beam_b.trajectory,
+        self.beam_a.trajectory(),
+        self.beam_b.trajectory(),
         plane=plane)
 
   def data(self):
     """
     Returns a list of the stage-frame-of-reference focal point data.
     """
-    return {'Mirror Position': self.mirror.position(),
-            'Beam A Trajectory': self.beam_a.dump(),
-            'Beam B Trajectory': self.beam_b.dump(),
-            'Tangential Focus': self.focus('T'),
-            'Sagittal Focus': self.focus('S'),
-            'Mirror Radius': self.radius()}
+    return FocusData(self.mirror.position(),
+                     self.beam_a.trajectory(),
+                     self.beam_b.trajectory(),
+                     self.focus('T'),
+                     self.focus('S'),
+                     self.radius())
 
   def radius(self):
     """
@@ -102,12 +112,13 @@ class FocalPoint(object):
     x'-axis. phi and theta are the first and second elements in the list
     itop.beam.alignment.BeamAlignment.angles.
     """
-    if self.alignment is None:
+    if self.tracker.alignment is None:
       return None
     else:
-      x_displacement = self.alignment.x_displacement
-      y_displacement = self.alignment.y_displacement
-      angles = self.alignment.angles
+      alignment = self.tracker.alignment
+      x_displacement = alignment.x_displacement
+      y_displacement = alignment.y_displacement
+      angles = alignment.angles
       alternates = []
       for i in self.beam_a.slopeUncertainty():
         for j in self.beam_b.slopeUncertainty():
@@ -119,9 +130,9 @@ class FocalPoint(object):
               optics.radiusFromNormals(na, nb, x_displacement, y_displacement))
       uncertainty = np.std(alternates)
       downstream_a = linalg.rotateYxzTaitBryan(
-          self.beam_a.slope, self.alignment.angles)
+          self.beam_a.slope, alignment.angles)
       downstream_b = linalg.rotateYxzTaitBryan(
-          self.beam_b.slope, self.alignment.angles)
+          self.beam_b.slope, alignment.angles)
       normal_a = optics.reconstructMirrorNormal(downstream_a)
       normal_b = optics.reconstructMirrorNormal(downstream_b)
       return [optics.radiusFromNormals(

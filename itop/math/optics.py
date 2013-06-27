@@ -3,6 +3,7 @@ A module for the mathematics of optics.
 """
 from numpy import array, linalg, dot
 import math
+from itop.beam.beam import TrajectoryData
 
 def refract(ray, normal, origin_index, final_index):
   """
@@ -36,85 +37,6 @@ def reconstructMirrorNormal(downstream_ray, **kwargs):
   return ((inner_downstream - inner_upstream) /
       (linalg.norm(inner_downstream - inner_upstream)))
 
-
-def focus(trajectory_a, trajectory_b, plane='T'):
-  """
-  Returns the focal point for the given beam trajectories.
-
-  The beam trajectories are dictionaries of the form:
-    {upstream xyz intercept,
-     upstream xyz error,
-     downstream xyz intercept,
-     downstream xyz error,
-     xyz slope}
-  where the p_upstream and p_downstream are (x,y,z) points on the beam
-  in the specified relative positions.
-
-  Takes the following optional keyword argument:
-  plane  --  Selects the (T)angential or (S)agittal focal plane.
-             Accpetable values are 'T' (default) or 'S'
-  """
-  index = 1 if plane is 'S' else 0
-  iua = trajectory_a['upstream point']
-  iub = trajectory_b['upstream point']
-  ida = trajectory_a['downstream point']
-  idb = trajectory_b['downstream point']
-  sa = ida - iua
-  sb = idb - iub
-  # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
-  coefficients = array([[sa[2], -sa[index]], [sb[2], -sb[index]]])
-  ordinates = array([sa[2] * iua[index] - sa[index] * iua[2],
-                     sb[2] * iub[index] - sb[index] * iub[2]])
-  solution = linalg.solve(coefficients, ordinates)
-  fraction_a = ((solution[1] - iua[2]) / sa[2])
-  fraction_b = ((solution[1] - iub[2]) / sb[2])
-  focus_a = (iua + fraction_a * sa)
-  focus_b = (iub + fraction_b * sb)
-  return [focus_a, focus_b]
-
-
-def focusWithUncertainty(trajectory_a, trajectory_b, plane='T'):
-  """
-  Returns the focal point and its uncertainty for the given beam trajectories.
-
-  The beam intercepts are dictionaries of the same form as for itop.optics.focus().
-
-  Takes the following optional keyword argument:
-  plane  --  Selects the (T)angential or (S)agittal focal plane.
-             Accpetable values are 'T' (default) or 'S'
-  """
-  index = 1 if plane is 'S' else 0
-  foci = []
-  signs_list = [[ 0, 0],  # Central Value
-                [ 1,-1],  # Upstream Limit
-                [-1, 1]]  # Downstream Limit
-  iua = trajectory_a['upstream point']
-  eua = trajectory_a['upstream error']
-  iub = trajectory_b['upstream point']
-  eub = trajectory_b['upstream error']
-  ida = trajectory_a['downstream point']
-  eda = trajectory_a['downstream error']
-  idb = trajectory_b['downstream point']
-  edb = trajectory_b['downstream error']
-
-  for signs in signs_list:
-    offset = array([0, 0, 0])
-    ri_a = iua + signs[0] * (offset + array(eua[index]))
-    rf_a = ida + signs[0] * (offset + array(eda[index]))
-    ri_b = iub + signs[1] * (offset + array(eub[index]))
-    rf_b = idb + signs[1] * (offset + array(edb[index]))
-    foci.append(focus(
-        {'upstream point': ri_a, 'downstream point': rf_a},
-        {'upstream point': ri_b, 'downstream point': rf_b},
-        plane=plane))
-  # TODO - If stage can move to focal point, verify the position is correct.
-  delta1_a = (foci[1][0] - foci[0][0]).tolist()
-  delta2_a = (foci[2][0] - foci[0][0]).tolist()
-  delta1_b = (foci[1][1] - foci[0][1]).tolist()
-  delta2_b = (foci[2][1] - foci[0][1]).tolist()
-  return [[foci[0][0].tolist(), [delta1_a, delta2_a]],
-          [foci[0][1].tolist(), [delta1_b, delta2_b]]]
-
 def radiusFromNormals(
     beam_a_normal, beam_b_normal,
     x_displacement, y_displacement):
@@ -126,4 +48,77 @@ def radiusFromNormals(
   y_sum = beam_a_normal[1] + beam_b_normal[1]
   z_difference = beam_a_normal[2]**2 - beam_b_normal[2]**2
   return -(x_displacement * x_sum + y_displacement * y_sum) / z_difference
+
+def focus(trajectory_a, trajectory_b, plane='T'):
+  """
+  Returns the focal point for the given beam trajectories.
+
+  The beam trajectories must be passed as named tuples of the form given
+  by itop.beam.Beam.dump(serializable=False).
+
+  Takes the following optional keyword argument:
+  plane  --  Selects the (T)angential or (S)agittal focal plane.
+             Accpetable values are 'T' (default) or 'S'
+  """
+  index = 1 if plane is 'S' else 0
+  aup = trajectory_a.upstream_point
+  bup = trajectory_b.upstream_point
+  adp = trajectory_a.downstream_point
+  bdp = trajectory_b.downstream_point
+  sa = adp - aup
+  sb = bdp - bup
+  # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
+  coefficients = array([[sa[2], -sa[index]], [sb[2], -sb[index]]])
+  ordinates = array([sa[2] * aup[index] - sa[index] * aup[2],
+                     sb[2] * bup[index] - sb[index] * bup[2]])
+  solution = linalg.solve(coefficients, ordinates)
+  fraction_a = ((solution[1] - aup[2]) / sa[2])
+  fraction_b = ((solution[1] - bup[2]) / sb[2])
+  focus_a = (aup + fraction_a * sa)
+  focus_b = (bup + fraction_b * sb)
+  return [focus_a, focus_b]
+
+
+def focusWithUncertainty(trajectory_a, trajectory_b, plane='T'):
+  """
+  Returns the focal point and its uncertainty for the given beam trajectories.
+
+  The beam trajectories must be passed as named tuples of the same form as for
+  itop.optics.focus().
+
+  Takes the following optional keyword argument:
+  plane  --  Selects the (T)angential or (S)agittal focal plane.
+             Accpetable values are 'T' (default) or 'S'
+  """
+  index = 1 if plane is 'S' else 0
+  foci = []
+  signs_list = [[ 0, 0],  # Central Value
+                [ 1,-1],  # Upstream Limit
+                [-1, 1]]  # Downstream Limit
+  aup = trajectory_a.upstream_point
+  aue = trajectory_a.upstream_error
+  bup = trajectory_b.upstream_point
+  bue = trajectory_b.upstream_error
+  adp = trajectory_a.downstream_point
+  ade = trajectory_a.downstream_error
+  bdp = trajectory_b.downstream_point
+  bde = trajectory_b.downstream_error
+
+  for signs in signs_list:
+    offset = array([0, 0, 0])
+    ri_a = aup + signs[0] * (offset + aue[index])
+    rf_a = adp + signs[0] * (offset + ade[index])
+    ri_b = bup + signs[1] * (offset + bue[index])
+    rf_b = bdp + signs[1] * (offset + bde[index])
+    foci.append(focus(
+        TrajectoryData(None, ri_a, None, rf_a, None),
+        TrajectoryData(None, ri_b, None, rf_b, None),
+        plane=plane))
+  # TODO - If stage can move to focal point, verify the position is correct.
+  delta1_a = (foci[1][0] - foci[0][0])
+  delta2_a = (foci[2][0] - foci[0][0])
+  delta1_b = (foci[1][1] - foci[0][1])
+  delta2_b = (foci[2][1] - foci[0][1])
+  return [[foci[0][0], (delta1_a, delta2_a)],
+          [foci[0][1], (delta1_b, delta2_b)]]
 
