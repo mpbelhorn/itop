@@ -411,4 +411,3 @@ class StageController(object):
       self.gpioState(1<<shutter_id)
     time.sleep(0.1)
     self.gpioState(0)
-    time.sleep(0.25)

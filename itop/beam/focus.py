@@ -7,6 +7,7 @@ from itop.beam.beam import Beam
 import numpy as np
 from itop.math import linalg, optics
 from collections import namedtuple
+import time
 
 FocusData = namedtuple('FocusData',
     ['mirror_position',
@@ -43,10 +44,12 @@ class FocalPoint(object):
     shutter = self.tracker.driver.shutterState
     shutter(0, 0)
     shutter(1, 1)
+    time.sleep(.25)
     self.beam_a.findTrajectory(*start_point)
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
+    time.sleep(.25)
     self.beam_b.findTrajectory(
         *((self.beam_a.downstream_point +
         np.array([-20, 0, 0])).tolist()), scan_direction_z=-1)
