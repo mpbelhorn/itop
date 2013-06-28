@@ -1,0 +1,70 @@
+#!/bin/python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+import argparse
+from numpy import arange
+import itop
+import cPickle
+import sys
+import zlib
+
+parser = argparse.ArgumentParser(description='Scan a test mirror.')
+parser.add_argument('--range', dest='scan_range', nargs=2,
+    metavar=('START', 'STOP'), type=float, default=[100, 202],
+    help='Specify beam input positions in mm with START < STOP')
+parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
+    default=5.0, help='Specify mirror sampling step size in mm')
+parser.add_argument('--output', metavar='PATH', type=str,
+    default='/home/matt/data_test.gz',
+    help='Path to output gz data file')
+parser.add_argument('--home', action='store_true', default=False,
+    help='Home the stages before taking data')
+
+args = parser.parse_args()
+
+profiler = itop.Profiler('/dev/ttyUSB0')
+esp_300 = itop.StageController('/dev/ttyUSB1')
+esp_301 = itop.StageController('/dev/ttyUSB2')
+mirror_stage = esp_300.axis1
+profiler_rotation_stage = esp_300.axis2
+
+tracker = itop.beam.profiler.Tracker(
+    esp_301,
+    profiler_rotation_stage,
+    profiler,
+    home=args.home,
+    check=True,
+    alignment_path='/home/matt/alignment_test_20130627.gz')
+mirror_stage.on()
+mirror_stage.velocity(10)
+if args.home:
+  mirror_stage.goToHome(wait=True)
+  mirror_stage.position(250, wait=True)
+
+if len(esp_301.errors()) > 1 or len(esp_300.errors()) > 1:
+  print('[WARNING]','Stage driver error. Check home calibration and stage power.')
+  sys.exit()
+
+focus = itop.FocalPoint(tracker, mirror_stage)
+data = []
+print('Starting data run.', 'Mirror position', '===============', sep='\n')
+for mirror_position in arange(
+    args.scan_range[0], args.scan_range[1] + args.step_size, args.step_size):
+  print(mirror_position)
+  data.append(focus.findFocalPoints(250 - mirror_position, proximal=True))
+  print('    f(T) = ',
+      (data[-1].tangential_focus[0][0] + data[-1].tangential_focus[1][0]) / 2)
+  print('    f(S) = ',
+      (data[-1].sagittal_focus[0][0] + data[-1].sagittal_focus[1][0]) / 2)
+  print('    radius: ', data[-1].mirror_radius[0],
+      '±',data[-1].mirror_radius[1],' mm')
+
+
+with open(args.output, 'wb') as output_file:
+        output_file.write(zlib.compress(
+            cPickle.dumps(data, cPickle.HIGHEST_PROTOCOL),9))
+
+# Reopen the data file in python using the command
+# >> with open('test.gz', 'rb') as rp:
+# >>   dat = zlib.decompress(rp.read())
+# >>   newdat = cPickle.loads(dat)
