@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='itop',
-    version='0.1.1',
+    version='0.2.0',
     author='M.P. Belhorn',
     author_email='matt.belhorn@gmail.com',
     packages=[
@@ -13,7 +13,7 @@ setup(
         'itop.utilities'],
     scripts=[],
     url='https://github.com/emmpbee/ucbelle-optics',
-    license='LICENSE.txt',
+    license='MIT',
     description='A package to test iTOP mirrors and prisms at UC.',
     long_description=open('README.txt').read(),
     install_requires=[
