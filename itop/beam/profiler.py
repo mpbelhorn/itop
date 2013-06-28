@@ -4,6 +4,17 @@ A class to read the data from a Newport HD-LBP laser beam profiler.
 """
 import serial
 import numpy as np
+from collections import namedtuple
+from itop.beam.beam import Beam
+import zlib
+import cPickle
+
+Alignment = namedtuple('Alignment',
+    ['beam_a',
+     'beam_b',
+     'angles',
+     'x_displacement',
+     'y_displacement'])
 
 class Profiler(object):
   """
@@ -74,7 +85,7 @@ class Tracker(object):
       'Slow LTA': {'velocity':  2.0, 'acceleration': 20, 'deceleration': 20},
       }
 
-  def __init__(self, driver, profiler, alignment=None,
+  def __init__(self, driver, rotation_stage, profiler, alignment_path=None,
       xyz_axes=[1, 2, 3], power=0.003, group_id=1,
       facing_z_direction=-1, **group_kwargs):
     """
@@ -94,11 +105,13 @@ class Tracker(object):
     for the given filters and base power. The coordinate system must also be
     flipped about the horizontal if the LBP is mounted upside-down.
 
-    In order to calculate beam reflection angles correctly, the alignment
-    of the tracker axes with respect to the beam splitter output must be
-    supplied as an optional itop.beam.alignment object. If no alignment is
-    supplied at construction, it must be manually appended to the
-    Tracker.alignment instance variable in order to produce useful data.
+    In order to calculate beam reflection angles correctly, the tracker axes
+    alignment with respect to the beam splitter output must be established.
+    One of the following musth happen:
+      1.) The path to previously saved and still valid alignment data must
+          be supplied at tracker object construction,
+      2.) The tracker.loadAlignment method must be called manually,
+      3.) or the tracker.align() method must be called.
 
     Any keyword arguments passed that are not handled below are passed to
     the group creation routine.
@@ -109,8 +122,9 @@ class Tracker(object):
       'power' (0.003 mW): Power threshold when beam in view.
     """
     self.driver = driver
+    self.rotation_stage = rotation_stage
     self.profiler = profiler
-    self.alignment = alignment
+    self.alignment = None
     self.axes = xyz_axes
     self.group_state = 3 # 1=axes independent, 2=xz grouped, 3=xyz grouped
     self.facing_z_direction = facing_z_direction
@@ -119,6 +133,55 @@ class Tracker(object):
     self.power = power
     self.group_id = group_id
     self.driver.groupCreate(self.axes, **group_kwargs)
+
+    if alignment_path is not None:
+      self.loadAlignment(alignment_path)
+
+  def align(self):
+    """
+    Determines the alignment of the tracker with respect to the incoming beams.
+    """
+    beam_a = Beam(self)
+    beam_b = Beam(self)
+    # Rotate profiler to face splitter output.
+    self.rotation_stage.on()
+    self.rotation_stage.goToHome(wait=True)
+    self.rotation_stage.position(180, wait=True)
+    self.facing_z_direction = 1
+    shutter = self.driver.shutterState
+    shutter(0, 0)
+    shutter(1, 1)
+    beam_a.findTrajectory(125, 12, 125, -1, -1)
+    # Block beam 'A' and find beam 'B' trajectory.
+    shutter(1, 0)
+    shutter(0, 1)
+    beam_b.findTrajectory(125-50, 2, 125, -1, -1)
+    x_displacement, y_displacement = (
+        beam_b.upstream_point - beam_a.upstream_point)[:2]
+    angles = [angle for angle in beam_a.angles()]
+    self.alignment = Alignment(
+        beam_a.trajectory(), beam_b.trajectory(),
+        angles, x_displacement, y_displacement)
+    # Rotate camera to face mirror.
+    self.rotation_stage.position(0, wait=True)
+    self.facing_z_direction = -1
+    shutter(1, 1)
+
+  def saveAlignment(self, file_path):
+    """
+    Saves the beam alignment data to a gzipped serialized object file.
+    """
+    with open(file_path, 'wb') as output_file:
+      output_file.write(zlib.compress(
+          cPickle.dumps(self.alignment, cPickle.HIGHEST_PROTOCOL),9))
+
+  def loadAlignment(self, file_path):
+    """
+    Loads the beam alignment data from a gzipped serialized object file.
+    """
+    with open(file_path, 'rb') as input_file:
+      pickled_data = zlib.decompress(input_file.read())
+      self.alignment = cPickle.loads(pickled_data)
 
   def stagePosition(self, xyz_coordinates=None, wait=False):
     """
