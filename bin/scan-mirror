@@ -3,6 +3,7 @@
 from __future__ import print_function
 import argparse
 from numpy import arange
+import datetime
 import itop
 import cPickle
 import sys
@@ -19,6 +20,8 @@ parser.add_argument('--output', metavar='PATH', type=str,
     help='Path to output gz data file')
 parser.add_argument('--home', action='store_true', default=False,
     help='Home the stages before taking data')
+parser.add_argument('--align', action='store_true', default=False,
+    help='Re-compute the tracker alignment to the beams.')
 
 args = parser.parse_args()
 
@@ -28,13 +31,18 @@ esp_301 = itop.StageController('/dev/ttyUSB2')
 mirror_stage = esp_300.axis1
 profiler_rotation_stage = esp_300.axis2
 
-tracker = itop.beam.profiler.Tracker(
-    esp_301,
-    profiler_rotation_stage,
-    profiler,
-    home=args.home,
-    check=True,
-    alignment_path='/home/matt/alignment_test_20130627.gz')
+
+tracker = itop.beam.profiler.Tracker(esp_301, profiler_rotation_stage,
+    profiler, home=args.home, check=True,
+    alignment_path=itop.data_path('alignment/latest.gz)'))
+
+if args.align:
+  print('Aligning the beam tracker. This will take a few minutes.')
+  tracker.align()
+  tracker.saveAlignment(itop.data_path('alignment/latest.gz'))
+
+print('Using', tracker.alignment_date(), 'alignment data.')
+
 mirror_stage.on()
 mirror_stage.velocity(10)
 if args.home:
@@ -46,8 +54,13 @@ if len(esp_301.errors()) > 1 or len(esp_300.errors()) > 1:
   sys.exit()
 
 focus = itop.FocalPoint(tracker, mirror_stage)
-data = []
-print('Starting data run.', 'Mirror position', '===============', sep='\n')
+run_starting_time = datetime.datetime.utcnow().isoformat()
+data = [run_starting_time, tracker.alignment]
+
+print('Starting data run at', run_starting_time, 'UTC.')
+print('Mirror position')
+print('===============')
+
 for mirror_position in arange(
     args.scan_range[0], args.scan_range[1] + args.step_size, args.step_size):
   print(mirror_position)
