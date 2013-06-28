@@ -54,7 +54,7 @@ class Beam(object):
             self.upstream_point,
             self.upstream_error,
             self.downstream_point,
-            self.downstream_error
+            self.downstream_error,
             self.distortions]
     if None not in data:
         return TrajectoryData(*data)

@@ -111,8 +111,8 @@ def focusWithUncertainty(trajectory_a, trajectory_b, plane='T'):
     ri_b = bup + signs[1] * (offset + bue[index])
     rf_b = bdp + signs[1] * (offset + bde[index])
     foci.append(focus(
-        TrajectoryData(None, ri_a, None, rf_a, None),
-        TrajectoryData(None, ri_b, None, rf_b, None),
+        TrajectoryData(None, ri_a, None, rf_a, None, None),
+        TrajectoryData(None, ri_b, None, rf_b, None, None),
         plane=plane))
   # TODO - If stage can move to focal point, verify the position is correct.
   delta1_a = (foci[1][0] - foci[0][0])
