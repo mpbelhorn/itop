@@ -6,6 +6,7 @@ import serial
 import numpy as np
 from collections import namedtuple
 from itop.beam.beam import Beam
+import datetime
 import zlib
 import cPickle
 
@@ -14,7 +15,8 @@ Alignment = namedtuple('Alignment',
      'beam_b',
      'angles',
      'x_displacement',
-     'y_displacement'])
+     'y_displacement',
+     'date'])
 
 class Profiler(object):
   """
@@ -161,7 +163,8 @@ class Tracker(object):
     angles = [angle for angle in beam_a.angles()]
     self.alignment = Alignment(
         beam_a.trajectory(), beam_b.trajectory(),
-        angles, x_displacement, y_displacement)
+        angles, x_displacement, y_displacement,
+        datetime.datetime.utcnow().isoformat())
     # Rotate camera to face mirror.
     self.rotation_stage.position(0, wait=True)
     self.facing_z_direction = -1
@@ -182,6 +185,15 @@ class Tracker(object):
     with open(file_path, 'rb') as input_file:
       pickled_data = zlib.decompress(input_file.read())
       self.alignment = cPickle.loads(pickled_data)
+
+  def alignment_date(self):
+    """
+    Returns the date and time the current alignment data was taken.
+    """
+    if self.alignment is None:
+      return 'invalid'
+    else:
+      return self.alignment.date
 
   def stagePosition(self, xyz_coordinates=None, wait=False):
     """
