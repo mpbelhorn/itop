@@ -28,9 +28,8 @@ import os
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))
 def data_path(path):
-      path = os.path.join(_ROOT, 'data', path)
-      if os.path.exists(path):
-        return path
-      else:
-        return None
+  """Returns the path of the requested local data path.
+
+  """
+  return os.path.join(_ROOT, 'data', path)
 

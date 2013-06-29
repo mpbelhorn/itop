@@ -5,6 +5,7 @@ import argparse
 from numpy import arange
 import datetime
 import itop
+import os
 import cPickle as pickle
 import sys
 import zlib
@@ -31,15 +32,19 @@ esp_301 = itop.StageController('/dev/ttyUSB2')
 mirror_stage = esp_300.axis1
 profiler_rotation_stage = esp_300.axis2
 
+alignment_data = None
+latest_alignment_path = itop.data_path('alignment/latest.gz')
+if os.path.exists(latest_alignment_path):
+  alignment_data = latest_alignment_path
 
 tracker = itop.beam.profiler.Tracker(esp_301, profiler_rotation_stage,
     profiler, home=args.home, check=True,
-    alignment_path=itop.data_path('alignment/latest.gz)'))
+    alignment_path=alignment_data)
 
 if args.align:
   print('Aligning the beam tracker. This will take a few minutes.')
   tracker.align()
-  tracker.save_alignment(itop.data_path('alignment/latest.gz'))
+  tracker.save_alignment(latest_alignment_path)
 
 print('Using', tracker.alignment_date(), 'alignment data.')
 
@@ -47,7 +52,6 @@ mirror_stage.on()
 mirror_stage.velocity(10)
 if args.home:
   mirror_stage.go_to_home(wait=True)
-  mirror_stage.position(250, wait=True)
 
 if len(esp_301.errors()) > 1 or len(esp_300.errors()) > 1:
   print('[WARNING]','Stage driver error. Check home calibration and stage power.')
