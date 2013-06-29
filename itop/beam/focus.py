@@ -9,13 +9,10 @@ from itop.math import linalg, optics
 from collections import namedtuple
 import time
 
-FocusData = namedtuple('FocusData',
-    ['mirror_position',
-     'beam_a_trajectory',
-     'beam_b_trajectory',
-     'tangential_focus',
-     'sagittal_focus',
-     'mirror_radius'])
+FocusData = namedtuple(
+    'FocusData',
+    ['mirror_position', 'beam_a_trajectory', 'beam_b_trajectory',
+     'tangential_focus','sagittal_focus','mirror_radius'])
 
 class FocalPoint(object):
   """
@@ -96,12 +93,10 @@ class FocalPoint(object):
     """
     Returns a list of the stage-frame-of-reference focal point data.
     """
-    return FocusData(self.mirror.position(),
-                     self.beam_a.trajectory(),
-                     self.beam_b.trajectory(),
-                     self.focus('T'),
-                     self.focus('S'),
-                     self.radius())
+    return FocusData(
+        self.mirror.position(), self.beam_a.trajectory(),
+        self.beam_b.trajectory(), self.focus('T'), self.focus('S'),
+        self.radius())
 
   def radius(self):
     """
@@ -130,7 +125,9 @@ class FocalPoint(object):
           na = optics.reconstruct_mirror_normal(da)
           nb = optics.reconstruct_mirror_normal(db)
           alternates.append(
-              optics.radius_from_normals(na, nb, x_displacement, y_displacement))
+              optics.radius_from_normals(
+                  na, nb, x_displacement, y_displacement)
+              )
       uncertainty = np.std(alternates)
       downstream_a = linalg.rotate_yxz_tait_bryan(
           self.beam_a.slope, alignment.angles)
@@ -139,5 +136,4 @@ class FocalPoint(object):
       normal_a = optics.reconstruct_mirror_normal(downstream_a)
       normal_b = optics.reconstruct_mirror_normal(downstream_b)
       return [optics.radius_from_normals(
-          normal_a, normal_b, x_displacement, y_displacement),
-          uncertainty]
+          normal_a, normal_b, x_displacement, y_displacement), uncertainty]

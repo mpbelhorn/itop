@@ -170,9 +170,9 @@ class Beam(object):
 
   def distortion(self):
     """
-    Returns a list of the ratios r(%) = h(%)/w(%) where h(%) and w(%) are the width
-    and height of the beam's best fit gaussian profile at the given percentage of
-    the maximum profile power.
+    Returns a list of the ratios r(%) = h(%)/w(%) where h(%) and w(%) are the
+    width and height of the beam's best fit gaussian profile at the given
+    percentage of the maximum profile power.
 
     The default percentages are 13.5%, 50.0% and 80.0%
     """

@@ -68,7 +68,7 @@ class Stage(object):
     """
     self.send('MF')
 
-  def define_home(self, position = '?'):
+  def define_home(self, position='?'):
     """
     Sets the stage home position to given position in current units.
     """
@@ -78,7 +78,7 @@ class Stage(object):
       print position+self.units()
     return float(position)
 
-  def move_to_limit(self, direction = '?'):
+  def move_to_limit(self, direction='?'):
     """
     Given the argument '+' or '-', moves stage that hardware limit.
     """
@@ -87,7 +87,7 @@ class Stage(object):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
-  def move_indefinately(self, direction = '?'):
+  def move_indefinately(self, direction='?'):
     """
     Initiates continuous motion in the given '+' or '-' direction.
     """
@@ -96,7 +96,7 @@ class Stage(object):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
-  def move_to_next_index(self, direction = '?'):
+  def move_to_next_index(self, direction='?'):
     """
     Moves to the nearest index in the given '+' or '-' direction.
     """
@@ -151,7 +151,7 @@ class Stage(object):
     if kwargs.pop('wait', False):
       self.pause_for_stage()
 
-  def step_resolution(self, resolution = '?'):
+  def step_resolution(self, resolution='?'):
     """
     Sets or returns the encoder full-step resolution for a Newport Unidrive
     compatible programmable driver with step motor axis.
@@ -162,7 +162,7 @@ class Stage(object):
       print resolution+self.units()
     return float(resolution)
 
-  def gear_ratio(self, gear_ratio = '?'):
+  def gear_ratio(self, gear_ratio='?'):
     """
     Sets or returns the master-slave reduction ratio for a slave axis.
 
@@ -178,7 +178,7 @@ class Stage(object):
       print gear_ratio+self.units()
     return float(gear_ratio)
 
-  def units(self, units = '?'):
+  def units(self, units='?'):
     """
     Sets the stage displacement units from given integer.
     If no argument is given, current unit setting is reported.
@@ -198,7 +198,7 @@ class Stage(object):
                u'\u03BCin', u'\u00B0', 'grade', 'rad', 'mrad', u'\u03BCrad']
       return units[int(response.strip())]
 
-  def following_error_threshold(self, error = '?'):
+  def following_error_threshold(self, error='?'):
     """
     Sets or returns the maximum allowed following error.
     """
@@ -208,7 +208,7 @@ class Stage(object):
       print error
     return float(error)
 
-  def following_error_configuration(self, configuration = '?'):
+  def following_error_configuration(self, configuration='?'):
     """
     Sets the stage response when following error is exceeded.
 
@@ -231,7 +231,7 @@ class Stage(object):
       print configuration
     return configuration
 
-  def acceleration(self, acceleration = '?'):
+  def acceleration(self, acceleration='?'):
     """
     Sets the stage acceleration.
     """
@@ -241,7 +241,7 @@ class Stage(object):
       print acceleration+self.units()+'/s^2'
     return float(acceleration)
 
-  def e_stop_acceleration(self, acceleration = '?'):
+  def e_stop_acceleration(self, acceleration='?'):
     """
     Sets the stage emergency stop acceleration.
     """
@@ -251,7 +251,7 @@ class Stage(object):
       print acceleration+self.units()+'/s^2'
     return float(acceleration)
 
-  def deceleration(self, deceleration = '?'):
+  def deceleration(self, deceleration='?'):
     """
     Sets te stage deceleration.
     """
@@ -261,7 +261,7 @@ class Stage(object):
       print deceleration+self.units()+'/s^2'
     return float(deceleration)
 
-  def acceleration_limit(self, acceleration = '?'):
+  def acceleration_limit(self, acceleration='?'):
     """
     Sets the maximum allowed stage acceleration/deceleration.
 
@@ -272,7 +272,7 @@ class Stage(object):
       acceleration = self.controller.read()
     return float(acceleration)
 
-  def backlash_compensation(self, compensation = '?'):
+  def backlash_compensation(self, compensation='?'):
     """
     Set or report the backlash compensation in current units.
 
@@ -284,7 +284,7 @@ class Stage(object):
       print compensation+self.units()
     return float(compensation)
 
-  def home_preset(self, home_position = '?'):
+  def home_preset(self, home_position='?'):
     """
     Sets the absolute position ascribed to the home position.
     """
@@ -294,7 +294,7 @@ class Stage(object):
       print home_position+self.units()
     return float(home_position)
 
-  def velocity(self, velocity = '?'):
+  def velocity(self, velocity='?'):
     """
     Sets the stage velocity.
     """
@@ -304,7 +304,7 @@ class Stage(object):
       print velocity+self.units()+'/s'
     return float(velocity)
 
-  def velocity_limit(self, velocity = '?'):
+  def velocity_limit(self, velocity='?'):
     """
     Sets the maximum allowed stage velocity.
 

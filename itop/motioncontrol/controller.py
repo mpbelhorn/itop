@@ -21,7 +21,7 @@ class StageController(object):
     Argumentx:
     serial_device -- Path string to serial port used by the controller.
     """
-    self.io = serial.Serial(serial_device, 19200, timeout = 1)
+    self.io = serial.Serial(serial_device, 19200, timeout=1)
     self.io_end = '\r\n'
     self.axis1 = stage.Stage(1, self)
     self.axis2 = stage.Stage(2, self)
@@ -30,7 +30,7 @@ class StageController(object):
     self.gpio_directions(0b01)
     self.read_firmwareVersion()
 
-  def send(self, command, parameter = '', axis = ''):
+  def send(self, command, parameter='', axis=''):
     """
     Send a command to the controller.
     """
@@ -110,7 +110,7 @@ class StageController(object):
     """
     self.send('AB')
 
-  def group_acceleration(self, group_id, acceleration = '?'):
+  def group_acceleration(self, group_id, acceleration='?'):
     """
     Sets the vectorial acceleration for a group.
 
@@ -129,7 +129,7 @@ class StageController(object):
     group_ids = self.read()
     return group_ids
 
-  def group_move_arc(self, group_id, coordinates = '?'):
+  def group_move_arc(self, group_id, coordinates='?'):
     """
     Moves a group along an arc.
 
@@ -143,7 +143,7 @@ class StageController(object):
       self.send('HC', ",".join(map(str, coordinates)), group_id)
     return coordinates
 
-  def group_deceleration(self, group_id, deceleration = '?'):
+  def group_deceleration(self, group_id, deceleration='?'):
     """
     Sets the vectorial deceleration for a group.
 
@@ -154,7 +154,7 @@ class StageController(object):
       deceleration = float(self.read().strip())
     return deceleration
 
-  def group_estop_deceleration(self, group_id, deceleration = '?'):
+  def group_estop_deceleration(self, group_id, deceleration='?'):
     """
     Sets the vectorial deceleration for a group emergency stop.
 
@@ -171,7 +171,7 @@ class StageController(object):
     """
     self.send('HF', '', group_id)
 
-  def group_jerk(self, group_id, jerk = '?'):
+  def group_jerk(self, group_id, jerk='?'):
     """
     Sets the vectorial jerk limit for a group.
 
@@ -182,7 +182,7 @@ class StageController(object):
       jerk = float(self.read().strip())
     return jerk
 
-  def group_move_line(self, group_id, coordinates = '?', **kwargs):
+  def group_move_line(self, group_id, coordinates='?', **kwargs):
     """
     Moves a group along a line.
 
@@ -338,7 +338,7 @@ class StageController(object):
     while self.group_is_moving(group_id):
       pass
 
-  def group_velocity(self, group_id, velocity = '?'):
+  def group_velocity(self, group_id, velocity='?'):
     """
     Sets the vectorial velocity limit for a group.
 
@@ -349,7 +349,7 @@ class StageController(object):
       velocity = float(self.read().strip())
     return velocity
 
-  def group_wait_for_stop(self, group_id, delay = '0'):
+  def group_wait_for_stop(self, group_id, delay='0'):
     """
     Pauses command execution until group has stopped for given delay [ms].
     """
