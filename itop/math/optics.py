@@ -1,15 +1,16 @@
 """
 A module for the mathematics of optics.
+
 """
 from numpy import array, linalg, dot
 import math
 from itop.beam.beam import TrajectoryData
 
 def refract(ray, normal, origin_index, final_index):
-  """
-  Returns the normalized direction of a given ray (normalized or not) after
+  """Returns the normalized direction of a given ray (normalized or not) after
   refraction through a boundary between two media with given normal vector and
   indexes of refraction
+
   """
   original_direction = array(ray) / linalg.norm(ray)
   normal = array(normal) / linalg.norm(normal)
@@ -21,10 +22,10 @@ def refract(ray, normal, origin_index, final_index):
       sign * (index_ratio * incidence - complement) * normal)
 
 def reconstruct_mirror_normal(downstream_ray, **kwargs):
-  """
-  Reconstructs the mirror normal vector given the upstream ray
+  """Reconstructs the mirror normal vector given the upstream ray
   (incoming to front face) beam propagation vector and the downstream
   ray (outgoing from front face).
+
   """
   upstream_ray = kwargs.pop('upstream_ray', [0, 0, -1])
   face_normal = kwargs.pop('face_normal', [0, 0, 1])
@@ -40,9 +41,9 @@ def reconstruct_mirror_normal(downstream_ray, **kwargs):
 def radius_from_normals(
     beam_a_normal, beam_b_normal,
     x_displacement, y_displacement):
-  """
-  Calculates the radius of curvature given two normal vectors and their
+  """Calculates the radius of curvature given two normal vectors and their
   relative displacements in the xy plane.
+
   """
   x_sum = beam_a_normal[0] + beam_b_normal[0]
   y_sum = beam_a_normal[1] + beam_b_normal[1]
@@ -50,8 +51,7 @@ def radius_from_normals(
   return -(x_displacement * x_sum + y_displacement * y_sum) / z_difference
 
 def focus(trajectory_a, trajectory_b, plane='T'):
-  """
-  Returns the focal point for the given beam trajectories.
+  """Returns the focal point for the given beam trajectories.
 
   The beam trajectories must be passed as named tuples of the form given
   by itop.beam.Beam.dump(serializable=False).
@@ -59,6 +59,7 @@ def focus(trajectory_a, trajectory_b, plane='T'):
   Takes the following optional keyword argument:
   plane  --  Selects the (T)angential or (S)agittal focal plane.
              Accpetable values are 'T' (default) or 'S'
+
   """
   index = 1 if plane is 'S' else 0
   aup = trajectory_a.upstream_point
@@ -80,8 +81,7 @@ def focus(trajectory_a, trajectory_b, plane='T'):
 
 
 def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
-  """
-  Returns the focal point and its uncertainty for the given beam trajectories.
+  """Returns the focal point and its uncertainty for the given beam trajectories.
 
   The beam trajectories must be passed as named tuples of the same form as for
   itop.optics.focus().
@@ -89,6 +89,7 @@ def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
   Takes the following optional keyword argument:
   plane  --  Selects the (T)angential or (S)agittal focal plane.
              Accpetable values are 'T' (default) or 'S'
+
   """
   index = 1 if plane is 'S' else 0
   foci = []

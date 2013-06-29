@@ -1,32 +1,32 @@
 """
 This module provides methods for controlling stages attached to an EPS300
 motion controller.
+
 """
 
 class Stage(object):
-  """
-  A represenation of a robotic stage.
+  """A represenation of a robotic stage.
 
   The methods allow for the control and monitoring of specific servo or
   stepper motor driven robotic stages through a Newport ESP30X stage controller.
-  """
 
+  """
   def __init__(self, axis, controller):
-    """
-    Initialize the stage. Requires a controller instance.
+    """Initialize the stage. Requires a controller instance.
+
     """
     self.axis = str(axis)
     self.controller = controller
 
   def send(self, command, parameter=''):
-    """
-    Send a command to this axis.
+    """Send a command to this axis.
+
     """
     self.controller.send(command, str(parameter), self.axis)
 
   def targeted_position(self):
-    """
-    Returns the position the stage is currently targeting.
+    """Returns the position the stage is currently targeting.
+
     """
     self.send('DP?')
     position = self.controller.read()
@@ -34,8 +34,8 @@ class Stage(object):
     return float(position)
 
   def targeted_velocity(self):
-    """
-    Returns the stage's targeted velocity.
+    """Returns the stage's targeted velocity.
+
     """
     self.send('DV')
     velocity = self.controller.read()
@@ -43,34 +43,34 @@ class Stage(object):
     return float(velocity)
 
   def stageID(self):
-    """
-    Returns stage model and serial number.
+    """Returns stage model and serial number.
+
     """
     self.send('ID')
     return self.controller.read()
 
   def is_moving(self):
-    """
-    Return false for stopped, true for in motion.
+    """Return false for stopped, true for in motion.
+
     """
     self.send('MD?')
     return True if '0' in self.controller.read() else False
 
   def on(self):
-    """
-    Turns the axis motor on.
+    """Turns the axis motor on.
+
     """
     self.send('MO')
 
   def off(self):
-    """
-    Turns the axis motor off.
+    """Turns the axis motor off.
+
     """
     self.send('MF')
 
   def define_home(self, position='?'):
-    """
-    Sets the stage home position to given position in current units.
+    """Sets the stage home position to given position in current units.
+
     """
     self.send('DH', position)
     if (position == '?'):
@@ -79,8 +79,8 @@ class Stage(object):
     return float(position)
 
   def move_to_limit(self, direction='?'):
-    """
-    Given the argument '+' or '-', moves stage that hardware limit.
+    """Given the argument '+' or '-', moves stage that hardware limit.
+
     """
     self.send('MT', direction)
     if (direction == '?'):
@@ -88,8 +88,8 @@ class Stage(object):
       return int(finishedQ)
 
   def move_indefinately(self, direction='?'):
-    """
-    Initiates continuous motion in the given '+' or '-' direction.
+    """Initiates continuous motion in the given '+' or '-' direction.
+
     """
     self.send('MV', direction)
     if (direction == '?'):
@@ -97,8 +97,8 @@ class Stage(object):
       return int(finishedQ)
 
   def move_to_next_index(self, direction='?'):
-    """
-    Moves to the nearest index in the given '+' or '-' direction.
+    """Moves to the nearest index in the given '+' or '-' direction.
+
     """
     self.send('MZ', direction)
     if (direction == '?'):
@@ -106,17 +106,17 @@ class Stage(object):
       return int(finishedQ)
 
   def go_to_home(self, **kwargs):
-    """
-    Moves the stage to the home position.
+    """Moves the stage to the home position.
+
     """
     self.send('OR')
     if kwargs.pop('wait', False):
       self.pause_for_stage()
 
   def position(self, position=None, **kwargs):
-    """
-    Moves the stage to an absolute position. If no argument is
+    """Moves the stage to an absolute position. If no argument is
     given, the current position of the stage is returned.
+
     """
     if (position is None):
       self.send('TP')
@@ -128,8 +128,8 @@ class Stage(object):
     return float(position)
 
   def move(self, relative_position, **kwargs):
-    """
-    Moves the stage the given relative position.
+    """Moves the stage the given relative position.
+
     """
     self.send('PR', relative_position)
     if kwargs.pop('wait', False):
@@ -137,24 +137,24 @@ class Stage(object):
     return float(relative_position)
 
   def pause_for_stage(self):
-    """
-    Hold python execution in null loop until stage is stopped.
+    """Hold python execution in null loop until stage is stopped.
+
     """
     while self.is_moving():
       pass
 
   def stop(self, **kwargs):
-    """
-    Stops motion on this axis with predefined acceleration.
+    """Stops motion on this axis with predefined acceleration.
+
     """
     self.send('ST')
     if kwargs.pop('wait', False):
       self.pause_for_stage()
 
   def step_resolution(self, resolution='?'):
-    """
-    Sets or returns the encoder full-step resolution for a Newport Unidrive
+    """Sets or returns the encoder full-step resolution for a Newport Unidrive
     compatible programmable driver with step motor axis.
+
     """
     self.send('FR', resolution)
     if (resolution == '?'):
@@ -163,14 +163,14 @@ class Stage(object):
     return float(resolution)
 
   def gear_ratio(self, gear_ratio='?'):
-    """
-    Sets or returns the master-slave reduction ratio for a slave axis.
+    """Sets or returns the master-slave reduction ratio for a slave axis.
 
     Use this command very carefully. The slave axis will have its speed and
     acceleration in the same ratio as the position.
     Also, ensure that the ratio used for the slave axis does not cause
     overflow of this axis parameters (speed, acceleration), especially with
     ratios greater than 1.
+
     """
     self.send('GR', gear_ratio)
     if (gear_ratio == '?'):
@@ -179,8 +179,7 @@ class Stage(object):
     return float(gear_ratio)
 
   def units(self, units='?'):
-    """
-    Sets the stage displacement units from given integer.
+    """Sets the stage displacement units from given integer.
     If no argument is given, current unit setting is reported.
 
     Possible units:
@@ -190,6 +189,7 @@ class Stage(object):
     3 -- micrometers            9 -- radians
     4 -- inches                10 -- milliradian
     5 -- mils (milli-inches)   11 -- microradian
+
     """
     self.send('SN', units)
     if (units == '?'):
@@ -199,8 +199,8 @@ class Stage(object):
       return units[int(response.strip())]
 
   def following_error_threshold(self, error='?'):
-    """
-    Sets or returns the maximum allowed following error.
+    """Sets or returns the maximum allowed following error.
+
     """
     self.send('FE', error)
     if (error == '?'):
@@ -209,8 +209,7 @@ class Stage(object):
     return float(error)
 
   def following_error_configuration(self, configuration='?'):
-    """
-    Sets the stage response when following error is exceeded.
+    """Sets the stage response when following error is exceeded.
 
     The configuration is a hex string. The string must start
     with a zero, ie 0F. Do not include encoding prefix (i.e. 0x0F).
@@ -224,6 +223,7 @@ class Stage(object):
     Common values are
     0x03 0b0000011 default
     0x05 0b0000101 Abort motion on following error
+
     """
     self.send('ZF', configuration)
     if (configuration == '?'):
@@ -232,8 +232,8 @@ class Stage(object):
     return configuration
 
   def acceleration(self, acceleration='?'):
-    """
-    Sets the stage acceleration.
+    """Sets the stage acceleration.
+
     """
     self.send('AC', acceleration)
     if (acceleration == '?'):
@@ -242,8 +242,8 @@ class Stage(object):
     return float(acceleration)
 
   def e_stop_acceleration(self, acceleration='?'):
-    """
-    Sets the stage emergency stop acceleration.
+    """Sets the stage emergency stop acceleration.
+
     """
     self.send('AE', acceleration)
     if (acceleration == '?'):
@@ -252,8 +252,8 @@ class Stage(object):
     return float(acceleration)
 
   def deceleration(self, deceleration='?'):
-    """
-    Sets te stage deceleration.
+    """Sets te stage deceleration.
+
     """
     self.send('AG', deceleration)
     if (deceleration == '?'):
@@ -262,10 +262,10 @@ class Stage(object):
     return float(deceleration)
 
   def acceleration_limit(self, acceleration='?'):
-    """
-    Sets the maximum allowed stage acceleration/deceleration.
+    """Sets the maximum allowed stage acceleration/deceleration.
 
     Stage will error out if this limit is exceeded.
+
     """
     self.send('AU', acceleration)
     if (acceleration == '?'):
@@ -273,10 +273,10 @@ class Stage(object):
     return float(acceleration)
 
   def backlash_compensation(self, compensation='?'):
-    """
-    Set or report the backlash compensation in current units.
+    """Set or report the backlash compensation in current units.
 
     Maximum compensation is equivelent of 10000 encoder counts.
+
     """
     self.send('BA', compensation)
     if (compensation == '?'):
@@ -285,8 +285,8 @@ class Stage(object):
     return float(compensation)
 
   def home_preset(self, home_position='?'):
-    """
-    Sets the absolute position ascribed to the home position.
+    """Sets the absolute position ascribed to the home position.
+
     """
     self.send('SH', home_position)
     if (home_position == '?'):
@@ -295,8 +295,8 @@ class Stage(object):
     return float(home_position)
 
   def velocity(self, velocity='?'):
-    """
-    Sets the stage velocity.
+    """Sets the stage velocity.
+
     """
     self.send('VA', velocity)
     if (velocity == '?'):
@@ -305,10 +305,10 @@ class Stage(object):
     return float(velocity)
 
   def velocity_limit(self, velocity='?'):
-    """
-    Sets the maximum allowed stage velocity.
+    """Sets the maximum allowed stage velocity.
 
     Stage will error out if this limit is exceeded.
+
     """
     self.send('VU', velocity)
     if (velocity == '?'):
@@ -316,18 +316,18 @@ class Stage(object):
     return float(velocity)
 
   def wait_until_position(self, position):
-    """
-    Pause EPS command execution until stage is at position.
+    """Pause EPS command execution until stage is at position.
 
     This does not pause execution of python code!
+
     """
     self.send('WP', position)
 
   def wait_until_stopped(self, time=''):
-    """
-    Pause EPS command execution time [ms] after stage is stopped.
+    """Pause EPS command execution time [ms] after stage is stopped.
 
     This does not pause execution of python code!
+
     """
     self.send('WS', time)
 

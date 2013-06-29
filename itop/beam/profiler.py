@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 A class to read the data from a Newport HD-LBP laser beam profiler.
+
 """
 import serial
 import numpy as np
@@ -19,13 +20,13 @@ Alignment = namedtuple('Alignment',
      'date'])
 
 class Profiler(object):
-  """
-  Provides an interface to a Newport HD-LBP over serial link.
+  """Provides an interface to a Newport HD-LBP over serial link.
+
   """
 
   def __init__(self, device):
-    """
-    Establish serial communication with an HD-LBP.
+    """Establish serial communication with an HD-LBP.
+
     """
     self.device = device
     self.io = serial.Serial(device, 115200, timeout=1)
@@ -36,8 +37,7 @@ class Profiler(object):
                  'power']
 
   def read(self):
-    """
-    Read the latest recorded data.
+    """Read the latest recorded data.
 
     The output is a dictionary that contains the following quantities:
       'time' - Time since camera reset of measurement (seconds)
@@ -57,6 +57,7 @@ class Profiler(object):
       'height_1' - Projection height at level 1
       'height_2' - Projection height at level 1
       'height_3' - Projection height at level 1
+
     """
     # Clear the current contents of the read buffer.
     self.io.flushInput()
@@ -75,8 +76,8 @@ class Profiler(object):
 
 
 class Tracker(object):
-  """
-  A class to represent an HD-LBP on a set of ESP stages.
+  """A class to represent an HD-LBP on a set of ESP stages.
+
   """
   # Static configurations dictionary.
   # TODO - This should be a named tuple.
@@ -90,8 +91,7 @@ class Tracker(object):
   def __init__(self, driver, rotation_stage, profiler, alignment_path=None,
       xyz_axes=[1, 2, 3], power=0.003, group_id=1,
       facing_z_direction=-1, **group_kwargs):
-    """
-    Creates a beam tracker.
+    """Creates a beam tracker.
 
     The tracker needs a reference to an externally defined stage driver and
     beam profiler.
@@ -122,6 +122,7 @@ class Tracker(object):
       'alignment' (None): Set an external alignment configuration.
       'facing_z_direction' (-1): Direction camera is facing in z. Must be ±1.
       'power' (0.003 mW): Power threshold when beam in view.
+
     """
     self.driver = driver
     self.rotation_stage = rotation_stage
@@ -140,8 +141,8 @@ class Tracker(object):
       self.load_alignment(alignment_path)
 
   def align(self):
-    """
-    Determines the alignment of the tracker with respect to the incoming beams.
+    """Determines the alignment of the tracker with respect to the incoming beams.
+
     """
     beam_a = Beam(self)
     beam_b = Beam(self)
@@ -171,24 +172,24 @@ class Tracker(object):
     shutter(1, 1)
 
   def save_alignment(self, file_path):
-    """
-    Saves the beam alignment data to a gzipped serialized object file.
+    """Saves the beam alignment data to a gzipped serialized object file.
+
     """
     with open(file_path, 'wb') as output_file:
       output_file.write(zlib.compress(
           cPickle.dumps(self.alignment, cPickle.HIGHEST_PROTOCOL),9))
 
   def load_alignment(self, file_path):
-    """
-    Loads the beam alignment data from a gzipped serialized object file.
+    """Loads the beam alignment data from a gzipped serialized object file.
+
     """
     with open(file_path, 'rb') as input_file:
       pickled_data = zlib.decompress(input_file.read())
       self.alignment = cPickle.loads(pickled_data)
 
   def alignment_date(self):
-    """
-    Returns the date and time the current alignment data was taken.
+    """Returns the date and time the current alignment data was taken.
+
     """
     if self.alignment is None:
       return 'invalid'
@@ -196,9 +197,9 @@ class Tracker(object):
       return self.alignment.date
 
   def stage_position(self, xyz_coordinates=None, wait=False):
-    """
-    Returns the stage position of the stage. If passed a set of coordinates,
+    """Returns the stage position of the stage. If passed a set of coordinates,
     also moves stage to that position.
+
     """
     def xyz_grouped(coords):
       if coords is None:
@@ -242,12 +243,12 @@ class Tracker(object):
     return cases[self.group_state](xyz_coordinates)
 
   def centroid(self):
-    """
-    If the beam is visible, returns the centroid xyz coordinates [mm] in the
+    """If the beam is visible, returns the centroid xyz coordinates [mm] in the
     profiler coordinate system. The z coordinate is always 0, but included so
     the centroid position can be directly added to the stage coordinate system.
 
     If the beam is not in view, None is returned.
+
     """
     output = self.beam_visible()
     if output is None:
@@ -257,9 +258,9 @@ class Tracker(object):
               output['centroid_y'] / 1000.0, 0.0]
 
   def beam_position(self):
-    """
-    If visible, returns the position of the beam centroid in the stage
+    """If visible, returns the position of the beam centroid in the stage
     coordinate system. Otherwise returns None
+
     """
     centroid = self.centroid()
     if centroid is None:
@@ -269,8 +270,8 @@ class Tracker(object):
       return (np.array(stage_coordinates) + np.array(centroid)).tolist()
 
   def beam_visible(self):
-    """
-    Returns the beam profile if beam is in the frame, otherwise returns None.
+    """Returns the beam profile if beam is in the frame, otherwise returns None.
+
     """
     profile = self.profiler.read()
     if profile['power'] >= self.power:
@@ -279,8 +280,7 @@ class Tracker(object):
       return None
 
   def group_state(self, state=None, fast=False):
-    """
-    Groups the tracker stages into one of 3 modes given by the 'state'
+    """Groups the tracker stages into one of 3 modes given by the 'state'
     argument. If no state is given, function returns the current state.
 
     Possible states are:
@@ -291,6 +291,7 @@ class Tracker(object):
 
     This function takes the same keyword arguments as
     'itop.motioncontrol.controller.group_create'.
+
     """
     if state is None:
       return self.group_state
