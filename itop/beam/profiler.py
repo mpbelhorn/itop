@@ -112,7 +112,7 @@ class Tracker(object):
     One of the following musth happen:
       1.) The path to previously saved and still valid alignment data must
           be supplied at tracker object construction,
-      2.) The tracker.loadAlignment method must be called manually,
+      2.) The tracker.load_alignment method must be called manually,
       3.) or the tracker.align() method must be called.
 
     Any keyword arguments passed that are not handled below are passed to
@@ -134,10 +134,10 @@ class Tracker(object):
     # Optional instance variables.
     self.power = power
     self.group_id = group_id
-    self.driver.groupCreate(self.axes, **group_kwargs)
+    self.driver.group_create(self.axes, **group_kwargs)
 
     if alignment_path is not None:
-      self.loadAlignment(alignment_path)
+      self.load_alignment(alignment_path)
 
   def align(self):
     """
@@ -147,17 +147,17 @@ class Tracker(object):
     beam_b = Beam(self)
     # Rotate profiler to face splitter output.
     self.rotation_stage.on()
-    self.rotation_stage.goToHome(wait=True)
+    self.rotation_stage.go_to_home(wait=True)
     self.rotation_stage.position(180, wait=True)
     self.facing_z_direction = 1
-    shutter = self.driver.shutterState
+    shutter = self.driver.shutter_state
     shutter(0, 0)
     shutter(1, 1)
-    beam_a.findTrajectory(125, 12, 125, -1, -1)
+    beam_a.find_trajectory(125, 12, 125, -1, -1)
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
-    beam_b.findTrajectory(125-50, 2, 125, -1, -1)
+    beam_b.find_trajectory(125-50, 2, 125, -1, -1)
     x_displacement, y_displacement = (
         beam_b.upstream_point - beam_a.upstream_point)[:2]
     angles = [angle for angle in beam_a.angles()]
@@ -170,7 +170,7 @@ class Tracker(object):
     self.facing_z_direction = -1
     shutter(1, 1)
 
-  def saveAlignment(self, file_path):
+  def save_alignment(self, file_path):
     """
     Saves the beam alignment data to a gzipped serialized object file.
     """
@@ -178,7 +178,7 @@ class Tracker(object):
       output_file.write(zlib.compress(
           cPickle.dumps(self.alignment, cPickle.HIGHEST_PROTOCOL),9))
 
-  def loadAlignment(self, file_path):
+  def load_alignment(self, file_path):
     """
     Loads the beam alignment data from a gzipped serialized object file.
     """
@@ -195,29 +195,29 @@ class Tracker(object):
     else:
       return self.alignment.date
 
-  def stagePosition(self, xyz_coordinates=None, wait=False):
+  def stage_position(self, xyz_coordinates=None, wait=False):
     """
     Returns the stage position of the stage. If passed a set of coordinates,
     also moves stage to that position.
     """
-    def xyzGrouped(coords):
+    def xyz_grouped(coords):
       if coords is None:
-        return self.driver.groupPosition(self.group_id)
+        return self.driver.group_position(self.group_id)
       else:
-        self.driver.groupMoveLine(self.group_id, coords, wait=wait)
+        self.driver.group_move_line(self.group_id, coords, wait=wait)
 
-    def xzGrouped(coords):
+    def xz_grouped(coords):
       if coords is None:
-        position = self.driver.groupPosition(self.group_id)
+        position = self.driver.group_position(self.group_id)
         position.insert(1, self.driver.axes[self.axes[1] - 1].position())
         return position
       else:
-        self.driver.groupMoveLine(self.group_id, coords[0::2])
+        self.driver.group_move_line(self.group_id, coords[0::2])
         self.driver.axes[self.axes[1] - 1].position(coords[1])
         if wait:
-          self.driver.axis1.pauseForStage()
-          self.driver.axis2.pauseForStage()
-          self.driver.axis3.pauseForStage()
+          self.driver.axis1.pause_for_stage()
+          self.driver.axis2.pause_for_stage()
+          self.driver.axis3.pause_for_stage()
 
     def ungrouped(coords):
       if coords is None:
@@ -229,14 +229,14 @@ class Tracker(object):
         self.driver.axes[self.axes[1] - 1].position(coords[1])
         self.driver.axes[self.axes[2] - 1].position(coords[2])
         if wait:
-          self.driver.axis1.pauseForStage()
-          self.driver.axis2.pauseForStage()
-          self.driver.axis3.pauseForStage()
+          self.driver.axis1.pause_for_stage()
+          self.driver.axis2.pause_for_stage()
+          self.driver.axis3.pause_for_stage()
 
     cases = {
         1: ungrouped,
-        2: xzGrouped,
-        3: xyzGrouped,
+        2: xz_grouped,
+        3: xyz_grouped,
         }
 
     return cases[self.group_state](xyz_coordinates)
@@ -249,14 +249,14 @@ class Tracker(object):
 
     If the beam is not in view, None is returned.
     """
-    output = self.beamVisible()
+    output = self.beam_visible()
     if output is None:
       return None
     else:
       return [-1 * self.facing_z_direction * output['centroid_x'] / 1000.0,
               output['centroid_y'] / 1000.0, 0.0]
 
-  def beamPosition(self):
+  def beam_position(self):
     """
     If visible, returns the position of the beam centroid in the stage
     coordinate system. Otherwise returns None
@@ -265,10 +265,10 @@ class Tracker(object):
     if centroid is None:
       return None
     else:
-      stage_coordinates = self.stagePosition()
+      stage_coordinates = self.stage_position()
       return (np.array(stage_coordinates) + np.array(centroid)).tolist()
 
-  def beamVisible(self):
+  def beam_visible(self):
     """
     Returns the beam profile if beam is in the frame, otherwise returns None.
     """
@@ -278,7 +278,7 @@ class Tracker(object):
     else:
       return None
 
-  def groupState(self, state=None, fast=False):
+  def group_state(self, state=None, fast=False):
     """
     Groups the tracker stages into one of 3 modes given by the 'state'
     argument. If no state is given, function returns the current state.
@@ -290,21 +290,21 @@ class Tracker(object):
                      limited by the slowest stage in the group.
 
     This function takes the same keyword arguments as
-    'itop.motioncontrol.controller.groupCreate'.
+    'itop.motioncontrol.controller.group_create'.
     """
     if state is None:
       return self.group_state
     else:
       if state == 3:
         kwargs = Tracker.configurations['Fast LTA' if fast else 'Slow LTA']
-        self.driver.groupCreate(self.axes, **kwargs)
+        self.driver.group_create(self.axes, **kwargs)
         self.group_state = 3
       elif state == 2:
         kwargs = Tracker.configurations['Fast ILS' if fast else 'Slow ILS']
-        self.driver.groupCreate(self.axes[0::2], **kwargs)
+        self.driver.group_create(self.axes[0::2], **kwargs)
         self.group_state = 2
       else:
-        self.driver.groupDelete(self.group_id)
+        self.driver.group_delete(self.group_id)
         self.driver.axes[self.axes[0] - 1].velocity(
             Tracker.configurations['Fast ILS' if fast else 'Slow ILS']['velocity'])
         self.driver.axes[self.axes[0] - 1].acceleration(

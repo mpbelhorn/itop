@@ -29,7 +29,7 @@ class FocalPoint(object):
     self.beam_b = Beam(self.tracker)
     self.alignment = None
 
-  def findTrajectories(self, proximal=False):
+  def find_trajectories(self, proximal=False):
     """
     Initilizes the trajectories of both beams.
 
@@ -41,22 +41,22 @@ class FocalPoint(object):
     if proximal and self.beam_a.slope is not None:
       start_point = self.beam_a.upstream_point + np.array([-25, 0, 0])
     # Block beam 'B' and find beam 'A' trajectory.
-    shutter = self.tracker.driver.shutterState
+    shutter = self.tracker.driver.shutter_state
     shutter(0, 0)
     shutter(1, 1)
     time.sleep(.25)
-    self.beam_a.findTrajectory(*start_point)
+    self.beam_a.find_trajectory(*start_point)
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
     time.sleep(.25)
-    self.beam_b.findTrajectory(
+    self.beam_b.find_trajectory(
         *((self.beam_a.downstream_point +
         np.array([-20, 0, 0])).tolist()), scan_direction_z=-1)
     shutter(1, 1)
 
 
-  def findFocalPoints(self, mirror_position, refresh=False, proximal=False):
+  def find_focal_points(self, mirror_position, refresh=False, proximal=False):
     """
     Finds the focal points (assuming astigmatism) of the beams.
 
@@ -70,11 +70,11 @@ class FocalPoint(object):
 
     # Initialize the beam trajectories if necessary.
     if proximal:
-      self.findTrajectories(proximal=True)
+      self.find_trajectories(proximal=True)
     elif ((self.beam_a.slope is None) or
         (self.beam_b.slope is None) or
         refresh):
-      self.findTrajectories()
+      self.find_trajectories()
     else:
       print "Trajectories already initialized."
     return self.data()
@@ -87,7 +87,7 @@ class FocalPoint(object):
     plane  --  Selects the (T)angential or (S)agittal focal plane.
                Accpetable values are 'T' (default) or 'S'
     """
-    return optics.focusWithUncertainty(
+    return optics.focus_with_uncertainty(
         self.beam_a.trajectory(),
         self.beam_b.trajectory(),
         plane=plane)
@@ -123,21 +123,21 @@ class FocalPoint(object):
       y_displacement = alignment.y_displacement
       angles = alignment.angles
       alternates = []
-      for i in self.beam_a.slopeUncertainty():
-        for j in self.beam_b.slopeUncertainty():
-          da = linalg.rotateYxzTaitBryan(i, angles)
-          db = linalg.rotateYxzTaitBryan(j, angles)
-          na = optics.reconstructMirrorNormal(da)
-          nb = optics.reconstructMirrorNormal(db)
+      for i in self.beam_a.slope_uncertainty():
+        for j in self.beam_b.slope_uncertainty():
+          da = linalg.rotate_yxz_tait_bryan(i, angles)
+          db = linalg.rotate_yxz_tait_bryan(j, angles)
+          na = optics.reconstruct_mirror_normal(da)
+          nb = optics.reconstruct_mirror_normal(db)
           alternates.append(
-              optics.radiusFromNormals(na, nb, x_displacement, y_displacement))
+              optics.radius_from_normals(na, nb, x_displacement, y_displacement))
       uncertainty = np.std(alternates)
-      downstream_a = linalg.rotateYxzTaitBryan(
+      downstream_a = linalg.rotate_yxz_tait_bryan(
           self.beam_a.slope, alignment.angles)
-      downstream_b = linalg.rotateYxzTaitBryan(
+      downstream_b = linalg.rotate_yxz_tait_bryan(
           self.beam_b.slope, alignment.angles)
-      normal_a = optics.reconstructMirrorNormal(downstream_a)
-      normal_b = optics.reconstructMirrorNormal(downstream_b)
-      return [optics.radiusFromNormals(
+      normal_a = optics.reconstruct_mirror_normal(downstream_a)
+      normal_b = optics.reconstruct_mirror_normal(downstream_b)
+      return [optics.radius_from_normals(
           normal_a, normal_b, x_displacement, y_displacement),
           uncertainty]

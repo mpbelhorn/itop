@@ -5,7 +5,7 @@ import argparse
 from numpy import arange
 import datetime
 import itop
-import cPickle
+import cPickle as pickle
 import sys
 import zlib
 
@@ -39,14 +39,14 @@ tracker = itop.beam.profiler.Tracker(esp_301, profiler_rotation_stage,
 if args.align:
   print('Aligning the beam tracker. This will take a few minutes.')
   tracker.align()
-  tracker.saveAlignment(itop.data_path('alignment/latest.gz'))
+  tracker.save_alignment(itop.data_path('alignment/latest.gz'))
 
 print('Using', tracker.alignment_date(), 'alignment data.')
 
 mirror_stage.on()
 mirror_stage.velocity(10)
 if args.home:
-  mirror_stage.goToHome(wait=True)
+  mirror_stage.go_to_home(wait=True)
   mirror_stage.position(250, wait=True)
 
 if len(esp_301.errors()) > 1 or len(esp_300.errors()) > 1:
@@ -64,7 +64,7 @@ print('===============')
 for mirror_position in arange(
     args.scan_range[0], args.scan_range[1] + args.step_size, args.step_size):
   print(mirror_position)
-  data.append(focus.findFocalPoints(250 - mirror_position, proximal=True))
+  data.append(focus.find_focal_points(250 - mirror_position, proximal=True))
   print('    f(T) = ',
       (data[-1].tangential_focus[0][0] + data[-1].tangential_focus[1][0]) / 2)
   print('    f(S) = ',
@@ -75,9 +75,9 @@ for mirror_position in arange(
 
 with open(args.output, 'wb') as output_file:
         output_file.write(zlib.compress(
-            cPickle.dumps(data, cPickle.HIGHEST_PROTOCOL),9))
+            pickle.dumps(data, pickle.HIGHEST_PROTOCOL),9))
 
 # Reopen the data file in python using the command
 # >> with open('test.gz', 'rb') as rp:
 # >>   dat = zlib.decompress(rp.read())
-# >>   newdat = cPickle.loads(dat)
+# >>   newdat = pickle.loads(dat)

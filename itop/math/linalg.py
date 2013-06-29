@@ -4,7 +4,7 @@ Functions for linear algebraic manipulation of vectors.
 
 import numpy as np
 
-def rotationMatrix(theta, axis):
+def rotation_matrix(theta, axis):
   """
   Applies the Euler-Rodrigues formula to return the rotation matrix
   for a rotation about axis by the angle theta.
@@ -16,13 +16,13 @@ def rotationMatrix(theta, axis):
                    [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
                    [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
 
-def rotateVector(vector, theta, axis):
+def rotate_vector(vector, theta, axis):
   """
   Rotates a given vector by the angle theta about a given axis.
   """
-  return np.dot(rotationMatrix(theta, axis), vector)
+  return np.dot(rotation_matrix(theta, axis), vector)
 
-def rotateYxzTaitBryan(vector, angles):
+def rotate_yxz_tait_bryan(vector, angles):
   """
   Returns the vector rotated under the yx'z'' Tait-Bryan convention Euler
   angles. Angles must be an interable over (phi, theta, psi)
@@ -32,7 +32,7 @@ def rotateYxzTaitBryan(vector, angles):
           [0, 0, 1]]
   output = vector
   for axis, angle in enumerate(angles):
-      output = rotateVector(output, angle, axes[axis])
+      output = rotate_vector(output, angle, axes[axis])
   return output
 
 def normalize(vector):

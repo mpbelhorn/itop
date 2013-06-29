@@ -27,8 +27,8 @@ class StageController(object):
     self.axis2 = stage.Stage(2, self)
     self.axis3 = stage.Stage(3, self)
     self.axes = [self.axis1, self.axis2, self.axis3]
-    self.gpioDirections(0b01)
-    self.readFirmwareVersion()
+    self.gpio_directions(0b01)
+    self.read_firmwareVersion()
 
   def send(self, command, parameter = '', axis = ''):
     """
@@ -48,14 +48,14 @@ class StageController(object):
     """
     self.send('RS')
 
-  def readStatus(self):
+  def read_status(self):
     """
     Read the status buffer.
     """
     self.send('TS')
     return self.read()
 
-  def readActivity(self):
+  def read_activity(self):
     """
     Read the activity register.
     """
@@ -81,7 +81,7 @@ class StageController(object):
       messages.append(self.read())
     return messages
 
-  def readFirmwareVersion(self):
+  def read_firmware_version(self):
     """
     Report the controller firmware version.
     """
@@ -94,7 +94,7 @@ class StageController(object):
     """
     self.send('WT', milliseconds)
 
-  def eStop(self):
+  def e_stop(self):
     """
     Emergency stop all axes.
 
@@ -102,7 +102,7 @@ class StageController(object):
     """
     self.send('AB')
 
-  def abortProgram(self):
+  def abort_program(self):
     """
     Abort execution of current program.
 
@@ -110,7 +110,7 @@ class StageController(object):
     """
     self.send('AB')
 
-  def groupAcceleration(self, group_id, acceleration = '?'):
+  def group_acceleration(self, group_id, acceleration = '?'):
     """
     Sets the vectorial acceleration for a group.
 
@@ -129,7 +129,7 @@ class StageController(object):
     group_ids = self.read()
     return group_ids
 
-  def groupMoveArc(self, group_id, coordinates = '?'):
+  def group_move_arc(self, group_id, coordinates = '?'):
     """
     Moves a group along an arc.
 
@@ -143,7 +143,7 @@ class StageController(object):
       self.send('HC', ",".join(map(str, coordinates)), group_id)
     return coordinates
 
-  def groupDeceleration(self, group_id, deceleration = '?'):
+  def group_deceleration(self, group_id, deceleration = '?'):
     """
     Sets the vectorial deceleration for a group.
 
@@ -154,7 +154,7 @@ class StageController(object):
       deceleration = float(self.read().strip())
     return deceleration
 
-  def groupEStopDeceleration(self, group_id, deceleration = '?'):
+  def group_estop_deceleration(self, group_id, deceleration = '?'):
     """
     Sets the vectorial deceleration for a group emergency stop.
 
@@ -165,13 +165,13 @@ class StageController(object):
       deceleration = float(self.read().strip())
     return deceleration
 
-  def groupOff(self, group_id):
+  def group_off(self, group_id):
     """
     Turns off power to all axis in a group.
     """
     self.send('HF', '', group_id)
 
-  def groupJerk(self, group_id, jerk = '?'):
+  def group_jerk(self, group_id, jerk = '?'):
     """
     Sets the vectorial jerk limit for a group.
 
@@ -182,7 +182,7 @@ class StageController(object):
       jerk = float(self.read().strip())
     return jerk
 
-  def groupMoveLine(self, group_id, coordinates = '?', **kwargs):
+  def group_move_line(self, group_id, coordinates = '?', **kwargs):
     """
     Moves a group along a line.
 
@@ -198,10 +198,10 @@ class StageController(object):
     else:
       self.send('HL', ",".join(map(str, coordinates)), group_id)
     if kwargs.pop('wait', False):
-      self.pauseForGroup(group_id)
+      self.pause_for_group(group_id)
     return coordinates
 
-  def groupCreate(self, axes=None, group_id=1, home=False, check=False,
+  def group_create(self, axes=None, group_id=1, home=False, check=False,
       velocity=10, acceleration=30, deceleration=30, jerk=0, estop=200):
     """
     Creates a group of two or more axes over the given axes.
@@ -250,7 +250,7 @@ class StageController(object):
     else:
       # NOTE - Deleting a lower ID group when more than one group exists
       #   is untested.
-      self.groupDelete(group_id)
+      self.group_delete(group_id)
       kinematics = {
           'velocity': velocity,
           'acceleration': acceleration,
@@ -261,47 +261,47 @@ class StageController(object):
           stage = self.axes[axis - 1]
           if check:
             kinematics['velocity'] = min(
-                kinematics['velocity'], stage.velocityLimit())
+                kinematics['velocity'], stage.velocity_limit())
             kinematics['acceleration'] = min(
-                kinematics['acceleration'], stage.accelerationLimit())
+                kinematics['acceleration'], stage.acceleration_limit())
             kinematics['deceleration'] = min(
-                kinematics['deceleration'], stage.accelerationLimit())
+                kinematics['deceleration'], stage.acceleration_limit())
           if home:
             stage.on()
-            stage.goToHome(wait=True)
+            stage.go_to_home(wait=True)
       self.send('HN', ",".join(map(str, axes)), group_id)
-      self.groupVelocity(group_id, kinematics['velocity'])
-      self.groupAcceleration(group_id, kinematics['acceleration'])
-      self.groupDeceleration(group_id, kinematics['deceleration'])
-      self.groupJerk(group_id, jerk)
-      self.groupEStopDeceleration(group_id, estop)
-      self.groupOn(group_id)
+      self.group_velocity(group_id, kinematics['velocity'])
+      self.group_acceleration(group_id, kinematics['acceleration'])
+      self.group_deceleration(group_id, kinematics['deceleration'])
+      self.group_jerk(group_id, jerk)
+      self.group_estop_deceleration(group_id, estop)
+      self.group_on(group_id)
     return axes
 
-  def groupOn(self, group_id):
+  def group_on(self, group_id):
     """
     Turns on power to all axis in a group.
     """
     self.send('HO', '', group_id)
 
-  def groupConfiguration(self, group_id):
+  def group_configuration(self, group_id):
     """
     Returns a dictionary of the configuration parameters
-    needed to recreate the group using groupCreate()
+    needed to recreate the group using group_create()
     """
     configuration = dict()
     if str(group_id) in self.groups():
       configuration = dict([
           ('group_id', group_id),
-          ('axes', self.groupCreate(group_id)),
-          ('velocity', self.groupVelocity(group_id)),
-          ('acceleration', self.groupAcceleration(group_id)),
-          ('deceleration', self.groupDeceleration(group_id)),
-          ('jerk', self.groupJerk(group_id)),
-          ('estop', self.groupEStopDeceleration(group_id))])
+          ('axes', self.group_create(group_id)),
+          ('velocity', self.group_velocity(group_id)),
+          ('acceleration', self.group_acceleration(group_id)),
+          ('deceleration', self.group_deceleration(group_id)),
+          ('jerk', self.group_jerk(group_id)),
+          ('estop', self.group_estop_deceleration(group_id))])
     return configuration
 
-  def groupPosition(self, group_id):
+  def group_position(self, group_id):
     """
     Returns the position of all stages in a group.
 
@@ -314,13 +314,13 @@ class StageController(object):
 
   # Wait for group via point buffer. - NOT IMPLEMENTED.
 
-  def groupStop(self, group_id):
+  def group_stop(self, group_id):
     """
     Stops all motion on all axes in a group.
     """
     self.send('HS', '', group_id)
 
-  def groupIsMoving(self, group_id):
+  def group_is_moving(self, group_id):
     """
     Queries controller if group is in motion or stopped.
     """
@@ -331,14 +331,14 @@ class StageController(object):
     else:
       return False
 
-  def pauseForGroup(self, group_id):
+  def pause_for_group(self, group_id):
     """
     Holds python execution in loop until group is stopped.
     """
-    while self.groupIsMoving(group_id):
+    while self.group_is_moving(group_id):
       pass
 
-  def groupVelocity(self, group_id, velocity = '?'):
+  def group_velocity(self, group_id, velocity = '?'):
     """
     Sets the vectorial velocity limit for a group.
 
@@ -349,19 +349,19 @@ class StageController(object):
       velocity = float(self.read().strip())
     return velocity
 
-  def groupWaitForStop(self, group_id, delay = '0'):
+  def group_wait_for_stop(self, group_id, delay = '0'):
     """
     Pauses command execution until group has stopped for given delay [ms].
     """
     self.send('HW', delay, group_id)
 
-  def groupDelete(self, group_id):
+  def group_delete(self, group_id):
     """
     Deletes group with given ID.
     """
     self.send('HX', '', group_id)
 
-  def groupSize(self, group_id):
+  def group_size(self, group_id):
     """
     Returns the size of the group with given group_id.
     """
@@ -369,7 +369,7 @@ class StageController(object):
     size = self.read()
     return size
 
-  def gpioDirections(self, directions=None):
+  def gpio_directions(self, directions=None):
     """
     Sets the given GPIO ports directions as input or output. If no input is
     give, returns the current setting.
@@ -383,7 +383,7 @@ class StageController(object):
     else:
       self.send('BO', hex(directions).replace('x', '') + 'H')
 
-  def gpioState(self, status=None):
+  def gpio_state(self, status=None):
     """
     Sets the state of the GPIO pins on both ports (A,B) according to
     a given 16 bit binary input 'status'. If no input is given, returns
@@ -397,17 +397,17 @@ class StageController(object):
     else:
       self.send('SB', hex(status).replace('x', '') + 'H')
 
-  def shutterState(self, shutter_id, desired_open):
+  def shutter_state(self, shutter_id, desired_open):
     """
     Sets the shutter with given id  (0 or 1) to the state given by
     shutter_open (true or false).
     """
-    shutter_is_open = bool(self.gpioState() & (1<<(shutter_id + 8)))
+    shutter_is_open = bool(self.gpio_state() & (1<<(shutter_id + 8)))
     if desired_open == shutter_is_open:
       return
     elif desired_open:
-      self.gpioState(1<<(shutter_id + 2))
+      self.gpio_state(1<<(shutter_id + 2))
     else:
-      self.gpioState(1<<shutter_id)
+      self.gpio_state(1<<shutter_id)
     time.sleep(0.1)
-    self.gpioState(0)
+    self.gpio_state(0)

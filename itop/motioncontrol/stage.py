@@ -24,7 +24,7 @@ class Stage(object):
     """
     self.controller.send(command, str(parameter), self.axis)
 
-  def targetedPosition(self):
+  def targeted_position(self):
     """
     Returns the position the stage is currently targeting.
     """
@@ -33,7 +33,7 @@ class Stage(object):
     print position, self.units()
     return float(position)
 
-  def targetedVelocity(self):
+  def targeted_velocity(self):
     """
     Returns the stage's targeted velocity.
     """
@@ -49,7 +49,7 @@ class Stage(object):
     self.send('ID')
     return self.controller.read()
 
-  def isMoving(self):
+  def is_moving(self):
     """
     Return false for stopped, true for in motion.
     """
@@ -68,7 +68,7 @@ class Stage(object):
     """
     self.send('MF')
 
-  def defineHome(self, position = '?'):
+  def define_home(self, position = '?'):
     """
     Sets the stage home position to given position in current units.
     """
@@ -78,7 +78,7 @@ class Stage(object):
       print position+self.units()
     return float(position)
 
-  def moveToLimit(self, direction = '?'):
+  def move_to_limit(self, direction = '?'):
     """
     Given the argument '+' or '-', moves stage that hardware limit.
     """
@@ -87,7 +87,7 @@ class Stage(object):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
-  def moveIndefinately(self, direction = '?'):
+  def move_indefinately(self, direction = '?'):
     """
     Initiates continuous motion in the given '+' or '-' direction.
     """
@@ -96,7 +96,7 @@ class Stage(object):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
-  def moveToNextIndex(self, direction = '?'):
+  def move_to_next_index(self, direction = '?'):
     """
     Moves to the nearest index in the given '+' or '-' direction.
     """
@@ -105,13 +105,13 @@ class Stage(object):
       finishedQ = self.controller.read()
       return int(finishedQ)
 
-  def goToHome(self, **kwargs):
+  def go_to_home(self, **kwargs):
     """
     Moves the stage to the home position.
     """
     self.send('OR')
     if kwargs.pop('wait', False):
-      self.pauseForStage()
+      self.pause_for_stage()
 
   def position(self, position=None, **kwargs):
     """
@@ -124,7 +124,7 @@ class Stage(object):
     else:
       self.send('PA', position)
     if kwargs.pop('wait', False):
-      self.pauseForStage()
+      self.pause_for_stage()
     return float(position)
 
   def move(self, relative_position, **kwargs):
@@ -133,14 +133,14 @@ class Stage(object):
     """
     self.send('PR', relative_position)
     if kwargs.pop('wait', False):
-      self.pauseForStage()
+      self.pause_for_stage()
     return float(relative_position)
 
-  def pauseForStage(self):
+  def pause_for_stage(self):
     """
     Hold python execution in null loop until stage is stopped.
     """
-    while self.isMoving():
+    while self.is_moving():
       pass
 
   def stop(self, **kwargs):
@@ -149,9 +149,9 @@ class Stage(object):
     """
     self.send('ST')
     if kwargs.pop('wait', False):
-      self.pauseForStage()
+      self.pause_for_stage()
 
-  def stepResolution(self, resolution = '?'):
+  def step_resolution(self, resolution = '?'):
     """
     Sets or returns the encoder full-step resolution for a Newport Unidrive
     compatible programmable driver with step motor axis.
@@ -162,7 +162,7 @@ class Stage(object):
       print resolution+self.units()
     return float(resolution)
 
-  def gearRatio(self, gear_ratio = '?'):
+  def gear_ratio(self, gear_ratio = '?'):
     """
     Sets or returns the master-slave reduction ratio for a slave axis.
 
@@ -198,7 +198,7 @@ class Stage(object):
                u'\u03BCin', u'\u00B0', 'grade', 'rad', 'mrad', u'\u03BCrad']
       return units[int(response.strip())]
 
-  def followingErrorThreshold(self, error = '?'):
+  def following_error_threshold(self, error = '?'):
     """
     Sets or returns the maximum allowed following error.
     """
@@ -208,7 +208,7 @@ class Stage(object):
       print error
     return float(error)
 
-  def followingErrorConfiguration(self, configuration = '?'):
+  def following_error_configuration(self, configuration = '?'):
     """
     Sets the stage response when following error is exceeded.
 
@@ -241,7 +241,7 @@ class Stage(object):
       print acceleration+self.units()+'/s^2'
     return float(acceleration)
 
-  def eStopAcceleration(self, acceleration = '?'):
+  def e_stop_acceleration(self, acceleration = '?'):
     """
     Sets the stage emergency stop acceleration.
     """
@@ -261,7 +261,7 @@ class Stage(object):
       print deceleration+self.units()+'/s^2'
     return float(deceleration)
 
-  def accelerationLimit(self, acceleration = '?'):
+  def acceleration_limit(self, acceleration = '?'):
     """
     Sets the maximum allowed stage acceleration/deceleration.
 
@@ -272,7 +272,7 @@ class Stage(object):
       acceleration = self.controller.read()
     return float(acceleration)
 
-  def backlashCompensation(self, compensation = '?'):
+  def backlash_compensation(self, compensation = '?'):
     """
     Set or report the backlash compensation in current units.
 
@@ -284,7 +284,7 @@ class Stage(object):
       print compensation+self.units()
     return float(compensation)
 
-  def homePreset(self, home_position = '?'):
+  def home_preset(self, home_position = '?'):
     """
     Sets the absolute position ascribed to the home position.
     """
@@ -304,7 +304,7 @@ class Stage(object):
       print velocity+self.units()+'/s'
     return float(velocity)
 
-  def velocityLimit(self, velocity = '?'):
+  def velocity_limit(self, velocity = '?'):
     """
     Sets the maximum allowed stage velocity.
 
@@ -315,7 +315,7 @@ class Stage(object):
       velocity = self.controller.read()
     return float(velocity)
 
-  def waitUntilPosition(self, position):
+  def wait_until_position(self, position):
     """
     Pause EPS command execution until stage is at position.
 
@@ -323,7 +323,7 @@ class Stage(object):
     """
     self.send('WP', position)
 
-  def waitUntilStopped(self, time=''):
+  def wait_until_stopped(self, time=''):
     """
     Pause EPS command execution time [ms] after stage is stopped.
 

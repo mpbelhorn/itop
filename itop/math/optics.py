@@ -20,7 +20,7 @@ def refract(ray, normal, origin_index, final_index):
   return (index_ratio * original_direction +
       sign * (index_ratio * incidence - complement) * normal)
 
-def reconstructMirrorNormal(downstream_ray, **kwargs):
+def reconstruct_mirror_normal(downstream_ray, **kwargs):
   """
   Reconstructs the mirror normal vector given the upstream ray
   (incoming to front face) beam propagation vector and the downstream
@@ -37,7 +37,7 @@ def reconstructMirrorNormal(downstream_ray, **kwargs):
   return ((inner_downstream - inner_upstream) /
       (linalg.norm(inner_downstream - inner_upstream)))
 
-def radiusFromNormals(
+def radius_from_normals(
     beam_a_normal, beam_b_normal,
     x_displacement, y_displacement):
   """
@@ -79,7 +79,7 @@ def focus(trajectory_a, trajectory_b, plane='T'):
   return [focus_a, focus_b]
 
 
-def focusWithUncertainty(trajectory_a, trajectory_b, plane='T'):
+def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
   """
   Returns the focal point and its uncertainty for the given beam trajectories.
 
