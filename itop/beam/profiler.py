@@ -91,7 +91,7 @@ class Tracker(object):
   def __init__(self, driver, rotation_stage, profiler, alignment_path=None,
       xyz_axes=[1, 2, 3], power=0.003, group_id=1,
       facing_z_direction=-1, **group_kwargs):
-    """Creates a beam tracker.
+    """Constructor for beam Tracker.
 
     The tracker needs a reference to an externally defined stage driver and
     beam profiler.

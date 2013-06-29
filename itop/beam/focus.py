@@ -21,6 +21,11 @@ class FocalPoint(object):
 
   """
   def __init__(self, tracker, mirror):
+    """Constructor for FocalPoint.
+
+    Requires a beam tracker and mirror motion axis.
+
+    """
     self.tracker = tracker
     self.mirror = mirror
     self.beam_a = Beam(self.tracker)
