@@ -66,25 +66,28 @@ def focus(trajectory_a, trajectory_b, plane='T'):
   bup = trajectory_b.upstream_point
   adp = trajectory_a.downstream_point
   bdp = trajectory_b.downstream_point
-  sa = adp - aup
-  sb = bdp - bup
+  slope_a = adp - aup
+  slope_b = bdp - bup
   # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
-  coefficients = array([[sa[2], -sa[index]], [sb[2], -sb[index]]])
-  ordinates = array([sa[2] * aup[index] - sa[index] * aup[2],
-                     sb[2] * bup[index] - sb[index] * bup[2]])
+  coefficients = array(
+      [[slope_a[2], -slope_a[index]], [slope_b[2], -slope_b[index]]])
+  ordinates = array(
+      [slope_a[2] * aup[index] - slope_a[index] * aup[2],
+       slope_b[2] * bup[index] - slope_b[index] * bup[2]])
   solution = linalg.solve(coefficients, ordinates)
-  fraction_a = ((solution[1] - aup[2]) / sa[2])
-  fraction_b = ((solution[1] - bup[2]) / sb[2])
-  focus_a = (aup + fraction_a * sa)
-  focus_b = (bup + fraction_b * sb)
+  fraction_a = ((solution[1] - aup[2]) / slope_a[2])
+  fraction_b = ((solution[1] - bup[2]) / slope_b[2])
+  focus_a = (aup + fraction_a * slope_a)
+  focus_b = (bup + fraction_b * slope_b)
   return [focus_a, focus_b]
 
 
 def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
-  """Returns the focal point and its uncertainty for the given beam trajectories.
+  """Returns the focal point and its uncertainty for the given beam
+  trajectories.
 
-  The beam trajectories must be passed as named tuples of the same form as for
-  itop.optics.focus().
+  The beam trajectories must be passed as named tuples of the same
+  form as for itop.optics.focus().
 
   Takes the following optional keyword argument:
   plane  --  Selects the (T)angential or (S)agittal focal plane.

@@ -5,7 +5,7 @@ motion controller.
 """
 
 import serial
-import itop.motioncontrol.stage as stage
+from itop.motioncontrol.stage import Stage
 import time
 
 class StageController(object):
@@ -16,32 +16,33 @@ class StageController(object):
   """
 
   def __init__(self, serial_device):
-    """Creates an I/O handle on a Newport EPS300 motion controller and its axes.
+    """Creates an I/O handle on a Newport EPS300 motion controller
+    and its axes.
 
-    Argumentx:
+    Arguments:
     serial_device -- Path string to serial port used by the controller.
 
     """
-    self.io = serial.Serial(serial_device, 19200, timeout=1)
+    self.serial = serial.Serial(serial_device, 19200, timeout=1)
     self.io_end = '\r\n'
-    self.axis1 = stage.Stage(1, self)
-    self.axis2 = stage.Stage(2, self)
-    self.axis3 = stage.Stage(3, self)
+    self.axis1 = Stage(1, self)
+    self.axis2 = Stage(2, self)
+    self.axis3 = Stage(3, self)
     self.axes = [self.axis1, self.axis2, self.axis3]
     self.gpio_directions(0b01)
-    self.read_firmwareVersion()
+    self.read_firmware_version()
 
   def send(self, command, parameter='', axis=''):
     """Send a command to the controller.
 
     """
-    self.io.write(str(axis) + str(command) + str(parameter) + self.io_end)
+    self.serial.write(str(axis) + str(command) + str(parameter) + self.io_end)
 
   def read(self):
     """Return a line read from the controller's serial buffer.
 
     """
-    return self.io.readline()
+    return self.serial.readline()
 
   def reset(self):
     """Perform a full controller reset.

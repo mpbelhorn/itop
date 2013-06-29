@@ -29,7 +29,7 @@ class Profiler(object):
 
     """
     self.device = device
-    self.io = serial.Serial(device, 115200, timeout=1)
+    self.serial = serial.Serial(device, 115200, timeout=1)
     self.keys = ['time', 'centroid_x', 'centroid_y', 'centroid_r',
                  'level_1', 'level_2', 'level_3',
                  'width_1', 'width_2', 'width_3',
@@ -60,10 +60,10 @@ class Profiler(object):
 
     """
     # Clear the current contents of the read buffer.
-    self.io.flushInput()
+    self.serial.flushInput()
     readout = ''
     while True:
-      readout = readout + self.io.read(self.io.inWaiting())
+      readout = readout + self.serial.read(self.serial.inWaiting())
       if ' \n' in readout:
         lines = readout.split(' \n')
         if len(lines) > 2:
@@ -89,7 +89,7 @@ class Tracker(object):
       }
 
   def __init__(self, driver, rotation_stage, profiler, alignment_path=None,
-      xyz_axes=[1, 2, 3], power=0.003, group_id=1,
+      xyz_axes=(1, 2, 3), power=0.003, group_id=1,
       facing_z_direction=-1, **group_kwargs):
     """Constructor for beam Tracker.
 
@@ -128,7 +128,7 @@ class Tracker(object):
     self.rotation_stage = rotation_stage
     self.profiler = profiler
     self.alignment = None
-    self.axes = xyz_axes
+    self.axes = list(xyz_axes)
     self.group_state = 3 # 1=axes independent, 2=xz grouped, 3=xyz grouped
     self.facing_z_direction = facing_z_direction
 
@@ -141,7 +141,8 @@ class Tracker(object):
       self.load_alignment(alignment_path)
 
   def align(self):
-    """Determines the alignment of the tracker with respect to the incoming beams.
+    """Determines the alignment of the tracker with respect to
+    the incoming beams.
 
     """
     beam_a = Beam(self)
@@ -158,7 +159,7 @@ class Tracker(object):
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
-    beam_b.find_trajectory(125-50, 2, 125, -1, -1)
+    beam_b.find_trajectory(125-50, 8, 125, -1, -1)
     x_displacement, y_displacement = (
         beam_b.upstream_point - beam_a.upstream_point)[:2]
     angles = [angle for angle in beam_a.angles()]
@@ -202,12 +203,14 @@ class Tracker(object):
 
     """
     def xyz_grouped(coords):
+      """Action to take if all 3 stages are grouped."""
       if coords is None:
         return self.driver.group_position(self.group_id)
       else:
         self.driver.group_move_line(self.group_id, coords, wait=wait)
 
     def xz_grouped(coords):
+      """Action to take if only x-z stages are grouped."""
       if coords is None:
         position = self.driver.group_position(self.group_id)
         position.insert(1, self.driver.axes[self.axes[1] - 1].position())
@@ -221,6 +224,7 @@ class Tracker(object):
           self.driver.axis3.pause_for_stage()
 
     def ungrouped(coords):
+      """Action to take if no stages are grouped."""
       if coords is None:
         return [self.driver.axes[self.axes[0] - 1].position(),
                 self.driver.axes[self.axes[1] - 1].position(),
@@ -279,9 +283,9 @@ class Tracker(object):
     else:
       return None
 
-  def group_state(self, state=None, fast=False):
+  def change_grouping(self, state=1, fast=False):
     """Groups the tracker stages into one of 3 modes given by the 'state'
-    argument. If no state is given, function returns the current state.
+    argument. If no state is given, stages are ungrouped.
 
     Possible states are:
     1: Ungrouped   - Stages are ungrouped and can be moved independently.
@@ -293,35 +297,36 @@ class Tracker(object):
     'itop.motioncontrol.controller.group_create'.
 
     """
-    if state is None:
-      return self.group_state
+    ils_configuration = Tracker.configurations[
+        'Fast ILS' if fast else 'Slow ILS']
+    lta_configuration = Tracker.configurations[
+        'Fast LTA' if fast else 'Slow LTA']
+    if state == 3:
+      kwargs = lta_configuration
+      self.driver.group_create(self.axes, **kwargs)
+      self.group_state = 3
+    elif state == 2:
+      kwargs = ils_configuration
+      self.driver.group_create(self.axes[0::2], **kwargs)
+      self.group_state = 2
     else:
-      if state == 3:
-        kwargs = Tracker.configurations['Fast LTA' if fast else 'Slow LTA']
-        self.driver.group_create(self.axes, **kwargs)
-        self.group_state = 3
-      elif state == 2:
-        kwargs = Tracker.configurations['Fast ILS' if fast else 'Slow ILS']
-        self.driver.group_create(self.axes[0::2], **kwargs)
-        self.group_state = 2
-      else:
-        self.driver.group_delete(self.group_id)
-        self.driver.axes[self.axes[0] - 1].velocity(
-            Tracker.configurations['Fast ILS' if fast else 'Slow ILS']['velocity'])
-        self.driver.axes[self.axes[0] - 1].acceleration(
-            Tracker.configurations['Fast ILS' if fast else 'Slow ILS']['acceleration'])
-        self.driver.axes[self.axes[0] - 1].deceleration(
-            Tracker.configurations['Fast ILS' if fast else 'Slow ILS']['deceleration'])
-        self.driver.axes[self.axes[1] - 1].velocity(
-            Tracker.configurations['Fast LTA' if fast else 'Slow LTA']['velocity'])
-        self.driver.axes[self.axes[1] - 1].acceleration(
-            Tracker.configurations['Fast LTA' if fast else 'Slow LTA']['acceleration'])
-        self.driver.axes[self.axes[1] - 1].deceleration(
-            Tracker.configurations['Fast LTA' if fast else 'Slow LTA']['deceleration'])
-        self.driver.axes[self.axes[2] - 1].velocity(
-            Tracker.configurations['Fast ILS' if fast else 'Slow ILS']['velocity'])
-        self.driver.axes[self.axes[2] - 1].acceleration(
-            Tracker.configurations['Fast ILS' if fast else 'Slow ILS']['acceleration'])
-        self.driver.axes[self.axes[2] - 1].deceleration(
-            Tracker.configurations['Fast ILS' if fast else 'Slow ILS']['deceleration'])
-        self.group_state = 1
+      self.driver.group_delete(self.group_id)
+      self.driver.axes[self.axes[0] - 1].velocity(
+          ils_configuration['velocity'])
+      self.driver.axes[self.axes[0] - 1].acceleration(
+          ils_configuration['acceleration'])
+      self.driver.axes[self.axes[0] - 1].deceleration(
+          ils_configuration['deceleration'])
+      self.driver.axes[self.axes[1] - 1].velocity(
+          lta_configuration['velocity'])
+      self.driver.axes[self.axes[1] - 1].acceleration(
+          lta_configuration['acceleration'])
+      self.driver.axes[self.axes[1] - 1].deceleration(
+          lta_configuration['deceleration'])
+      self.driver.axes[self.axes[2] - 1].velocity(
+          ils_configuration['velocity'])
+      self.driver.axes[self.axes[2] - 1].acceleration(
+          ils_configuration['acceleration'])
+      self.driver.axes[self.axes[2] - 1].deceleration(
+          ils_configuration['deceleration'])
+      self.group_state = 1

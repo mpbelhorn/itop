@@ -58,7 +58,7 @@ class Beam(object):
             self.downstream_error,
             self.distortions]
     if None not in data:
-        return TrajectoryData(*data)
+      return TrajectoryData(*data)
     else:
       # Must be default values. Why save them anyways?
       return TrajectoryData(*[None] * 6)
@@ -95,7 +95,7 @@ class Beam(object):
     else:
       centroids = []
       centroids.append(first_centroid)
-      for i in range(number_of_samples - 1):
+      for _ in range(number_of_samples - 1):
         centroids.append(self.tracker.centroid())
       centroid = np.mean(zip(*centroids), 1)
       error = np.std(zip(*centroids), 1)
@@ -131,7 +131,8 @@ class Beam(object):
         # TODO - Get full stage uncertainties.
         return [position.tolist(), jitter[1] + [0.0005]]
 
-  def find_beam(self, x0=-125, y0=12.5, z0=-125, scan_direction_x=1):
+  def find_beam(
+      self, x_start=-125, y_start=12.5, z_start=-125, scan_direction_x=1):
     """Scans in X for single beam and centers camera on beam.
 
     The optional arguments are:
@@ -140,15 +141,15 @@ class Beam(object):
 
     """
     x_axis = self.tracker.driver.axes[self.tracker.axes[0] - 1]
-    beam_positions = []
+    current_position = None
     overshoot = scan_direction_x * 2.0
     if not self.tracker.beam_visible():
       # Move camera into starting point.
-      self.tracker.group_state(1, fast=True)
-      self.tracker.stage_position([x0, y0, z0], wait=True)
+      self.tracker.change_grouping(1, fast=True)
+      self.tracker.stage_position([x_start, y_start, z_start], wait=True)
 
       # Scan for beam crossing.
-      self.tracker.group_state(1, fast=False)
+      self.tracker.change_grouping(1, fast=False)
       x_axis.position(scan_direction_x * 125)
       while x_axis.is_moving():
         current_position = self.tracker.beam_position()
@@ -161,11 +162,13 @@ class Beam(object):
         return None
 
     # The beam should now be in view.
-    self.tracker.group_state(3, fast=True)
+    self.tracker.change_grouping(3, fast=True)
     while True:
       centered = self.center_beam()
       if centered is None:
-        self.tracker.stage_position([beam_x - overshoot, y0, z0], wait=True)
+        self.tracker.stage_position(
+            np.array(current_position) - np.array([overshoot, 0, 0]),
+            wait=True)
       else:
         return centered
 
@@ -182,7 +185,7 @@ class Beam(object):
             profile['height_2']/profile['width_2'],
             profile['height_3']/profile['width_3'])
 
-  def find_trajectory(self, x0=-125, y0=12.5, z0=-125,
+  def find_trajectory(self, x_start=-125, y_start=12.5, z_start=-125,
       scan_direction_x=1, scan_direction_z=1):
     """Find trajectory of single beam.
 
@@ -203,7 +206,8 @@ class Beam(object):
 
     # Find the beam at the first z extreme.
     for i in [0, 1, 2, -1, -2]:
-      first_intercept = self.find_beam(x0, y0 + i * 4.0, z0, scan_direction_x)
+      first_intercept = self.find_beam(
+          x_start, y_start + i * 4.0, z_start, scan_direction_x)
       first_distortion = self.distortion()
       if first_intercept is not None:
         break
@@ -213,7 +217,7 @@ class Beam(object):
 
     # Calculate rough trajectory of the beam.
     step = first_intercept[0] + scan_direction_z * np.array([0, 0, 30])
-    self.tracker.group_state(2, fast=True)
+    self.tracker.change_grouping(2, fast=True)
     self.tracker.stage_position(step, wait=True)
     while True:
       centered = self.center_beam()
@@ -228,10 +232,10 @@ class Beam(object):
     # TODO - Replace following ILS250 assumption with something more robust.
     scale = scan_direction_z * 2 * abs(first_intercept[0][2]) / direction[2]
     second_sample = first_intercept[0] + scale * direction
-    self.tracker.group_state(1, fast=True)
+    self.tracker.change_grouping(1, fast=True)
     self.tracker.stage_position(
         second_sample.tolist()[:2] + [scan_direction_z * 125], wait=True)
-    self.tracker.group_state(3, fast=True)
+    self.tracker.change_grouping(3, fast=True)
 
     # Refine trajectory of the beam.
     while True:
@@ -279,12 +283,12 @@ class Beam(object):
     return alternates
 
   def move_on_beam(self, fraction, fast=False):
-      """Moves the stage group along the beam trajectory to the given fraction
-      of available group path.
+    """Moves the stage group along the beam trajectory to the given fraction
+    of available group path.
 
-      """
-      self.tracker.group_state(3, fast)
-      self.tracker.stage_position(self.position(fraction))
+    """
+    self.tracker.change_grouping(3, fast)
+    self.tracker.stage_position(self.position(fraction))
 
   def angles(self, reverse=False):
     """Returns the yxz-convention (phi, theta, psi) Tait-Bryan angles needed

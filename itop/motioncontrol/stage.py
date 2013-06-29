@@ -42,7 +42,7 @@ class Stage(object):
     print velocity+self.units()+'/s'
     return float(velocity)
 
-  def stageID(self):
+  def stage_id(self):
     """Returns stage model and serial number.
 
     """
@@ -84,8 +84,8 @@ class Stage(object):
     """
     self.send('MT', direction)
     if (direction == '?'):
-      finishedQ = self.controller.read()
-      return int(finishedQ)
+      finished = self.controller.read()
+      return int(finished)
 
   def move_indefinately(self, direction='?'):
     """Initiates continuous motion in the given '+' or '-' direction.
@@ -93,8 +93,8 @@ class Stage(object):
     """
     self.send('MV', direction)
     if (direction == '?'):
-      finishedQ = self.controller.read()
-      return int(finishedQ)
+      finished = self.controller.read()
+      return int(finished)
 
   def move_to_next_index(self, direction='?'):
     """Moves to the nearest index in the given '+' or '-' direction.
@@ -102,8 +102,8 @@ class Stage(object):
     """
     self.send('MZ', direction)
     if (direction == '?'):
-      finishedQ = self.controller.read()
-      return int(finishedQ)
+      finished = self.controller.read()
+      return int(finished)
 
   def go_to_home(self, **kwargs):
     """Moves the stage to the home position.

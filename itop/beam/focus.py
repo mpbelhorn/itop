@@ -126,14 +126,13 @@ class FocalPoint(object):
       alternates = []
       for i in self.beam_a.slope_uncertainty():
         for j in self.beam_b.slope_uncertainty():
-          da = linalg.rotate_yxz_tait_bryan(i, angles)
-          db = linalg.rotate_yxz_tait_bryan(j, angles)
-          na = optics.reconstruct_mirror_normal(da)
-          nb = optics.reconstruct_mirror_normal(db)
+          normal_limit_a = optics.reconstruct_mirror_normal(
+              linalg.rotate_yxz_tait_bryan(i, angles))
+          normal_limit_b = optics.reconstruct_mirror_normal(
+              linalg.rotate_yxz_tait_bryan(j, angles))
           alternates.append(
               optics.radius_from_normals(
-                  na, nb, x_displacement, y_displacement)
-              )
+              normal_limit_a, normal_limit_b, x_displacement, y_displacement))
       uncertainty = np.std(alternates)
       downstream_a = linalg.rotate_yxz_tait_bryan(
           self.beam_a.slope, alignment.angles)

@@ -33,7 +33,7 @@ def rotate_yxz_tait_bryan(vector, angles):
           [0, 0, 1]]
   output = vector
   for axis, angle in enumerate(angles):
-      output = rotate_vector(output, angle, axes[axis])
+    output = rotate_vector(output, angle, axes[axis])
   return output
 
 def normalize(vector):
