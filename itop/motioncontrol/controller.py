@@ -142,7 +142,7 @@ class StageController(object):
       self.send('HC', coordinates, group_id)
       coordinates = self.read()
     else:
-      self.send('HC', ",".join(map(str, coordinates)), group_id)
+      self.send('HC', ",".join((str(i) for i in coordinates)), group_id)
     return coordinates
 
   def group_deceleration(self, group_id, deceleration='?'):
@@ -196,13 +196,12 @@ class StageController(object):
       self.send('HL', coordinates, group_id)
       coordinates = self.read()
     else:
-      self.send('HL', ",".join(map(str, coordinates)), group_id)
+      self.send('HL', ",".join((str(i) for i in coordinates)), group_id)
     if kwargs.pop('wait', False):
       self.pause_for_group(group_id)
     return coordinates
 
-  def group_create(self, axes=None, group_id=1, home=False, check=False,
-      velocity=10, acceleration=30, deceleration=30, jerk=0, estop=200):
+  def group_create(self, axes=None, **kwargs):
     """Creates a group of two or more axes over the given axes.
 
     If no axes are given, command returns the axes assigned to the group with
@@ -244,6 +243,14 @@ class StageController(object):
           Check that the given kinematic parameters are in range.
 
     """
+    group_id = kwargs.pop('group_id', 1)
+    home = kwargs.pop('home', False)
+    check = kwargs.pop('check', False)
+    velocity = kwargs.pop('velocity', 10)
+    acceleration = kwargs.pop('acceleration', 30)
+    deceleration = kwargs.pop('deceleration', 30)
+    jerk = kwargs.pop('jerk', 0)
+    estop = kwargs.pop('estop', 200)
     if axes is None:
       self.send('HN', '?', group_id)
       axes = [int(axis.strip()) for axis in self.read().split(',')]
@@ -267,9 +274,9 @@ class StageController(object):
             kinematics['deceleration'] = min(
                 kinematics['deceleration'], stage.acceleration_limit())
           if home:
-            stage.on()
+            stage.power_on()
             stage.go_to_home(wait=True)
-      self.send('HN', ",".join(map(str, axes)), group_id)
+      self.send('HN', ",".join((str(i) for i in axes)), group_id)
       self.group_velocity(group_id, kinematics['velocity'])
       self.group_acceleration(group_id, kinematics['acceleration'])
       self.group_deceleration(group_id, kinematics['deceleration'])

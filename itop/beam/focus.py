@@ -48,13 +48,13 @@ class FocalPoint(object):
     shutter(0, 0)
     shutter(1, 1)
     time.sleep(.25)
-    self.beam_a.find_trajectory(*start_point)
+    self.beam_a.find_trajectory(start_point)
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
     time.sleep(.25)
     self.beam_b.find_trajectory(
-        *((self.beam_a.downstream_point +
+        ((self.beam_a.downstream_point +
         np.array([-20, 0, 0])).tolist()), scan_direction_z=-1)
     shutter(1, 1)
 

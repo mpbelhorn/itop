@@ -48,7 +48,7 @@ if args.align:
 
 print('Using', tracker.alignment_date(), 'alignment data.')
 
-mirror_stage.on()
+mirror_stage.power_on()
 mirror_stage.velocity(10)
 if args.home:
   mirror_stage.go_to_home(wait=True)

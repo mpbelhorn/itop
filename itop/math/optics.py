@@ -77,9 +77,7 @@ def focus(trajectory_a, trajectory_b, plane='T'):
   solution = linalg.solve(coefficients, ordinates)
   fraction_a = ((solution[1] - aup[2]) / slope_a[2])
   fraction_b = ((solution[1] - bup[2]) / slope_b[2])
-  focus_a = (aup + fraction_a * slope_a)
-  focus_b = (bup + fraction_b * slope_b)
-  return [focus_a, focus_b]
+  return [(aup + fraction_a * slope_a), (bup + fraction_b * slope_b)]
 
 
 def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
@@ -110,13 +108,15 @@ def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
 
   for signs in signs_list:
     offset = array([0, 0, 0])
-    ri_a = aup + signs[0] * (offset + aue[index])
-    rf_a = adp + signs[0] * (offset + ade[index])
-    ri_b = bup + signs[1] * (offset + bue[index])
-    rf_b = bdp + signs[1] * (offset + bde[index])
     foci.append(focus(
-        TrajectoryData(None, ri_a, None, rf_a, None, None),
-        TrajectoryData(None, ri_b, None, rf_b, None, None),
+        TrajectoryData(
+            None, aup + signs[0] * (offset + aue[index]),
+            None, adp + signs[0] * (offset + ade[index]),
+            None, None),
+        TrajectoryData(
+            None, bup + signs[1] * (offset + bue[index]),
+            None, bdp + signs[1] * (offset + bde[index]),
+            None, None),
         plane=plane))
   # TODO - If stage can move to focal point, verify the position is correct.
   delta1_a = (foci[1][0] - foci[0][0])

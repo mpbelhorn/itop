@@ -80,7 +80,6 @@ class Tracker(object):
 
   """
   # Static configurations dictionary.
-  # TODO - This should be a named tuple.
   configurations = {
       'Fast ILS': {'velocity': 40.0, 'acceleration': 50, 'deceleration': 50},
       'Slow ILS': {'velocity': 10.0, 'acceleration': 50, 'deceleration': 50},
@@ -88,9 +87,7 @@ class Tracker(object):
       'Slow LTA': {'velocity':  2.0, 'acceleration': 20, 'deceleration': 20},
       }
 
-  def __init__(self, driver, rotation_stage, profiler, alignment_path=None,
-      xyz_axes=(1, 2, 3), power=0.003, group_id=1,
-      facing_z_direction=-1, **group_kwargs):
+  def __init__(self, driver, rotation_stage, profiler, **kwargs):
     """Constructor for beam Tracker.
 
     The tracker needs a reference to an externally defined stage driver and
@@ -128,15 +125,16 @@ class Tracker(object):
     self.rotation_stage = rotation_stage
     self.profiler = profiler
     self.alignment = None
-    self.axes = list(xyz_axes)
+    self.axes = kwargs.pop('xyz_axes', [1, 2, 3])
     self.group_state = 3 # 1=axes independent, 2=xz grouped, 3=xyz grouped
-    self.facing_z_direction = facing_z_direction
+    self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
 
     # Optional instance variables.
-    self.power = power
-    self.group_id = group_id
-    self.driver.group_create(self.axes, **group_kwargs)
+    self.power = kwargs.pop('power', 0.003)
+    self.group_id = kwargs.pop('group_id', 1)
 
+    alignment_path = kwargs.pop('alignment_path', None)
+    self.driver.group_create(self.axes, **kwargs)
     if alignment_path is not None:
       self.load_alignment(alignment_path)
 
@@ -148,18 +146,18 @@ class Tracker(object):
     beam_a = Beam(self)
     beam_b = Beam(self)
     # Rotate profiler to face splitter output.
-    self.rotation_stage.on()
+    self.rotation_stage.power_on()
     self.rotation_stage.go_to_home(wait=True)
     self.rotation_stage.position(180, wait=True)
     self.facing_z_direction = 1
     shutter = self.driver.shutter_state
     shutter(0, 0)
     shutter(1, 1)
-    beam_a.find_trajectory(125, 12, 125, -1, -1)
+    beam_a.find_trajectory([125, 12, 125], -1, -1)
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
-    beam_b.find_trajectory(125-50, 8, 125, -1, -1)
+    beam_b.find_trajectory([125-50, 8, 125], -1, -1)
     x_displacement, y_displacement = (
         beam_b.upstream_point - beam_a.upstream_point)[:2]
     angles = [angle for angle in beam_a.angles()]

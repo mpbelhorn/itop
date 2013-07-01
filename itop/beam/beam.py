@@ -5,7 +5,6 @@ A module for tracking and parameterizing a beam segment in 3D space.
 
 import numpy as np
 import itop.math.linalg as itlin
-import time
 from collections import namedtuple
 
 TrajectoryData = namedtuple('TrajectoryData',
@@ -24,8 +23,8 @@ class Beam(object):
   """
 
   def __init__(self, tracker):
-    """Initialize a constraint on the movement of a LBP on a stage group to travel
-    along a beam.
+    """Initialize a constraint on the movement of a LBP on a stage group to
+    travel along a beam.
 
     """
     self.tracker = tracker
@@ -114,7 +113,7 @@ class Beam(object):
     if centroid is None:
       return None
     # Do quick sampling to get centroid close to center.
-    while map(abs, self.tracker.centroid()) > [0.5, 0.5, 0.5]:
+    while any((abs(i) > 0.5 for i in self.tracker.centroid())):
       stage_position = self.tracker.stage_position()
       centroid = self.tracker.centroid()
       position = np.array(stage_position) + np.array(centroid)
@@ -125,14 +124,14 @@ class Beam(object):
       stage_position = self.tracker.stage_position()
       centroid = jitter[0]
       position = np.array(stage_position) + np.array(centroid)
-      if any(map(abs, jitter[0]) > jitter[1]):
+      if any((abs(value) > error for value, error in zip(*jitter))):
         self.tracker.stage_position(position, wait=True)
       else:
         # TODO - Get full stage uncertainties.
         return [position.tolist(), jitter[1] + [0.0005]]
 
   def find_beam(
-      self, x_start=-125, y_start=12.5, z_start=-125, scan_direction_x=1):
+      self, start_point=None, scan_direction_x=1):
     """Scans in X for single beam and centers camera on beam.
 
     The optional arguments are:
@@ -140,13 +139,14 @@ class Beam(object):
                             positive (negative) x direction.
 
     """
+    start_point = start_point or [-125.0, 12.5, -125.0]
     x_axis = self.tracker.driver.axes[self.tracker.axes[0] - 1]
     current_position = None
     overshoot = scan_direction_x * 2.0
     if not self.tracker.beam_visible():
       # Move camera into starting point.
       self.tracker.change_grouping(1, fast=True)
-      self.tracker.stage_position([x_start, y_start, z_start], wait=True)
+      self.tracker.stage_position(start_point, wait=True)
 
       # Scan for beam crossing.
       self.tracker.change_grouping(1, fast=False)
@@ -185,7 +185,7 @@ class Beam(object):
             profile['height_2']/profile['width_2'],
             profile['height_3']/profile['width_3'])
 
-  def find_trajectory(self, x_start=-125, y_start=12.5, z_start=-125,
+  def find_trajectory(self, start_point=None,
       scan_direction_x=1, scan_direction_z=1):
     """Find trajectory of single beam.
 
@@ -205,9 +205,10 @@ class Beam(object):
     self.distortions = None
 
     # Find the beam at the first z extreme.
+    start_point = start_point or [-125.0, 12.5, -125.0]
     for i in [0, 1, 2, -1, -2]:
       first_intercept = self.find_beam(
-          x_start, y_start + i * 4.0, z_start, scan_direction_x)
+          np.array(start_point) + np.array([0, i * 4.0, 0]), scan_direction_x)
       first_distortion = self.distortion()
       if first_intercept is not None:
         break
@@ -273,13 +274,14 @@ class Beam(object):
              [-1,  1,  1, -1]]
     alternates = []
     for i in range(4):
-      r0 = self.upstream_point
-      rf = self.downstream_point
-      r0[0] += signs[i][0] * self.upstream_error[0]
-      r0[1] += signs[i][1] * self.upstream_error[1]
-      rf[0] += signs[i][2] * self.downstream_error[0]
-      rf[1] += signs[i][3] * self.downstream_error[1]
-      alternates.append((itlin.normalize(rf - r0)).tolist())
+      new_upstream = self.upstream_point
+      new_downstream = self.downstream_point
+      new_upstream[0] += signs[i][0] * self.upstream_error[0]
+      new_upstream[1] += signs[i][1] * self.upstream_error[1]
+      new_downstream[0] += signs[i][2] * self.downstream_error[0]
+      new_downstream[1] += signs[i][3] * self.downstream_error[1]
+      alternates.append(
+          (itlin.normalize(new_downstream - new_upstream)).tolist())
     return alternates
 
   def move_on_beam(self, fraction, fast=False):
@@ -300,10 +302,10 @@ class Beam(object):
 
     """
     sign = -1 if reverse else 1
-    d = sign * itlin.normalize(self.slope)
+    direction = sign * itlin.normalize(self.slope)
     # The alpha angle is signed and related to the xz-projection.
-    phi = np.arcsin(itlin.normalize(d[0::2])[0])
+    phi = np.arcsin(itlin.normalize(direction[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:
-    theta = -np.arcsin(d[1])
+    theta = -np.arcsin(direction[1])
     psi = 0.0
     return phi, theta, psi

@@ -10,7 +10,7 @@ def rotation_matrix(theta, axis):
   for a rotation about axis by the angle theta.
 
   """
-  axis = axis/np.sqrt(np.dot(axis, axis))
+  axis = normalize(axis)
   a = np.cos(theta/2)
   b, c, d = axis * np.sin(theta/2)
   return np.array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
@@ -40,5 +40,5 @@ def normalize(vector):
   """Returns a normalized vector parallel to the given vector.
 
   """
-  return vector / np.sqrt(np.dot(vector, vector))
+  return np.array(vector) / np.linalg.norm(np.array(vector))
 

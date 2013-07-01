@@ -56,13 +56,13 @@ class Stage(object):
     self.send('MD?')
     return True if '0' in self.controller.read() else False
 
-  def on(self):
+  def power_on(self):
     """Turns the axis motor on.
 
     """
     self.send('MO')
 
-  def off(self):
+  def power_off(self):
     """Turns the axis motor off.
 
     """
