@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 This module provides methods for controlling and communicating with an EPS30x
 motion controller.
@@ -15,7 +16,7 @@ class StageController(object):
 
   """
 
-  def __init__(self, serial_device):
+  def __init__(self, serial_device, limits=None):
     """Creates an I/O handle on a Newport EPS300 motion controller
     and its axes.
 
@@ -30,7 +31,14 @@ class StageController(object):
     self.axis3 = Stage(3, self)
     self.axes = [self.axis1, self.axis2, self.axis3]
     self.gpio_directions(0b01)
-    self.read_firmware_version()
+    if limits is not None:
+      try:
+        if len(limits) == len(self.axes):
+          for limit, axis in zip(limits, self.axes):
+            axis.set_limits(limit)
+      except TypeError:
+        for axis in self.axes:
+          axis.set_limits(limit)
 
   def send(self, command, parameter='', axis=''):
     """Send a command to the controller.

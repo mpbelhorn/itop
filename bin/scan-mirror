@@ -27,8 +27,10 @@ parser.add_argument('--align', action='store_true', default=False,
 args = parser.parse_args()
 
 profiler = itop.Profiler('/dev/ttyUSB0')
-esp_300 = itop.StageController('/dev/ttyUSB1')
-esp_301 = itop.StageController('/dev/ttyUSB2')
+esp_300 = itop.StageController('/dev/ttyUSB1',
+    limits=[[0.0, 500.0], [-45.0, 190.0], 0])
+esp_301 = itop.StageController('/dev/ttyUSB2',
+    limits=[125.0, [-45.0, 190.0], 125.0])
 mirror_stage = esp_300.axis1
 profiler_rotation_stage = esp_300.axis2
 

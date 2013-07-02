@@ -125,7 +125,10 @@ class Tracker(object):
     self.rotation_stage = rotation_stage
     self.profiler = profiler
     self.alignment = None
-    self.axes = kwargs.pop('xyz_axes', [1, 2, 3])
+    xyz_axes = kwargs.pop('xyz_axes', [1, 2, 3])
+    self.axes = (self.driver.axes[xyz_axes[0] - 1],
+                 self.driver.axes[xyz_axes[1] - 1],
+                 self.driver.axes[xyz_axes[2] - 1])
     self.group_state = 3 # 1=axes independent, 2=xz grouped, 3=xyz grouped
     self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
 
@@ -137,6 +140,10 @@ class Tracker(object):
     self.driver.group_create(self.axes, **kwargs)
     if alignment_path is not None:
       self.load_alignment(alignment_path)
+
+  def axis(self, axis_id):
+    """Returns the stage instance given by the axis_id (1,2,3)
+    """
 
   def align(self):
     """Determines the alignment of the tracker with respect to
@@ -153,7 +160,8 @@ class Tracker(object):
     shutter = self.driver.shutter_state
     shutter(0, 0)
     shutter(1, 1)
-    beam_a.find_trajectory([125, 12, 125], -1, -1)
+    beam_a.find_trajectory(
+        [self.driver.a, 12, 125], -1, -1)
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
@@ -211,11 +219,11 @@ class Tracker(object):
       """Action to take if only x-z stages are grouped."""
       if coords is None:
         position = self.driver.group_position(self.group_id)
-        position.insert(1, self.driver.axes[self.axes[1] - 1].position())
+        position.insert(1, self.axes[1].position())
         return position
       else:
         self.driver.group_move_line(self.group_id, coords[0::2])
-        self.driver.axes[self.axes[1] - 1].position(coords[1])
+        self.axes[1].position(coords[1])
         if wait:
           self.driver.axis1.pause_for_stage()
           self.driver.axis2.pause_for_stage()
@@ -224,13 +232,13 @@ class Tracker(object):
     def ungrouped(coords):
       """Action to take if no stages are grouped."""
       if coords is None:
-        return [self.driver.axes[self.axes[0] - 1].position(),
-                self.driver.axes[self.axes[1] - 1].position(),
-                self.driver.axes[self.axes[2] - 1].position()]
+        return [self.axes[0].position(),
+                self.axes[1].position(),
+                self.axes[2].position()]
       else:
-        self.driver.axes[self.axes[0] - 1].position(coords[0])
-        self.driver.axes[self.axes[1] - 1].position(coords[1])
-        self.driver.axes[self.axes[2] - 1].position(coords[2])
+        self.axes[0].position(coords[0])
+        self.axes[1].position(coords[1])
+        self.axes[2].position(coords[2])
         if wait:
           self.driver.axis1.pause_for_stage()
           self.driver.axis2.pause_for_stage()
@@ -299,32 +307,24 @@ class Tracker(object):
         'Fast ILS' if fast else 'Slow ILS']
     lta_configuration = Tracker.configurations[
         'Fast LTA' if fast else 'Slow LTA']
+    axis_ids = [axis.axis_id for axis in self.axes]
     if state == 3:
       kwargs = lta_configuration
-      self.driver.group_create(self.axes, **kwargs)
+      self.driver.group_create(axis_ids, **kwargs)
       self.group_state = 3
     elif state == 2:
       kwargs = ils_configuration
-      self.driver.group_create(self.axes[0::2], **kwargs)
+      self.driver.group_create(axis_ids[0::2], **kwargs)
       self.group_state = 2
     else:
       self.driver.group_delete(self.group_id)
-      self.driver.axes[self.axes[0] - 1].velocity(
-          ils_configuration['velocity'])
-      self.driver.axes[self.axes[0] - 1].acceleration(
-          ils_configuration['acceleration'])
-      self.driver.axes[self.axes[0] - 1].deceleration(
-          ils_configuration['deceleration'])
-      self.driver.axes[self.axes[1] - 1].velocity(
-          lta_configuration['velocity'])
-      self.driver.axes[self.axes[1] - 1].acceleration(
-          lta_configuration['acceleration'])
-      self.driver.axes[self.axes[1] - 1].deceleration(
-          lta_configuration['deceleration'])
-      self.driver.axes[self.axes[2] - 1].velocity(
-          ils_configuration['velocity'])
-      self.driver.axes[self.axes[2] - 1].acceleration(
-          ils_configuration['acceleration'])
-      self.driver.axes[self.axes[2] - 1].deceleration(
-          ils_configuration['deceleration'])
+      self.axes[0].velocity(ils_configuration['velocity'])
+      self.axes[0].acceleration(ils_configuration['acceleration'])
+      self.axes[0].deceleration(ils_configuration['deceleration'])
+      self.axes[1].velocity(lta_configuration['velocity'])
+      self.axes[1].acceleration(lta_configuration['acceleration'])
+      self.axes[1].deceleration(lta_configuration['deceleration'])
+      self.axes[2].velocity(ils_configuration['velocity'])
+      self.axes[2].acceleration(ils_configuration['acceleration'])
+      self.axes[2].deceleration(ils_configuration['deceleration'])
       self.group_state = 1

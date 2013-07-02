@@ -7,14 +7,13 @@ import numpy as np
 import itop.math.linalg as itlin
 from collections import namedtuple
 
-TrajectoryData = namedtuple('TrajectoryData',
+Trajectory = namedtuple('Trajectory',
     ['slope',
      'upstream_point',
      'upstream_error',
      'downstream_point',
      'downstream_error',
      'distortions'])
-
 
 class Beam(object):
   """For constaining the movement of a robotic stage group + camera to keep a
@@ -57,10 +56,10 @@ class Beam(object):
             self.downstream_error,
             self.distortions]
     if None not in data:
-      return TrajectoryData(*data)
+      return Trajectory(*data)
     else:
       # Must be default values. Why save them anyways?
-      return TrajectoryData(*[None] * 6)
+      return Trajectory(*[None] * 6)
 
   def load(self, data):
     """Restores the trajectory data from a list or tuple of the type returned by
@@ -118,7 +117,7 @@ class Beam(object):
       centroid = self.tracker.centroid()
       position = np.array(stage_position) + np.array(centroid)
       self.tracker.stage_position(position, wait=True)
-    # TODO - Replace following while loop with a finite number of iterations?
+    # Perhaps replace following while loop with a finite number of iterations?
     while True:
       jitter = self.jitter()
       stage_position = self.tracker.stage_position()
@@ -127,8 +126,12 @@ class Beam(object):
       if any((abs(value) > error for value, error in zip(*jitter))):
         self.tracker.stage_position(position, wait=True)
       else:
-        # TODO - Get full stage uncertainties.
-        return [position.tolist(), jitter[1] + [0.0005]]
+        # Add the stage positioning uncertainty to the jitter in
+        # quadrature.
+        error = [np.sqrt(jitter[1][0]**2 + 0.0005**2),
+                 np.sqrt(jitter[1][1]**2 + 0.0075**2),
+                 0.0005]
+        return [position.tolist(), error]
 
   def find_beam(
       self, start_point=None, scan_direction_x=1):
@@ -139,8 +142,12 @@ class Beam(object):
                             positive (negative) x direction.
 
     """
-    start_point = start_point or [-125.0, 12.5, -125.0]
-    x_axis = self.tracker.driver.axes[self.tracker.axes[0] - 1]
+    if start_point is None:
+      start_point = [
+          self.tracker.axes[0].limits.lower,
+          self.tracker.axes[1].limits.middle(),
+          self.tracker.axes[2].limits.lower]
+    x_axis = self.tracker.axes[0]
     current_position = None
     overshoot = scan_direction_x * 2.0
     if not self.tracker.beam_visible():
@@ -150,7 +157,7 @@ class Beam(object):
 
       # Scan for beam crossing.
       self.tracker.change_grouping(1, fast=False)
-      x_axis.position(scan_direction_x * 125)
+      x_axis.position(self.tracker.axes[0].limits.direction(scan_direction_x))
       while x_axis.is_moving():
         current_position = self.tracker.beam_position()
         if current_position is not None:
@@ -205,7 +212,11 @@ class Beam(object):
     self.distortions = None
 
     # Find the beam at the first z extreme.
-    start_point = start_point or [-125.0, 12.5, -125.0]
+    if start_point is None:
+      start_point = [
+          self.tracker.axes[0].limits.lower,
+          self.tracker.axes[1].limits.middle(),
+          self.tracker.axes[2].limits.lower]
     for i in [0, 1, 2, -1, -2]:
       first_intercept = self.find_beam(
           np.array(start_point) + np.array([0, i * 4.0, 0]), scan_direction_x)
@@ -230,12 +241,12 @@ class Beam(object):
     first_sample = np.array(self.tracker.stage_position())
     direction = itlin.normalize(
         first_sample - first_intercept[0])
-    # TODO - Replace following ILS250 assumption with something more robust.
     scale = scan_direction_z * 2 * abs(first_intercept[0][2]) / direction[2]
     second_sample = first_intercept[0] + scale * direction
     self.tracker.change_grouping(1, fast=True)
     self.tracker.stage_position(
-        second_sample.tolist()[:2] + [scan_direction_z * 125], wait=True)
+        second_sample.tolist()[:2] + [
+          self.tracker.axes[2].limits.direction(scan_direction_z)], wait=True)
     self.tracker.change_grouping(3, fast=True)
 
     # Refine trajectory of the beam.
@@ -243,8 +254,8 @@ class Beam(object):
       second_intercept = self.center_beam()
       second_distortion = self.distortion()
       if second_intercept is None:
-        # TODO - Cross this bridge when we get there.
-        pass
+        print "Cannot find beam. Check beam power and camera height."
+        return None
       elif second_intercept:
         if scan_direction_z == 1:
           self.upstream_point = np.array(first_intercept[0])

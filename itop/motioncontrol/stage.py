@@ -1,8 +1,35 @@
+# -*- coding: utf-8 -*-
 """
 This module provides methods for controlling stages attached to an EPS300
 motion controller.
 
 """
+from itop.utilities.utilities import clamp
+
+class Limits:
+  """A class to represent the limits of motion of a stage.
+
+  """
+  def __init__(self, limit_1=0, limit_2=0):
+    """Constructor for Limits.
+
+    """
+    self.lower = float(min(limit_1, limit_2))
+    self.upper = float(max(limit_1, limit_2))
+
+  def middle(self):
+    """Returns the center of the limit range.
+
+    """
+    return (self.upper + self.lower) / 2.0
+
+  def direction(self, direction):
+    """Returns the limit in the given direction, where direction can be either
+    1 or -1.
+
+    """
+    return self.upper if direction > 0 else self.lower
+
 
 class Stage(object):
   """A represenation of a robotic stage.
@@ -11,18 +38,44 @@ class Stage(object):
   stepper motor driven robotic stages through a Newport ESP30X stage controller.
 
   """
-  def __init__(self, axis, controller):
-    """Initialize the stage. Requires a controller instance.
+  def __init__(self, axis, controller, limits=None):
+    """Constructor for Stage.
+
+    Requires a controller instance and an axis number on that controller.
+
+    Optionally, stage motion limits can be defined at construction by
+    passing either an iterable of the form (lower_limit, upper_limit) or
+    passing a single limit where the stage can travel between ±limit.
 
     """
-    self.axis = str(axis)
+    self.axis_id = str(axis)
     self.controller = controller
+    self.limits = Limits(0, 0)
+    if limits is not None:
+      try:
+        self.limits = Limits(*sorted(limits))
+      except TypeError:
+        self.limits = Limits(-1 * abs(limits), abs(limits))
+
+  def set_limits(self, limits=None):
+    """Defines the stage limits.
+
+    Takes either an iterable in the form (lower_limit, upper_limit) or a
+    single value where the stage can travel between ±value.
+
+    """
+    self.limits = Limits(0, 0)
+    if limits is not None:
+      try:
+        self.limits = Limits(*sorted(limits))
+      except TypeError:
+        self.limits = Limits(-1* abs(limits), abs(limits))
 
   def send(self, command, parameter=''):
     """Send a command to this axis.
 
     """
-    self.controller.send(command, str(parameter), self.axis)
+    self.controller.send(command, str(parameter), self.axis_id)
 
   def targeted_position(self):
     """Returns the position the stage is currently targeting.
@@ -68,42 +121,54 @@ class Stage(object):
     """
     self.send('MF')
 
-  def define_home(self, position='?'):
+  def define_home(self, position=None):
     """Sets the stage home position to given position in current units.
 
     """
-    self.send('DH', position)
-    if (position == '?'):
+    if position is None:
+      self.send('DH', '?')
       position = self.controller.read()
-      print position+self.units()
+    else:
+      if self.limits is not None:
+        self.limits = Limits([i + position for i in self.limits])
+      self.send('DH', position)
     return float(position)
 
-  def move_to_limit(self, direction='?'):
+  def move_to_limit(self, direction=None):
     """Given the argument '+' or '-', moves stage that hardware limit.
 
     """
-    self.send('MT', direction)
-    if (direction == '?'):
+    if direction is None:
+      self.send('MT', '?')
       finished = self.controller.read()
-      return int(finished)
+    else:
+      self.send('MT', direction)
+    return int(finished)
 
-  def move_indefinately(self, direction='?'):
+  def move_indefinately(self, direction=None):
     """Initiates continuous motion in the given '+' or '-' direction.
 
+    If no argument is given, command reports when it has hit a limit.
+
     """
-    self.send('MV', direction)
-    if (direction == '?'):
+    if direction is None:
+      self.send('MV', '?')
       finished = self.controller.read()
       return int(finished)
+    else:
+      self.send('MV', direction)
 
-  def move_to_next_index(self, direction='?'):
+  def move_to_next_index(self, direction=None):
     """Moves to the nearest index in the given '+' or '-' direction.
 
     """
-    self.send('MZ', direction)
-    if (direction == '?'):
+    finished = 0
+    if direction is None:
+      self.send('MZ', '?')
       finished = self.controller.read()
-      return int(finished)
+    else:
+      self.send('MZ', direction)
+    return int(finished)
 
   def go_to_home(self, **kwargs):
     """Moves the stage to the home position.
@@ -113,27 +178,30 @@ class Stage(object):
     if kwargs.pop('wait', False):
       self.pause_for_stage()
 
-  def position(self, position=None, **kwargs):
+  def position(self, position=None, wait=False):
     """Moves the stage to an absolute position. If no argument is
     given, the current position of the stage is returned.
 
+    If the given position is outside the range of the stage, the
+    stage is moved to its limit.
     """
-    if (position is None):
+    if position is None:
       self.send('TP')
       position = float(self.controller.read())
     else:
+      if self.limits is not None:
+        position = clamp(position, self.limits.lower, self.limits.upper)
       self.send('PA', position)
-    if kwargs.pop('wait', False):
+    if wait:
       self.pause_for_stage()
     return float(position)
 
-  def move(self, relative_position, **kwargs):
+  def move(self, relative_position, wait=False):
     """Moves the stage the given relative position.
 
     """
-    self.send('PR', relative_position)
-    if kwargs.pop('wait', False):
-      self.pause_for_stage()
+    requested_position = self.position() + relative_position
+    self.position(requested_position, wait)
     return float(relative_position)
 
   def pause_for_stage(self):
@@ -151,18 +219,19 @@ class Stage(object):
     if kwargs.pop('wait', False):
       self.pause_for_stage()
 
-  def step_resolution(self, resolution='?'):
+  def step_resolution(self, resolution=None):
     """Sets or returns the encoder full-step resolution for a Newport Unidrive
     compatible programmable driver with step motor axis.
 
     """
-    self.send('FR', resolution)
-    if (resolution == '?'):
+    if resolution is None:
+      self.send('FR', '?')
       resolution = self.controller.read()
-      print resolution+self.units()
+    else:
+      self.send('FR', resolution)
     return float(resolution)
 
-  def gear_ratio(self, gear_ratio='?'):
+  def gear_ratio(self, gear_ratio=None):
     """Sets or returns the master-slave reduction ratio for a slave axis.
 
     Use this command very carefully. The slave axis will have its speed and
@@ -172,13 +241,14 @@ class Stage(object):
     ratios greater than 1.
 
     """
-    self.send('GR', gear_ratio)
-    if (gear_ratio == '?'):
+    if gear_ratio is None:
+      self.send('GR', '?')
       gear_ratio = self.controller.read()
-      print gear_ratio+self.units()
+    else:
+      self.send('GR', gear_ratio)
     return float(gear_ratio)
 
-  def units(self, units='?'):
+  def units(self, units=None):
     """Sets the stage displacement units from given integer.
     If no argument is given, current unit setting is reported.
 
@@ -191,24 +261,28 @@ class Stage(object):
     5 -- mils (milli-inches)   11 -- microradian
 
     """
-    self.send('SN', units)
-    if (units == '?'):
-      response = self.controller.read()
-      units = ['encoder-counts', 'motor-steps', 'mm', u'\u03BCm', 'in', 'mil',
-               u'\u03BCin', u'\u00B0', 'grade', 'rad', 'mrad', u'\u03BCrad']
-      return units[int(response.strip())]
+    if units is None:
+      self.send('SN', '?')
+      units = int((self.controller.read()).strip())
+    else:
+      self.send('SN', units)
+    unit_codes = [
+        'encoder-counts', 'motor-steps', 'mm', u'\u03BCm', 'in','mil',
+         u'\u03BCin', u'\u00B0', 'grade', 'rad', 'mrad', u'\u03BCrad']
+    return unit_codes[units]
 
-  def following_error_threshold(self, error='?'):
+  def following_error_threshold(self, error=None):
     """Sets or returns the maximum allowed following error.
 
     """
-    self.send('FE', error)
-    if (error == '?'):
+    if error is None:
+      self.send('FE', '?')
       error = self.controller.read()
-      print error
+    else:
+      self.send('FE', error)
     return float(error)
 
-  def following_error_configuration(self, configuration='?'):
+  def following_error_configuration(self, configuration=None):
     """Sets the stage response when following error is exceeded.
 
     The configuration is a hex string. The string must start
@@ -225,94 +299,107 @@ class Stage(object):
     0x05 0b0000101 Abort motion on following error
 
     """
-    self.send('ZF', configuration)
-    if (configuration == '?'):
+    if configuration is None:
+      self.send('ZF', '?')
       configuration = self.controller.read()
-      print configuration
+    else:
+      self.send('ZF', configuration)
     return configuration
 
-  def acceleration(self, acceleration='?'):
+  def acceleration(self, acceleration=None):
     """Sets the stage acceleration.
 
     """
-    self.send('AC', acceleration)
-    if (acceleration == '?'):
+    if acceleration is None:
+      self.send('AC', '?')
       acceleration = self.controller.read()
-      print acceleration+self.units()+'/s^2'
+    else:
+      self.send('AC', acceleration)
     return float(acceleration)
 
-  def e_stop_acceleration(self, acceleration='?'):
+  def e_stop_acceleration(self, acceleration=None):
     """Sets the stage emergency stop acceleration.
 
     """
-    self.send('AE', acceleration)
-    if (acceleration == '?'):
+    if acceleration is None:
+      self.send('AE', '?')
       acceleration = self.controller.read()
-      print acceleration+self.units()+'/s^2'
+    else:
+      self.send('AE', acceleration)
     return float(acceleration)
 
-  def deceleration(self, deceleration='?'):
+  def deceleration(self, deceleration=None):
     """Sets te stage deceleration.
 
     """
-    self.send('AG', deceleration)
-    if (deceleration == '?'):
+    if deceleration is None:
+      self.send('AG', '?')
       deceleration = self.controller.read()
-      print deceleration+self.units()+'/s^2'
+    else:
+      self.send('AG', deceleration)
     return float(deceleration)
 
-  def acceleration_limit(self, acceleration='?'):
+  def acceleration_limit(self, acceleration=None):
     """Sets the maximum allowed stage acceleration/deceleration.
 
     Stage will error out if this limit is exceeded.
 
     """
-    self.send('AU', acceleration)
-    if (acceleration == '?'):
+    if acceleration is None:
+      self.send('AU', '?')
       acceleration = self.controller.read()
+    else:
+      self.send('AU', acceleration)
     return float(acceleration)
 
-  def backlash_compensation(self, compensation='?'):
+  def backlash_compensation(self, compensation=None):
     """Set or report the backlash compensation in current units.
 
     Maximum compensation is equivelent of 10000 encoder counts.
 
     """
-    self.send('BA', compensation)
-    if (compensation == '?'):
+    if compensation is None:
+      self.send('BA', '?')
       compensation = self.controller.read()
-      print compensation+self.units()
+    else:
+      self.send('BA', compensation)
     return float(compensation)
 
-  def home_preset(self, home_position='?'):
+  def home_preset(self, home_position=None):
     """Sets the absolute position ascribed to the home position.
 
     """
-    self.send('SH', home_position)
-    if (home_position == '?'):
+    if home_position is None:
+      self.send('SH', '?')
       home_position = self.controller.read()
-      print home_position+self.units()
+    else:
+      if self.limits is not None:
+        self.limits = Limits([i + home_position for i in self.limits])
+      self.send('SH', home_position)
     return float(home_position)
 
-  def velocity(self, velocity='?'):
+  def velocity(self, velocity=None):
     """Sets the stage velocity.
 
     """
-    self.send('VA', velocity)
-    if (velocity == '?'):
+    if velocity is None:
+      self.send('VA', '?')
       velocity = self.controller.read()
-      print velocity+self.units()+'/s'
+    else:
+      self.send('VA', velocity)
     return float(velocity)
 
-  def velocity_limit(self, velocity='?'):
+  def velocity_limit(self, velocity=None):
     """Sets the maximum allowed stage velocity.
 
     Stage will error out if this limit is exceeded.
 
     """
-    self.send('VU', velocity)
-    if (velocity == '?'):
+    if velocity is None:
+      self.send('VU', '?')
       velocity = self.controller.read()
+    else:
+      self.send('VU', velocity)
     return float(velocity)
 
   def wait_until_position(self, position):

@@ -4,7 +4,7 @@ A module for the mathematics of optics.
 """
 from numpy import array, linalg, dot
 import math
-from itop.beam.beam import TrajectoryData
+from itop.beam.beam import Trajectory
 
 def refract(ray, normal, origin_index, final_index):
   """Returns the normalized direction of a given ray (normalized or not) after
@@ -93,10 +93,6 @@ def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
 
   """
   index = 1 if plane is 'S' else 0
-  foci = []
-  signs_list = [[ 0, 0],  # Central Value
-                [ 1,-1],  # Upstream Limit
-                [-1, 1]]  # Downstream Limit
   aup = trajectory_a.upstream_point
   aue = trajectory_a.upstream_error
   bup = trajectory_b.upstream_point
@@ -106,23 +102,20 @@ def focus_with_uncertainty(trajectory_a, trajectory_b, plane='T'):
   bdp = trajectory_b.downstream_point
   bde = trajectory_b.downstream_error
 
-  for signs in signs_list:
+  foci = []
+  for signs in [[0, 0], [1, -1], [-1, 1]]:
     offset = array([0, 0, 0])
     foci.append(focus(
-        TrajectoryData(
+        Trajectory(
             None, aup + signs[0] * (offset + aue[index]),
             None, adp + signs[0] * (offset + ade[index]),
             None, None),
-        TrajectoryData(
+        Trajectory(
             None, bup + signs[1] * (offset + bue[index]),
             None, bdp + signs[1] * (offset + bde[index]),
             None, None),
         plane=plane))
-  # TODO - If stage can move to focal point, verify the position is correct.
-  delta1_a = (foci[1][0] - foci[0][0])
-  delta2_a = (foci[2][0] - foci[0][0])
-  delta1_b = (foci[1][1] - foci[0][1])
-  delta2_b = (foci[2][1] - foci[0][1])
-  return [[foci[0][0], (delta1_a, delta2_a)],
-          [foci[0][1], (delta1_b, delta2_b)]]
+  #       [--focus---  (----positive error-----, ----negative error-----)]
+  return [[foci[0][0], (foci[1][0] - foci[0][0], foci[2][0] - foci[0][0])],
+          [foci[0][1], (foci[1][1] - foci[0][1], foci[2][1] - foci[0][1])]]
 
