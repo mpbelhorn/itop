@@ -122,10 +122,9 @@ class FocalPoint(object):
     if self.tracker.alignment is None:
       return None
     else:
-      alignment = self.tracker.alignment
-      x_displacement = alignment.x_displacement
-      y_displacement = alignment.y_displacement
-      angles = alignment.angles
+      x_displacement = self.tracker.alignment.x_displacement
+      y_displacement = self.tracker.alignment.y_displacement
+      angles = self.tracker.alignment.angles
       alternates = []
       for i in self.beam_a.slope_uncertainty():
         for j in self.beam_b.slope_uncertainty():
