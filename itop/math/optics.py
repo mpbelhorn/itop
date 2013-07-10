@@ -42,7 +42,8 @@ def radius_from_normals(
     beam_a_normal, beam_b_normal,
     x_displacement, y_displacement):
   """Calculates the radius of curvature given two normal vectors and their
-  relative displacements in the xy plane.
+  relative displacements in the xy plane assuming reflection off a
+  perfectly spherical surface.
 
   """
   x_sum = beam_a_normal[0] + beam_b_normal[0]
