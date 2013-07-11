@@ -137,7 +137,7 @@ class Tracker(object):
     self.group_id = kwargs.pop('group_id', 1)
 
     alignment_path = kwargs.pop('alignment_path', None)
-    self.driver.group_create(self.axes, **kwargs)
+    self.driver.group_create(xyz_axes, **kwargs)
     if alignment_path is not None:
       self.load_alignment(alignment_path)
 
@@ -161,7 +161,7 @@ class Tracker(object):
     shutter(0, 0)
     shutter(1, 1)
     beam_a.find_trajectory(
-        [self.driver.a, 12, 125], -1, -1)
+        [self.axes[0].limits.upper, 12, 125], -1, -1)
     # Block beam 'A' and find beam 'B' trajectory.
     shutter(1, 0)
     shutter(0, 1)
@@ -191,8 +191,14 @@ class Tracker(object):
 
     """
     with open(file_path, 'rb') as input_file:
-      pickled_data = zlib.decompress(input_file.read())
-      self.alignment = cPickle.loads(pickled_data)
+      try:
+        pickled_data = zlib.decompress(input_file.read())
+        self.alignment = cPickle.loads(pickled_data)
+      except AttributeError:
+        # Changed the data format.
+        print "Failed to load alignment. No alignment in use!"
+        self.alignment = None
+
 
   def alignment_date(self):
     """Returns the date and time the current alignment data was taken.

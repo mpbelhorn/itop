@@ -137,9 +137,9 @@ class FocalPoint(object):
               normal_limit_a, normal_limit_b, x_displacement, y_displacement))
       uncertainty = np.std(alternates)
       downstream_a = linalg.rotate_yxz_tait_bryan(
-          self.beam_a.slope, alignment.angles)
+          self.beam_a.slope, angles)
       downstream_b = linalg.rotate_yxz_tait_bryan(
-          self.beam_b.slope, alignment.angles)
+          self.beam_b.slope, angles)
       normal_a = optics.reconstruct_mirror_normal(downstream_a)
       normal_b = optics.reconstruct_mirror_normal(downstream_b)
       return [optics.radius_from_normals(
