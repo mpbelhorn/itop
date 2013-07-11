@@ -30,8 +30,8 @@ profiler = itop.Profiler('/dev/ttyUSB0')
 esp_300 = itop.StageController('/dev/ttyUSB1',
     limits=[500.0, [-45.0, 190.0], 125.0])
 esp_301 = itop.StageController('/dev/ttyUSB2',
-    limits=[125.0, [-45.0, 190.0], 125.0])
 mirror_stage = esp_300.axis1
+    limits=[125.0, [0.0, 25.0], 125.0])
 profiler_rotation_stage = esp_300.axis2
 
 alignment_data = None
