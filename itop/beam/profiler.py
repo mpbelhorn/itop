@@ -12,26 +12,6 @@ import zlib
 import cPickle
 
 
-def save_object(target, file_path):
-  """Saves an object to a gzipped serialized object file.
-
-  """
-  with open(file_path, 'wb') as output_file:
-    output_file.write(zlib.compress(
-        cPickle.dumps(target, cPickle.HIGHEST_PROTOCOL),9))
-
-def load_object(file_path):
-  """Loads the beam alignment data from a gzipped serialized object file.
-
-  """
-  with open(file_path, 'rb') as input_file:
-    try:
-      pickled_data = zlib.decompress(input_file.read())
-      return cPickle.loads(pickled_data)
-    except AttributeError:
-      return None
-
-
 class Alignment(object):
   """A class to establish the alignment between a tracker and the beams.
 
