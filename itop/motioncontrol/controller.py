@@ -6,13 +6,14 @@ motion controller.
 """
 
 import serial
-from itop.motioncontrol.stage import Stage
+from itop.motioncontrol import Stage
+from itop.math import Vector
 import time
 
 class StageController(object):
-  """Encompasses serial I/O for Newport EPS300 motion controllers, controller
-  operation methods plus instances of the stage I/O classes for each
-  axis attached to the controller.
+  """Encompasses serial I/O for a Newport EPS300 series stage driver,
+  operation methods plus instances of the stage class for each axis
+  attached to the driver.
 
   """
 
@@ -120,15 +121,17 @@ class StageController(object):
     """
     self.send('AB')
 
-  def group_acceleration(self, group_id, acceleration='?'):
+  def group_acceleration(self, group_id, acceleration=None):
     """Sets the vectorial acceleration for a group.
 
     This command overides individually set accelerations.
 
     """
-    self.send('HA', acceleration, group_id)
-    if (acceleration == '?'):
+    if (acceleration is None):
+      self.send('HA', '?', group_id)
       acceleration = float(self.read().strip())
+    else:
+      self.send('HA', acceleration, group_id)
     return acceleration
 
   def groups(self):
@@ -139,58 +142,64 @@ class StageController(object):
     group_ids = self.read()
     return group_ids
 
-  def group_move_arc(self, group_id, coordinates='?'):
+  def group_move_arc(self, group_id, coordinates=None):
     """Moves a group along an arc.
 
     The arc is defined by a list of coordinates:
       [center_x, center_y, deltaTheta]
 
     """
-    if (coordinates == '?'):
-      self.send('HC', coordinates, group_id)
+    if (coordinates is None):
+      self.send('HC', '?', group_id)
       coordinates = self.read()
     else:
       self.send('HC', ",".join((str(i) for i in coordinates)), group_id)
     return coordinates
 
-  def group_deceleration(self, group_id, deceleration='?'):
+  def group_deceleration(self, group_id, deceleration=None):
     """Sets the vectorial deceleration for a group.
 
     This command overides individually set decelerations.
 
     """
-    self.send('HD', deceleration, group_id)
-    if (deceleration == '?'):
+    if (deceleration is None):
+      self.send('HD', '?', group_id)
       deceleration = float(self.read().strip())
+    else:
+      self.send('HD', deceleration, group_id)
     return deceleration
 
-  def group_estop_deceleration(self, group_id, deceleration='?'):
+  def group_estop_deceleration(self, group_id, deceleration=None):
     """Sets the vectorial deceleration for a group emergency stop.
 
     This command overides individually set decelerations.
 
     """
-    self.send('HE', deceleration, group_id)
-    if (deceleration == '?'):
+    if (deceleration is None):
+      self.send('HE', '?', group_id)
       deceleration = float(self.read().strip())
+    else:
+      self.send('HE', deceleration, group_id)
     return deceleration
 
   def group_off(self, group_id):
     """Turns off power to all axis in a group."""
     self.send('HF', '', group_id)
 
-  def group_jerk(self, group_id, jerk='?'):
+  def group_jerk(self, group_id, jerk=None):
     """Sets the vectorial jerk limit for a group.
 
     This command overides individually set jerks.
 
     """
-    self.send('HJ', jerk, group_id)
-    if (jerk == '?'):
+    if (jerk is None):
+      self.send('HJ', '?', group_id)
       jerk = float(self.read().strip())
+    else:
+      self.send('HJ', jerk, group_id)
     return jerk
 
-  def group_move_line(self, group_id, coordinates='?', **kwargs):
+  def group_move_line(self, group_id, coordinates=None, **kwargs):
     """Moves a group along a line.
 
     The line is defined by a list of endpoint coordinates:
@@ -200,8 +209,8 @@ class StageController(object):
       for group to come to a stop. Default is wait=False.
 
     """
-    if (coordinates == '?'):
-      self.send('HL', coordinates, group_id)
+    if (coordinates is None):
+      self.send('HL', '?', group_id)
       coordinates = self.read()
     else:
       self.send('HL', ",".join((str(i) for i in coordinates)), group_id)
@@ -323,7 +332,11 @@ class StageController(object):
     """
     self.send('HP', '', group_id)
     coordinates = [float(x.strip()) for x in self.read().split(',')]
-    return coordinates
+    # TODO this is likely slow.
+    # Consider making a group class.
+    axes = self.group_create(group_id=group_id)
+    errors = [[self.axes[axis -1].resolution for axis in axes]]
+    return Vector(coordinates, errors)
 
   # Wait for group via point buffer. - NOT IMPLEMENTED.
 
@@ -345,15 +358,17 @@ class StageController(object):
     while self.group_is_moving(group_id):
       pass
 
-  def group_velocity(self, group_id, velocity='?'):
+  def group_velocity(self, group_id, velocity=None):
     """Sets the vectorial velocity limit for a group.
 
     This command overides individually set velocities.
 
     """
-    self.send('HV', velocity, group_id)
-    if (velocity == '?'):
+    if (velocity is None):
+      self.send('HV', '?', group_id)
       velocity = float(self.read().strip())
+    else:
+      self.send('HV', velocity, group_id)
     return velocity
 
   def group_wait_for_stop(self, group_id, delay='0'):

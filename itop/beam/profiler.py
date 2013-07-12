@@ -4,27 +4,96 @@ A class to read the data from a Newport HD-LBP laser beam profiler.
 
 """
 import serial
-import numpy as np
-from collections import namedtuple
-from itop.beam.beam import Beam
+from numpy import array, mean, std, arange
+from itop.beam import Beam
+from itop.math import Vector
 import datetime
 import zlib
 import cPickle
 
-Alignment = namedtuple('Alignment',
-    ['beam_a',
-     'beam_b',
-     'angles',
-     'x_displacement',
-     'y_displacement',
-     'date'])
+
+def save_object(target, file_path):
+  """Saves an object to a gzipped serialized object file.
+
+  """
+  with open(file_path, 'wb') as output_file:
+    output_file.write(zlib.compress(
+        cPickle.dumps(target, cPickle.HIGHEST_PROTOCOL),9))
+
+def load_object(file_path):
+  """Loads the beam alignment data from a gzipped serialized object file.
+
+  """
+  with open(file_path, 'rb') as input_file:
+    try:
+      pickled_data = zlib.decompress(input_file.read())
+      return cPickle.loads(pickled_data)
+    except AttributeError:
+      return None
+
+
+class Alignment(object):
+  """A class to establish the alignment between a tracker and the beams.
+
+  """
+  def __init__(self):
+    """Constructor for alignment."""
+    self.beam_a = None
+    self.beam_b = None
+    self.displacement = None  # r_b(x,y,0) - r_a(x,y,0) in tracker frame.
+    self.angles = None
+    self.date = None
+
+  def align(self, tracker, home=False):
+    """Establishes the alignment between the given tracker and the beams.
+
+    Takes an optional keyword argument
+    home (False): Recalibrates the rotation stage to it's home switch.
+
+    """
+    self.beam_a = Beam(-1)
+    self.beam_b = Beam(-1)
+    tracker.rotation_stage.power_on()
+    if home:
+      tracker.rotation_stage.go_to_home(wait=True)
+    tracker.rotation_stage.position(180, wait=True)
+    tracker.facing_z_direction = 1
+    shutter = tracker.driver.shutter_state
+    shutter(0, 0)
+    shutter(1, 1)
+    self.beam_a = tracker.find_beam_trajectory(
+        [tracker.axes[0].limits.upper, 12, 125],
+        -1, -1, z_samples=25)
+    shutter(1, 0)
+    shutter(0, 1)
+    self.beam_b = tracker.find_beam_trajectory([125-50, 8, 125],
+        -1, -1, z_samples=25)
+    self.displacement = self.beam_b.intercept - self.beam_a.intercept
+    self.angles = [angle for angle in self.beam_a.angles()]
+    self.date = datetime.datetime.utcnow().isoformat()
+
+    # Rotate camera to face mirror.
+    tracker.rotation_stage.position(0, wait=True)
+    tracker.facing_z_direction = -1
+    shutter(1, 1)
+
+  def alignment_date(self):
+    """Returns the date and time the current alignment data was taken.
+
+    """
+    if self.date is None:
+      return 'invalid'
+    else:
+      return self.date
+
+
 
 class Profiler(object):
   """Provides an interface to a Newport HD-LBP over serial link.
 
   """
 
-  def __init__(self, device):
+  def __init__(self, device, threshold_power=0.003):
     """Establish serial communication with an HD-LBP.
 
     """
@@ -35,6 +104,7 @@ class Profiler(object):
                  'width_1', 'width_2', 'width_3',
                  'height_1', 'height_2', 'height_3',
                  'power']
+    self.power = threshold_power
 
   def read(self):
     """Read the latest recorded data.
@@ -42,9 +112,9 @@ class Profiler(object):
     The output is a dictionary that contains the following quantities:
       'time' - Time since camera reset of measurement (seconds)
       'power' - Power deposited on CCD (mW). Requires calibration for accuracy.
-      'centroid_x' - Centroid horizontal position from center (micrometers)
-      'centroid_y' - Centroid vertical position from center (micrometers)
-      'centroid_r' - Image radius (micrometers)
+      'centroid_x' - Centroid horizontal position from center (millimeters)
+      'centroid_y' - Centroid vertical position from center (millimeters)
+      'centroid_r' - Image radius (millimeters)
 
       The following sizes of the x-,y-projected image are also given. See
       HD-LBP documentation for more information.
@@ -72,7 +142,31 @@ class Profiler(object):
           floats = [float(x) for x in values.split()]
           if len(floats) == 14:
             output = dict(zip(self.keys, floats))
+            output['centroid_x'] /= 1000.0
+            output['centroid_y'] /= 1000.0
+            output['centroid_r'] /= 1000.0
             return output
+
+  def profile(self):
+    """Returns the beam profile if the beam is in view."""
+    profile = self.read()
+    if profile['power'] >= self.power:
+      return profile
+    else:
+      return None
+
+  def distortion(self):
+    """Returns a list of the ratios r(%) = h(%)/w(%) where h(%) and w(%) are the
+    width and height of the beam's best fit gaussian profile at the given
+    percentage of the maximum profile power.
+
+    The default percentages are 13.5%, 50.0% and 80.0%
+
+    """
+    profile = self.read()
+    return (profile['height_1']/profile['width_1'],
+            profile['height_2']/profile['width_2'],
+            profile['height_3']/profile['width_3'])
 
 
 class Tracker(object):
@@ -118,13 +212,11 @@ class Tracker(object):
       'xyz_axes' ([1,2,3]): Sets the axis-dimension map in the order [x,y,z].
       'alignment' (None): Set an external alignment configuration.
       'facing_z_direction' (-1): Direction camera is facing in z. Must be ±1.
-      'power' (0.003 mW): Power threshold when beam in view.
 
     """
     self.driver = driver
     self.rotation_stage = rotation_stage
     self.profiler = profiler
-    self.alignment = None
     xyz_axes = kwargs.pop('xyz_axes', [1, 2, 3])
     self.axes = (self.driver.axes[xyz_axes[0] - 1],
                  self.driver.axes[xyz_axes[1] - 1],
@@ -133,167 +225,10 @@ class Tracker(object):
     self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
 
     # Optional instance variables.
-    self.power = kwargs.pop('power', 0.003)
     self.group_id = kwargs.pop('group_id', 1)
 
-    alignment_path = kwargs.pop('alignment_path', None)
     self.driver.group_create(xyz_axes, **kwargs)
-    if alignment_path is not None:
-      self.load_alignment(alignment_path)
 
-  def axis(self, axis_id):
-    """Returns the stage instance given by the axis_id (1,2,3)
-    """
-
-  def align(self):
-    """Determines the alignment of the tracker with respect to
-    the incoming beams.
-
-    """
-    beam_a = Beam(self)
-    beam_b = Beam(self)
-    # Rotate profiler to face splitter output.
-    self.rotation_stage.power_on()
-    self.rotation_stage.go_to_home(wait=True)
-    self.rotation_stage.position(180, wait=True)
-    self.facing_z_direction = 1
-    shutter = self.driver.shutter_state
-    shutter(0, 0)
-    shutter(1, 1)
-    beam_a.find_trajectory(
-        [self.axes[0].limits.upper, 12, 125], -1, -1)
-    # Block beam 'A' and find beam 'B' trajectory.
-    shutter(1, 0)
-    shutter(0, 1)
-    beam_b.find_trajectory([125-50, 8, 125], -1, -1)
-    x_displacement, y_displacement = (
-        beam_b.upstream_point - beam_a.upstream_point)[:2]
-    angles = [angle for angle in beam_a.angles()]
-    self.alignment = Alignment(
-        beam_a.trajectory(), beam_b.trajectory(),
-        angles, x_displacement, y_displacement,
-        datetime.datetime.utcnow().isoformat())
-    # Rotate camera to face mirror.
-    self.rotation_stage.position(0, wait=True)
-    self.facing_z_direction = -1
-    shutter(1, 1)
-
-  def save_alignment(self, file_path):
-    """Saves the beam alignment data to a gzipped serialized object file.
-
-    """
-    with open(file_path, 'wb') as output_file:
-      output_file.write(zlib.compress(
-          cPickle.dumps(self.alignment, cPickle.HIGHEST_PROTOCOL),9))
-
-  def load_alignment(self, file_path):
-    """Loads the beam alignment data from a gzipped serialized object file.
-
-    """
-    with open(file_path, 'rb') as input_file:
-      try:
-        pickled_data = zlib.decompress(input_file.read())
-        self.alignment = cPickle.loads(pickled_data)
-      except AttributeError:
-        # Changed the data format.
-        print "Failed to load alignment. No alignment in use!"
-        self.alignment = None
-
-
-  def alignment_date(self):
-    """Returns the date and time the current alignment data was taken.
-
-    """
-    if self.alignment is None:
-      return 'invalid'
-    else:
-      return self.alignment.date
-
-  def stage_position(self, xyz_coordinates=None, wait=False):
-    """Returns the stage position of the stage. If passed a set of coordinates,
-    also moves stage to that position.
-
-    """
-    def xyz_grouped(coords):
-      """Action to take if all 3 stages are grouped."""
-      if coords is None:
-        return self.driver.group_position(self.group_id)
-      else:
-        self.driver.group_move_line(self.group_id, coords, wait=wait)
-
-    def xz_grouped(coords):
-      """Action to take if only x-z stages are grouped."""
-      if coords is None:
-        position = self.driver.group_position(self.group_id)
-        position.insert(1, self.axes[1].position())
-        return position
-      else:
-        self.driver.group_move_line(self.group_id, coords[0::2])
-        self.axes[1].position(coords[1])
-        if wait:
-          self.driver.axis1.pause_for_stage()
-          self.driver.axis2.pause_for_stage()
-          self.driver.axis3.pause_for_stage()
-
-    def ungrouped(coords):
-      """Action to take if no stages are grouped."""
-      if coords is None:
-        return [self.axes[0].position(),
-                self.axes[1].position(),
-                self.axes[2].position()]
-      else:
-        self.axes[0].position(coords[0])
-        self.axes[1].position(coords[1])
-        self.axes[2].position(coords[2])
-        if wait:
-          self.driver.axis1.pause_for_stage()
-          self.driver.axis2.pause_for_stage()
-          self.driver.axis3.pause_for_stage()
-
-    cases = {
-        1: ungrouped,
-        2: xz_grouped,
-        3: xyz_grouped,
-        }
-
-    return cases[self.group_state](xyz_coordinates)
-
-  def centroid(self):
-    """If the beam is visible, returns the centroid xyz coordinates [mm] in the
-    profiler coordinate system. The z coordinate is always 0, but included so
-    the centroid position can be directly added to the stage coordinate system.
-
-    If the beam is not in view, None is returned.
-
-    """
-    output = self.beam_visible()
-    if output is None:
-      return None
-    else:
-      return [-1 * self.facing_z_direction * output['centroid_x'] / 1000.0,
-              output['centroid_y'] / 1000.0, 0.0]
-
-  def beam_position(self):
-    """If visible, returns the position of the beam centroid in the stage
-    coordinate system. Otherwise returns None
-
-    """
-    centroid = self.centroid()
-    if centroid is None:
-      return None
-    else:
-      stage_coordinates = self.stage_position()
-      return (np.array(stage_coordinates) + np.array(centroid)).tolist()
-
-  def beam_visible(self):
-    """Returns the beam profile if beam is in the frame, otherwise returns None.
-
-    """
-    profile = self.profiler.read()
-    if profile['power'] >= self.power:
-      return profile
-    else:
-      return None
 
   def change_grouping(self, state=1, fast=False):
     """Groups the tracker stages into one of 3 modes given by the 'state'
@@ -334,3 +269,230 @@ class Tracker(object):
       self.axes[2].acceleration(ils_configuration['acceleration'])
       self.axes[2].deceleration(ils_configuration['deceleration'])
       self.group_state = 1
+
+  def stage_position(self, xyz_coordinates=None, wait=False):
+    """Returns the stage position of the stage. If passed a set of coordinates,
+    also moves stage to that position.
+
+    """
+    def xyz_grouped(coords):
+      """Action to take if all 3 stages are grouped."""
+      if coords is None:
+        return self.driver.group_position(self.group_id)
+      else:
+        self.driver.group_move_line(self.group_id, coords, wait=wait)
+
+    def xz_grouped(coords):
+      """Action to take if only x-z stages are grouped."""
+      if coords is None:
+        position = self.driver.group_position(self.group_id)
+        position = position.project([0, None, 1])
+        position[1] = self.axes[1].position()
+        return position
+      else:
+        self.driver.group_move_line(self.group_id, coords[0::2])
+        self.axes[1].position(coords[1])
+        if wait:
+          self.driver.axis1.pause_for_stage()
+          self.driver.axis2.pause_for_stage()
+          self.driver.axis3.pause_for_stage()
+
+    def ungrouped(coords):
+      """Action to take if no stages are grouped."""
+      if coords is None:
+        return Vector([self.axes[0].position(),
+                       self.axes[1].position(),
+                       self.axes[2].position()])
+      else:
+        self.axes[0].position(coords[0])
+        self.axes[1].position(coords[1])
+        self.axes[2].position(coords[2])
+        if wait:
+          self.driver.axis1.pause_for_stage()
+          self.driver.axis2.pause_for_stage()
+          self.driver.axis3.pause_for_stage()
+
+    cases = {
+        1: ungrouped,
+        2: xz_grouped,
+        3: xyz_grouped,
+        }
+
+    return cases[self.group_state](xyz_coordinates)
+
+
+  def centroid(self, samples=1):
+    """If the beam is visible, returns the centroid xyz coordinates [mm] in the
+    profiler coordinate system. The z coordinate is always 0, but included so
+    the centroid position can be directly added to the stage coordinate system.
+
+    If the beam is not in view, None is returned.
+
+    """
+    profiles = []
+    for _ in range(samples):
+      profile = self.profiler.profile()
+      if profile is None:
+        return None
+      profiles.append(profile)
+    centroids = [(-1 * self.facing_z_direction * i['centroid_x'],
+                 i['centroid_y'], 0.0) for i in profiles]
+    centroid = mean(zip(*centroids), 1)
+    error = [std(zip(*centroids), 1)] if samples > 1 else 0.030
+    return Vector(centroid, error)
+
+  def get_beam_position(self, samples=1):
+    """If visible, returns the position of the beam centroid in the tracker
+    coordinate system. Otherwise returns None
+
+    """
+    centroid = self.centroid(samples)
+    if centroid is None:
+      return None
+    else:
+      return self.stage_position() + centroid
+
+  def center_beam(self):
+    """Centers the camera on the beam if beam is visible. If the beam is already
+    centered, the function returns the position of the beam in the relative
+    to the stage group home + uncertainty. If the beam is visible and not
+    centered, the camera is moved to the center. If the beam is not visible,
+    None is returned.
+
+    """
+    centroid = self.centroid()
+    if centroid is None:
+      return None
+    # Do quick sampling to get centroid close to center.
+    while centroid != Vector([0.0, 0.0, 0.0], 0.050):
+      rough_position = self.stage_position() + centroid
+      self.stage_position(rough_position, wait=True)
+      centroid = self.centroid()
+    # Perhaps replace following while loop with a finite number of iterations?
+    while True:
+      centroid = self.centroid(5)
+      centered_position = centroid + self.stage_position()
+      if centroid != Vector([0.0, 0.0, 0.0], 0.002):
+        self.stage_position(centered_position, wait=True)
+      else:
+        return centered_position
+
+  def find_beam_center(self, start_point=None, scan_direction_x=1):
+    """Scans in X for a single beam and centers it on the CCD.
+
+    The optional arguments are:
+      scan_direction_x (1): Integers +1 (-1) indicate to scan in the
+                            positive (negative) x direction.
+
+    """
+    if start_point is None:
+      start_point = [
+          self.axes[0].limits.lower,
+          self.axes[1].limits.middle(),
+          self.axes[2].limits.lower]
+    x_axis = self.axes[0]
+    beam_position = self.get_beam_position()
+    self.change_grouping(1, fast=True)
+    if beam_position is None:
+      # Move camera into starting point.
+      self.stage_position(start_point)
+      while x_axis.is_moving():
+        beam_position = self.get_beam_position()
+        if beam_position is not None:
+          x_axis.stop(wait=True)
+          break
+
+    if beam_position is not None:
+      beam_position = Vector(
+          [beam_position[0], start_point[1], start_point[2]])
+      self.stage_position(beam_position, wait=True)
+
+    # Scan for beam crossing if beam wasn't seen moving to start point.
+    if beam_position is None:
+      self.change_grouping(1, fast=False)
+      x_axis.position(self.axes[0].limits.direction(scan_direction_x))
+      while x_axis.is_moving():
+        beam_position = self.get_beam_position()
+        if beam_position is not None:
+          x_axis.stop(wait=True)
+          break
+      else:
+        print "Beam not seen!"
+        return None
+
+    self.change_grouping(1, fast=True)
+    # Move back to beam position.
+    self.stage_position(beam_position, wait=True)
+
+    # The beam should now be in view.
+    self.change_grouping(3, fast=True)
+    while True:
+      centered_position = self.center_beam()
+      if centered_position is None:
+        self.stage_position(
+            self.stage_position() - [scan_direction_x * 2.0, 0, 0], wait=True)
+      else:
+        return centered_position
+
+  def find_beam_trajectory(self, start_point=None,
+      scan_direction_x=1, scan_direction_z=1, z_samples=5):
+    """Find trajectory of single beam.
+
+    The optional arguments are:
+      scan_direction_x (1): Integers +1 (-1) indicate to scan in the
+                            positive (negative) x direction.
+      scan_direction_z (1): Integers +1 (-1) indicate to scan in the
+                            positive (negative) z direction.
+      z_samples (5): Number of points to sample the beam.
+
+    """
+    beam = Beam()
+    # Find the beam at the first z extreme.
+    if start_point is None:
+      start_point = Vector([
+          self.axes[0].limits.direction(-scan_direction_x),
+          self.axes[1].limits.middle(),
+          self.axes[2].limits.direction(-scan_direction_z)])
+
+    sample_positions = list(arange(
+            self.axes[2].limits.direction(scan_direction_z),
+            self.axes[2].limits.direction(-scan_direction_z),
+            -scan_direction_z * self.axes[2].limits.length() / z_samples))
+    sample_positions.reverse()
+
+    intercept = self.find_beam_center(start_point, scan_direction_x)
+    for i in [1, -1, 2, -2]:
+      if intercept is None:
+        intercept = self.find_beam_center(
+            start_point + [0, i * 4.0, 0], scan_direction_x)
+      else:
+        break
+    else:
+      print "Cannot find beam. Check beam power and camera height."
+      return None
+
+    # Calculate rough trajectory of the beam.
+    beam.add_sample(intercept)
+
+    delta_z = scan_direction_z * array([0, 0, 10])
+
+    small_step = intercept + delta_z
+    # TODO - Optimize stage speeds here to minimize vibration.
+    self.change_grouping(1, fast=True)
+    self.stage_position(small_step, wait=True)
+    intercept = self.center_beam()
+    while intercept is None:
+      small_step = small_step - scan_direction_z * array([0, 0, 10])
+      self.stage_position(small_step, wait=True)
+      intercept = self.center_beam()
+    beam.add_sample(intercept)
+    for z_sample in sample_positions:
+      self.stage_position(beam.position(z_sample), wait=True)
+      intercept = self.center_beam()
+      if intercept is not None:
+        beam.add_sample(intercept)
+      else:
+        # Cross this bridge when we get there.
+        pass
+
+    return beam

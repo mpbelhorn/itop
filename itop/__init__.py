@@ -20,10 +20,15 @@ Using any of these subpackages requires an explicit import.
  utilities                 --- Misc. funtions.
 """
 
-from itop.beam.focus import FocalPoint
-from itop.beam.profiler import Profiler
-from itop.beam.profiler import Tracker
-from itop.motioncontrol.controller import StageController
+from itop import math
+from itop import utilities
+from itop import motioncontrol
+from itop import beam
+
+from itop.math import Value, Vector
+from itop.motioncontrol import StageController
+from itop.beam import Beam, Profiler, Tracker, DataPoint
+
 import os
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))

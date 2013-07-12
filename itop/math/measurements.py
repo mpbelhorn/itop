@@ -68,6 +68,13 @@ class Value(object):
   def __repr__(self):
     return repr(self.value) + ' ± ' + repr(self.error)
 
+  def __str__(self):
+    """str(self) must return only the value so it can be used as input to
+    itop.motioncontrol movement commands.
+
+    """
+    return str(self.value)
+
   def __add__(self, other):
     other = Value(other)
     return Value(self.value + other.value,
@@ -175,7 +182,7 @@ def sign(first, second):
   return -1.0 if first * second < 0 else 1.0
 
 class Vector(object):
-  """A representation of a mesaured N-dimensional vector and its associated
+  """A representation of a measured N-dimensional vector and its associated
   uncertainty.
 
   """
@@ -251,7 +258,10 @@ class Vector(object):
       yield value
 
   def __getitem__(self, key):
-    return self.values[key]
+    try:
+      return Vector(self.values[key])
+    except MeasurementException:
+      return Value(self.values[key])
 
   def __len__(self):
     return len(self.values)
@@ -260,11 +270,69 @@ class Vector(object):
     raise TypeError("""Vector class doesn't support item deletion.
         Make a projection into a new Vector instead.""")
 
-  def __setitem__(self, item):
-    raise TypeError("""Vector class doesn't support item assignment.
-        Form a new Vector instead.""")
+  def __setitem__(self, key, value):
+    self.values[key] = Value(value)
+
+  def __lt__(self, other):
+    try:
+      other = Vector(other)
+      return all(pair[0] < pair[1] for pair in zip(self.values, other.values))
+    except MeasurementException:
+      return NotImplemented
+
+  def __le__(self, other):
+    try:
+      other = Vector(other)
+      return all(pair[0] <= pair[1] for pair in zip(self.values, other.values))
+    except MeasurementException:
+      return NotImplemented
+
+  def __eq__(self, other):
+    try:
+      other = Vector(other)
+      return all(pair[0] == pair[1] for pair in zip(self.values, other.values))
+    except MeasurementException:
+      return NotImplemented
+
+  def __ne__(self, other):
+    try:
+      other = Vector(other)
+      return any(pair[0] != pair[1] for pair in zip(self.values, other.values))
+    except MeasurementException:
+      return NotImplemented
+
+  def __ge__(self, other):
+    try:
+      other = Vector(other)
+      return all(pair[0] <= pair[1] for pair in zip(self.values, other.values))
+    except MeasurementException:
+      return NotImplemented
+
+  def __gt__(self, other):
+    try:
+      other = Vector(other)
+      return all(pair[0] > pair[1] for pair in zip(self.values, other.values))
+    except MeasurementException:
+      return NotImplemented
+
+  def project(self, indexes):
+    """Projects the vector onto a sub- or super-space.
+
+    Takes a list of indexes corresponding to the current dimensions of the
+    vector in the order and dimensionality desired for the projected vector.
+    Casting to a superspace requires 'None' in the relevant higher dimensions.
+
+    Examples:
+    * To project a vector of the form [x, y, z] onto the zy plane
+      subspace: indexes=[2, 1]
+
+    * To project a vector of the form [x,z] into the xyz superspace:
+      indexes=[0, None, 1]
+    """
+    return Vector([(self[i] if i is not None else Value(0)) for i in indexes])
 
   def __add__(self, other):
+    other = Vector(other)
     return Vector(self.values + other.values)
 
   def __sub__(self, other):
@@ -286,8 +354,8 @@ class Vector(object):
     return (norm([i.value for i in self.values]),
         (-norm(self.lower_errors()), norm(self.upper_errors())))
 
-  def to_array(self):
-    """Returns the vector as a numpy array."""
+  def array(self):
+    """Returns the vector as a numpy array without errors."""
     return array([i.value for i in self.values])
 
   def errors(self):
@@ -394,7 +462,7 @@ class Vector(object):
         (2*erps[1]*delta_erps[0])**2 + (2*erps[0]*delta_erps[1])**2 +
         (2*erps[3]*delta_erps[2])**2 + (2*erps[2]*delta_erps[3])**2)
 
-    return Vector(np.dot(matrix, self.to_array()),
+    return Vector(np.dot(matrix, self.array()),
 
         [[sum([sqrt(
             (matrix[i][j] * self.maximal_errors()[i])**2 +

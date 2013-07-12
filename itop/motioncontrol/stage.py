@@ -4,7 +4,8 @@ This module provides methods for controlling stages attached to an EPS300
 motion controller.
 
 """
-from itop.utilities.utilities import clamp
+from itop.utilities import clamp
+from itop.math import Value
 
 class Limits:
   """A class to represent the limits of motion of a stage.
@@ -30,6 +31,10 @@ class Limits:
     """
     return self.upper if direction > 0 else self.lower
 
+  def length(self):
+    """Returns the length of the stage."""
+    return self.upper - self.lower
+
 
 class Stage(object):
   """A represenation of a robotic stage.
@@ -50,6 +55,7 @@ class Stage(object):
     """
     self.axis_id = str(axis)
     self.controller = controller
+    self.resolution = 0.0001 # TODO - Read this from the stage.
     self.limits = Limits(0, 0)
     if limits is not None:
       try:
@@ -194,7 +200,7 @@ class Stage(object):
       self.send('PA', position)
     if wait:
       self.pause_for_stage()
-    return float(position)
+    return Value(position, self.resolution)
 
   def move(self, relative_position, wait=False):
     """Moves the stage the given relative position.

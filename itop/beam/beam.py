@@ -3,309 +3,125 @@ A module for tracking and parameterizing a beam segment in 3D space.
 
 """
 
-import numpy as np
-import itop.math.linalg as itlin
-from collections import namedtuple
-
-Trajectory = namedtuple('Trajectory',
-    ['slope',
-     'upstream_point',
-     'upstream_error',
-     'downstream_point',
-     'downstream_error',
-     'distortions'])
+from numpy import arcsin
+from numpy.linalg import lstsq, norm
+from itop.math.linalg import normalize
+from itop.math import Vector
 
 class Beam(object):
   """For constaining the movement of a robotic stage group + camera to keep a
   laser beam centered on the camera.
 
+  The class stores a number of beam-center position samples. Samples must be
+  in the same coordinate system, typically that of the tracker used to take
+  the samples. Samples may be of any vector-like 3D iterable,
+  including the itop.Vector class.
+
+  When 2 or more samples are added to the beam via the add_sample() method,
+  the direction of the beam and it's intercept with the z=0 plane are
+  computed and stored.
+
+  The fitted direction is always in the positive z direction.
+
   """
-
-  def __init__(self, tracker):
-    """Initialize a constraint on the movement of a LBP on a stage group to
-    travel along a beam.
+  def __init__(self, z_direction=1):
+    """Constructor for beam. Takes an optional z_direction={+1, -1} to
+    indicate in which direction the beam is propagating as the fitted
+    direction is always in the +z direction.
 
     """
-    self.tracker = tracker
-    self.slope = None
-    self.upstream_point = None
-    self.upstream_error = None
-    self.downstream_point = None
-    self.downstream_error = None
+    self.direction = None
+    self.intercept = None
+    self._samples = []
+    self._samples_in_fit = 0
     self.distortions = None
+    self.z_direction = z_direction
 
-  def position(self, fraction):
-    """Returns the position in space at a given fraction along path length.
+  def add_sample(self, sample):
+    """Adds a beam-centroid position sample to the beam samples and updates
+    the data.
 
-    """
-    if self.slope is not None:
-      return (np.array(self.upstream_point) +
-          fraction * np.array(self.slope)).tolist()
-    else:
-      return None
-
-  def trajectory(self):
-    """Returns the beam trajectory data as a named tuple with the same names as
-    in the class instance.
+    Samples may be any 3D vector-like container in the form [x, y, z] where
+    the coordinates specify the beam centroid position in a consistant
+    coordinate system. Ideally, the samples would be in the form of
+    itop.Vector(centroid, error) objects.
 
     """
-    data = [self.slope,
-            self.upstream_point,
-            self.upstream_error,
-            self.downstream_point,
-            self.downstream_error,
-            self.distortions]
-    if None not in data:
-      return Trajectory(*data)
-    else:
-      # Must be default values. Why save them anyways?
-      return Trajectory(*[None] * 6)
+    self._samples.append(sample)
+    self._update()
 
-  def load(self, data):
-    """Restores the trajectory data from a list or tuple of the type returned by
-    trajectory().
+  def last_sample(self):
+    """Returns the last collected sample."""
+    return self._samples[-1]
 
-    """
-    if None in data:
-      self.slope = None
-      self.upstream_point = None
-      self.upstream_error = None
-      self.downstream_point = None
-      self.downstream_error = None
-      self.distortions = None
-    else:
-      self.slope = np.array(data[0])
-      self.upstream_point = np.array(data[1])
-      self.upstream_error = np.array(data[2])
-      self.downstream_point = np.array(data[3])
-      self.downstream_error = np.array(data[4])
-      self.distortions = data[5]
+  def first_sample(self):
+    """Returns the first collected sample."""
+    return self._samples[-1]
 
-  def jitter(self, number_of_samples=5):
-    """Returns the average position in mm of the beam centroid and its
-    standard error in the profiler frame after a number of samples if
-    the beam is visible, otherwise None is returned.
+  def upstream_sample(self):
+    """Returns the most upstream sample."""
+    pass
+
+  def downstream_sample(self):
+    """Returns the most downstream sample."""
+    pass
+
+  def position(self, ordinate, dimension=2):
+    """Returns the position in space at the given ordinate in the given
+    dimension. Returns None if the position cannot be computed.
+
+    The default dimension is the z axis, i.e. position(z) = (x, y, z)
 
     """
-    first_centroid = self.tracker.centroid()
-    if first_centroid is None:
-      return None
-    else:
-      centroids = []
-      centroids.append(first_centroid)
-      for _ in range(number_of_samples - 1):
-        centroids.append(self.tracker.centroid())
-      centroid = np.mean(zip(*centroids), 1)
-      error = np.std(zip(*centroids), 1)
-      output = [centroid, error]
-      return output
-
-  def center_beam(self):
-    """Centers the camera on the beam if beam is visible. If the beam is already
-    centered, the function returns the position of the beam in the relative
-    to the stage group home + uncertainty. If the beam is visible and not
-    centered, the camera is moved to the center. If the beam is not visible,
-    None is returned.
-
-    """
-    centroid = self.tracker.centroid()
-    if centroid is None:
-      return None
-    # Do quick sampling to get centroid close to center.
-    while any((abs(i) > 0.5 for i in self.tracker.centroid())):
-      stage_position = self.tracker.stage_position()
-      centroid = self.tracker.centroid()
-      position = np.array(stage_position) + np.array(centroid)
-      self.tracker.stage_position(position, wait=True)
-    # Perhaps replace following while loop with a finite number of iterations?
-    while True:
-      jitter = self.jitter()
-      stage_position = self.tracker.stage_position()
-      centroid = jitter[0]
-      position = np.array(stage_position) + np.array(centroid)
-      if any((abs(value) > error for value, error in zip(*jitter))):
-        self.tracker.stage_position(position, wait=True)
+    if self.direction is not None:
+      if dimension == 2:
+        return Vector(self.direction * ordinate + self.intercept)
       else:
-        # Add the stage positioning uncertainty to the jitter in
-        # quadrature.
-        error = [np.sqrt(jitter[1][0]**2 + 0.0005**2),
-                 np.sqrt(jitter[1][1]**2 + 0.0075**2),
-                 0.0005]
-        return [position.tolist(), error]
-
-  def find_beam(
-      self, start_point=None, scan_direction_x=1):
-    """Scans in X for single beam and centers camera on beam.
-
-    The optional arguments are:
-      scan_direction_x (1): Integers +1 (-1) indicate to scan in the
-                            positive (negative) x direction.
-
-    """
-    if start_point is None:
-      start_point = [
-          self.tracker.axes[0].limits.lower,
-          self.tracker.axes[1].limits.middle(),
-          self.tracker.axes[2].limits.lower]
-    x_axis = self.tracker.axes[0]
-    current_position = None
-    overshoot = scan_direction_x * 2.0
-    if not self.tracker.beam_visible():
-      # Move camera into starting point.
-      self.tracker.change_grouping(1, fast=True)
-      self.tracker.stage_position(start_point, wait=True)
-
-      # Scan for beam crossing.
-      self.tracker.change_grouping(1, fast=False)
-      x_axis.position(self.tracker.axes[0].limits.direction(scan_direction_x))
-      while x_axis.is_moving():
-        current_position = self.tracker.beam_position()
-        if current_position is not None:
-          x_axis.stop(wait=True)
-          self.tracker.stage_position(current_position, wait=True)
-          break
-      else:
-        print "Beam not seen!"
-        return None
-
-    # The beam should now be in view.
-    self.tracker.change_grouping(3, fast=True)
-    while True:
-      centered = self.center_beam()
-      if centered is None:
-        self.tracker.stage_position(
-            np.array(current_position) - np.array([overshoot, 0, 0]),
-            wait=True)
-      else:
-        return centered
-
-  def distortion(self):
-    """Returns a list of the ratios r(%) = h(%)/w(%) where h(%) and w(%) are the
-    width and height of the beam's best fit gaussian profile at the given
-    percentage of the maximum profile power.
-
-    The default percentages are 13.5%, 50.0% and 80.0%
-
-    """
-    profile = self.tracker.profiler.read()
-    return (profile['height_1']/profile['width_1'],
-            profile['height_2']/profile['width_2'],
-            profile['height_3']/profile['width_3'])
-
-  def find_trajectory(self, start_point=None,
-      scan_direction_x=1, scan_direction_z=1):
-    """Find trajectory of single beam.
-
-    The optional arguments are:
-      scan_direction_x (1): Integers +1 (-1) indicate to scan in the
-                            positive (negative) x direction.
-      scan_direction_z (1): Integers +1 (-1) indicate to scan in the
-                            positive (negative) z direction.
-
-    """
-    # Clear current beam data.
-    self.slope = None
-    self.upstream_point = None
-    self.upstream_error = None
-    self.downstream_point = None
-    self.downstream_error = None
-    self.distortions = None
-
-    # Find the beam at the first z extreme.
-    if start_point is None:
-      start_point = [
-          self.tracker.axes[0].limits.lower,
-          self.tracker.axes[1].limits.middle(),
-          self.tracker.axes[2].limits.lower]
-    for i in [0, 1, 2, -1, -2]:
-      first_intercept = self.find_beam(
-          np.array(start_point) + np.array([0, i * 4.0, 0]), scan_direction_x)
-      first_distortion = self.distortion()
-      if first_intercept is not None:
-        break
+        # Calculate the trajectory in this dimension and pass the point on.
+        pass
     else:
-      print "Cannot find beam. Check beam power and camera height."
       return None
 
-    # Calculate rough trajectory of the beam.
-    step = first_intercept[0] + scan_direction_z * np.array([0, 0, 30])
-    self.tracker.change_grouping(2, fast=True)
-    self.tracker.stage_position(step, wait=True)
-    while True:
-      centered = self.center_beam()
-      if centered is None:
-        step = step - scan_direction_z * np.array([0, 0, 10])
-        self.tracker.stage_position(step, wait=True)
-      elif centered:
-        break
-    first_sample = np.array(self.tracker.stage_position())
-    direction = itlin.normalize(
-        first_sample - first_intercept[0])
-    scale = scan_direction_z * 2 * abs(first_intercept[0][2]) / direction[2]
-    second_sample = first_intercept[0] + scale * direction
-    self.tracker.change_grouping(1, fast=True)
-    self.tracker.stage_position(
-        second_sample.tolist()[:2] + [
-          self.tracker.axes[2].limits.direction(scan_direction_z)], wait=True)
-    self.tracker.change_grouping(3, fast=True)
+  def _update(self):
+    """Updates the beam trajectory information given the samples taken."""
+    if ((len(self._samples) > 1) and
+        (len(self._samples) != self._samples_in_fit)):
+      fit = self.fit()
+      length_through_tracker = norm(fit[0][0])
+      normal = fit[0][0] / length_through_tracker
+      angular_resolution = [fit[1] / length_through_tracker] if fit[1].size > 0 else 0.002
+      self.direction = Vector(normal, angular_resolution)
+      self.intercept = fit[0][1]
+      self._samples_in_fit = len(self._samples)
 
-    # Refine trajectory of the beam.
-    while True:
-      second_intercept = self.center_beam()
-      second_distortion = self.distortion()
-      if second_intercept is None:
-        print "Cannot find beam. Check beam power and camera height."
-        return None
-      elif second_intercept:
-        if scan_direction_z == 1:
-          self.upstream_point = np.array(first_intercept[0])
-          self.upstream_error = np.array(first_intercept[1])
-          self.downstream_point = np.array(second_intercept[0])
-          self.downstream_error = np.array(second_intercept[1])
-          self.distortions = (first_distortion, second_distortion)
-        else:
-          self.downstream_point = np.array(first_intercept[0])
-          self.downstream_error = np.array(first_intercept[1])
-          self.upstream_point = np.array(second_intercept[0])
-          self.upstream_error = np.array(second_intercept[1])
-          self.distortions = (second_distortion, first_distortion)
-        self.slope = (self.downstream_point - self.upstream_point)
-        return self.slope
+  def fit(self, dimension=2):
+    """Fits the sampled trajectory to a line using a least-squares
+    regression. Returns an array in the form:
 
-  def slope_uncertainty(self):
-    """Returns a list of the four 1 sigma alternate trajectories based on the
-    upstream and downstream intercept uncertainties.
+      [fit_parameters, residuals, ordinates_rank, ordinates_singular_values]
+
+    The fit parameters of of the form [m, r0] for the vector equation
+    r = m*x + r0 where x is the scalar coordinate of the given dimension.
+
+    If no trajectory data is available, None is returned.
 
     """
-    if None in (self.upstream_error, self.downstream_error):
+    # TODO - Catch errors for impossible-to-fit cases.
+    if len(self._samples) > 1:
+      try:
+        ordinates = [[i[dimension].value, 1.0] for i in self._samples]
+        data = [i.array() for i in self._samples]
+        return lstsq(ordinates, data)
+      except AttributeError:
+        ordinates = [[i[dimension], 1.0] for i in self._samples]
+        data = [i for i in self._samples]
+        return lstsq(ordinates, data)
+    else:
       return None
-    signs = [[ 1,  1, -1, -1],
-             [ 1, -1, -1,  1],
-             [-1, -1,  1,  1],
-             [-1,  1,  1, -1]]
-    alternates = []
-    for i in range(4):
-      new_upstream = self.upstream_point
-      new_downstream = self.downstream_point
-      new_upstream[0] += signs[i][0] * self.upstream_error[0]
-      new_upstream[1] += signs[i][1] * self.upstream_error[1]
-      new_downstream[0] += signs[i][2] * self.downstream_error[0]
-      new_downstream[1] += signs[i][3] * self.downstream_error[1]
-      alternates.append(
-          (itlin.normalize(new_downstream - new_upstream)).tolist())
-    return alternates
-
-  def move_on_beam(self, fraction, fast=False):
-    """Moves the stage group along the beam trajectory to the given fraction
-    of available group path.
-
-    """
-    self.tracker.change_grouping(3, fast)
-    self.tracker.stage_position(self.position(fraction))
 
   def angles(self, reverse=False):
     """Returns the yxz-convention (phi, theta, psi) Tait-Bryan angles needed
-    to rotate the stage coordinate system into the beam coordinate system.
+    to rotate the tracker coordinate system into the beam coordinate system.
 
     Conventionally, the incoming beam x-axis is always taken to be in the
     table/stage xz-plane, and thus psi == 0. This convention is chosen
@@ -313,10 +129,10 @@ class Beam(object):
 
     """
     sign = -1 if reverse else 1
-    direction = sign * itlin.normalize(self.slope)
+    direction = sign * self.direction.array()
     # The alpha angle is signed and related to the xz-projection.
-    phi = np.arcsin(itlin.normalize(direction[0::2])[0])
+    phi = arcsin(normalize(direction[0::2])[0])
     # The polar angle about y doesn't change with rotations about y, thus:
-    theta = -np.arcsin(direction[1])
+    theta = -arcsin(direction[1])
     psi = 0.0
     return phi, theta, psi
