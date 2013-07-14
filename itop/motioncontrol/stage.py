@@ -176,12 +176,12 @@ class Stage(object):
       self.send('MZ', direction)
     return int(finished)
 
-  def go_to_home(self, **kwargs):
+  def go_to_home(self, wait=False):
     """Moves the stage to the home position.
 
     """
     self.send('OR')
-    if kwargs.pop('wait', False):
+    if wait:
       self.pause_for_stage()
 
   def position(self, position=None, wait=False):
@@ -217,12 +217,12 @@ class Stage(object):
     while self.is_moving():
       pass
 
-  def stop(self, **kwargs):
+  def stop(self, wait=False):
     """Stops motion on this axis with predefined acceleration.
 
     """
     self.send('ST')
-    if kwargs.pop('wait', False):
+    if wait:
       self.pause_for_stage()
 
   def step_resolution(self, resolution=None):

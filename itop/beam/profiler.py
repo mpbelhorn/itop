@@ -273,9 +273,7 @@ class Tracker(object):
         self.driver.group_move_line(self.group_id, coords[0::2])
         self.axes[1].position(coords[1])
         if wait:
-          self.driver.axis1.pause_for_stage()
-          self.driver.axis2.pause_for_stage()
-          self.driver.axis3.pause_for_stage()
+          self.driver.pause_for_stages()
 
     def ungrouped(coords):
       """Action to take if no stages are grouped."""
@@ -288,9 +286,7 @@ class Tracker(object):
         self.axes[1].position(coords[1])
         self.axes[2].position(coords[2])
         if wait:
-          self.driver.axis1.pause_for_stage()
-          self.driver.axis2.pause_for_stage()
-          self.driver.axis3.pause_for_stage()
+          self.driver.pause_for_stages()
 
     cases = {
         1: ungrouped,

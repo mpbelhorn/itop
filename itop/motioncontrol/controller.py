@@ -58,18 +58,22 @@ class StageController(object):
 
     """
     self.send('RS')
+    time.sleep(10)
+    for axis in axes:
+      axis.go_to_home(wait=True)
 
   def home(self, wait=True):
     """Perform a global stage homeing.
 
     """
     self.send('OR', 0, 0)
-    # TODO - pause execution until home is stopped.
     if wait:
-      while any([self.axis1.is_moving(),
-                 self.axis2.is_moving(),
-                 self.axis3.is_moving()]):
-        pass
+      self.pause_for_stages()
+
+  def pause_for_stages(self):
+    """Holds execution in while loop until all stages report being stationary."""
+    while any([axis.is_moving() for axis in self.axes]):
+      pass
 
   def read_status(self):
     """Read the status buffer.
