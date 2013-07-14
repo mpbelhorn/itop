@@ -25,6 +25,11 @@ def load_object(file_path):
     try:
       pickled_data = zlib.decompress(input_file.read())
       return cPickle.loads(pickled_data)
-    except AttributeError:
+    except AttributeError as oops:
+      # Ooops. Changed the implementation of something.
+      print "Failed to load object: ", oops
+      return None
+    except IOError:
+      print "Failed to read file."
       return None
 
