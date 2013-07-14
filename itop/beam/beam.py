@@ -50,6 +50,15 @@ class Beam(object):
     self._samples.append(sample)
     self._update()
 
+  def translate(self, displacement):
+    pass
+
+  def __repr__(self):
+    return repr(self.direction)
+
+  def align(self, alignment):
+    pass
+
   def last_sample(self):
     """Returns the last collected sample."""
     return self._samples[-1]
@@ -136,3 +145,7 @@ class Beam(object):
     theta = -arcsin(direction[1])
     psi = 0.0
     return phi, theta, psi
+
+class ReflectedBeam(Beam):
+  def __init__(self):
+    pass
