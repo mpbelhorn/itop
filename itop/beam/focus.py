@@ -11,7 +11,7 @@ from itop.utilities import save_object
 from itop.utilities import load_object
 
 class DataPoint(object):
-  def __init__(self, mirror_position, beam_a, beam_b)
+  def __init__(self, mirror_position, beam_a, beam_b):
     self.mirror_position = mirror_position
     self.beam_a = beam_a
     self.beam_b = beam_b
@@ -41,12 +41,12 @@ class Instrument(object):
     self.alignment = None
     if alignment is not None:
       try:
-        if alignment.alignment_date() is not None
+        if alignment.alignment_date() is not None:
           self.alignment = alignment
       except AttributeError:
         try:
           file_data = load_object(alignment)
-          if file_data.alignment_date() is not None
+          if file_data.alignment_date() is not None:
             self.alignment = file_data
         except AttributeError:
           # Input alignment instance or file path is not valid.
