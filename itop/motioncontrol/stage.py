@@ -53,8 +53,9 @@ class Stage(object):
     passing a single limit where the stage can travel between ±limit.
 
     """
-    self.axis_id = str(axis)
     self.controller = controller
+    self.axis_id = [str(axis)]
+    self.axis_id = self.axis_id + self.identity()
     self.resolution = 0.0001 # TODO - Read this from the stage.
     self.limits = Limits(0, 0)
     if limits is not None:
@@ -81,7 +82,13 @@ class Stage(object):
     """Send a command to this axis.
 
     """
-    self.controller.send(command, str(parameter), self.axis_id)
+    self.controller.send(command, str(parameter), self.axis_id[0])
+
+  def identity(self):
+    """Returns the model and serial number of the stage."""
+    self.send('ID', '?')
+    return self.controller.read().strip().split(', ')
+
 
   def targeted_position(self):
     """Returns the position the stage is currently targeting.
