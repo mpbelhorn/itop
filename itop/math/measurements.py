@@ -336,6 +336,7 @@ class Vector(object):
     return Vector(self.values + other.values)
 
   def __sub__(self, other):
+    other = Vector(other)
     return Vector(self.values - other.values)
 
   def __mul__(self, scalar):
