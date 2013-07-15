@@ -58,6 +58,7 @@ class Instrument(object):
       self.alignment = Alignment()
       self.tracker.driver.home()
       self.alignment.align(self.tracker, home=True)
+      save_object(self.alignment, alignment)
 
     # Output data.
     self.data = [] # (mirror_position, beam_a, beam_b)
