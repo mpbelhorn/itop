@@ -27,7 +27,7 @@ from itop import beam
 
 from itop.math import Value, Vector
 from itop.motioncontrol import StageController
-from itop.beam import Beam, Profiler, Tracker, DataPoint
+from itop.beam import Beam, Profiler, Tracker, DataPoint, Alignment, Instrument
 
 import os
 
