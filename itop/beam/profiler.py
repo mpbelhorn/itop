@@ -79,6 +79,8 @@ class Profiler(object):
     """
     self.device = device
     self.serial = serial.Serial(device, 115200, timeout=1)
+    if not self.serial.read(10):
+      raise serial.SerialException("Profiler data cannot be read.")
     self.keys = ['time', 'centroid_x', 'centroid_y', 'centroid_r',
                  'level_1', 'level_2', 'level_3',
                  'width_1', 'width_2', 'width_3',
