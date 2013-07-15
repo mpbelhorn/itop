@@ -80,7 +80,7 @@ class Instrument(object):
       try:
         start_point = self.data[-1].beam_a.first_sample() + [-25, 0, 0]
       except IndexError:
-        start_point = None
+        start_point = [50, 22, -125]
     # Block beam 'B' and find beam 'A' trajectory.
     shutter = self.tracker.driver.shutter_state
     shutter(0, 0)
