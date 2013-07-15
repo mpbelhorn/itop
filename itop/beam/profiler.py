@@ -201,13 +201,13 @@ class Tracker(object):
     self.axes = (self.driver.axes[xyz_axes[0] - 1],
                  self.driver.axes[xyz_axes[1] - 1],
                  self.driver.axes[xyz_axes[2] - 1])
-    self.group_state = 3 # 1=axes independent, 2=xz grouped, 3=xyz grouped
+    self.group_state = 1 # 1=axes independent, 2=xz grouped, 3=xyz grouped
     self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
 
     # Optional instance variables.
     self.group_id = kwargs.pop('group_id', 1)
 
-    self.driver.group_create(xyz_axes, **kwargs)
+    self.change_grouping(1, fast=True)
 
 
   def change_grouping(self, state=1, fast=False):
@@ -228,7 +228,7 @@ class Tracker(object):
         'Fast ILS' if fast else 'Slow ILS']
     lta_configuration = Tracker.configurations[
         'Fast LTA' if fast else 'Slow LTA']
-    axis_ids = [axis.axis_id for axis in self.axes]
+    axis_ids = [axis.axis_id[0] for axis in self.axes]
     if state == 3:
       kwargs = lta_configuration
       self.driver.group_create(axis_ids, **kwargs)
@@ -346,9 +346,9 @@ class Tracker(object):
       centroid = self.centroid()
     # Perhaps replace following while loop with a finite number of iterations?
     while True:
-      centroid = self.centroid(5)
+      centroid = self.centroid(8)
       centered_position = centroid + self.stage_position()
-      if centroid != Vector([0.0, 0.0, 0.0], 0.002):
+      if centroid != Vector([0.0, 0.0, 0.0], 0.001):
         self.stage_position(centered_position, wait=True)
       else:
         return centered_position
@@ -380,7 +380,7 @@ class Tracker(object):
 
     if beam_position is not None:
       beam_position = Vector(
-          [beam_position[0], start_point[1], start_point[2]])
+          [beam_position[0], beam_position[1], start_point[2]])
       self.stage_position(beam_position, wait=True)
 
     # Scan for beam crossing if beam wasn't seen moving to start point.
