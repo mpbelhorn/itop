@@ -65,7 +65,7 @@ class Beam(object):
 
   def first_sample(self):
     """Returns the first collected sample."""
-    return self._samples[-1]
+    return self._samples[0]
 
   def upstream_sample(self):
     """Returns the most upstream sample."""
