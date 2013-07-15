@@ -27,10 +27,18 @@ class StageController(object):
     """
     self.serial = serial.Serial(serial_device, 19200, timeout=1)
     self.io_end = '\r\n'
-    self.axis1 = Stage(1, self)
-    self.axis2 = Stage(2, self)
-    self.axis3 = Stage(3, self)
-    self.axes = [self.axis1, self.axis2, self.axis3]
+    self.axes = []
+    for i in range(1,7):
+        stage = Stage(i, self)
+        errors = self.errors()
+        if errors is not None:
+          if 9 in [error[0] for error in errors]:
+            break
+          else:
+            print errors
+        else:
+          self.axes.append(stage)
+          print "Added", stage
     self.gpio_directions(0b01)
     if limits is not None:
       try:
@@ -58,17 +66,33 @@ class StageController(object):
 
     """
     self.send('RS')
-    time.sleep(10)
-    for axis in axes:
+    while not self.read_firmware_version():
+      pass
+    for axis in self.axes:
+      axis.power_on()
       axis.go_to_home(wait=True)
+      axis.power_off()
 
   def home(self, wait=True):
     """Perform a global stage homeing.
 
     """
-    self.send('OR', 0, 0)
-    if wait:
-      self.pause_for_stages()
+    existing_groups = []
+    try:
+      for group in self.groups():
+        existing_groups.append(self.group_configuration(group))
+    except TypeError:
+      # No groups established.
+      pass
+    else:
+      # There are groups established.
+      wait = True # Must wait for each stage before regrouping.
+      for _ in self.groups():
+        self.group_delete(1)
+    for axis in self.axes:
+      axis.go_to_home(wait)
+    for configuration in existing_groups:
+      self.group_create(**configuration)
 
   def pause_for_stages(self):
     """Holds execution in while loop until all stages report being stationary."""
@@ -94,26 +118,29 @@ class StageController(object):
 
     """
     self.send('TB?')
-    return self.read()
+    code, timestamp, message = self.read().strip().split(', ')
+    return (int(code), int(timestamp), message)
+
 
   def errors(self):
     """Read all the error messages in the error FIFO buffer.
 
     """
     messages = []
-    self.send('TB?')
-    messages.append(self.read())
-    while messages[-1].split(',')[0] != '0':
-      self.send('TB?')
-      messages.append(self.read())
-    return messages
+    messages.append(self.error())
+    while messages[-1][0] != 0:
+      messages.append(self.error())
+    if len(messages) > 1:
+      return messages[:-1]
+    else:
+      return None
 
   def read_firmware_version(self):
     """Report the controller firmware version.
 
     """
     self.send('VE?')
-    return self.read()
+    return self.read().strip()
 
   def wait(self, milliseconds='0'):
     """Pause internal command execution for given time.
@@ -155,8 +182,11 @@ class StageController(object):
 
     """
     self.send('HB')
-    group_ids = self.read()
-    return group_ids
+    group_ids = self.read().strip().split(' ')
+    if group_ids[0]:
+      return [int(i) for i in group_ids]
+    else:
+      return None
 
   def group_move_arc(self, group_id, coordinates=None):
     """Moves a group along an arc.
@@ -234,7 +264,7 @@ class StageController(object):
       self.pause_for_group(group_id)
     return coordinates
 
-  def group_create(self, axes=None, **kwargs):
+  def group_create(self, group_axes=None, **kwargs):
     """Creates a group of two or more axes over the given axes.
 
     If no axes are given, command returns the axes assigned to the group with
@@ -284,9 +314,9 @@ class StageController(object):
     deceleration = kwargs.pop('deceleration', 30)
     jerk = kwargs.pop('jerk', 0)
     estop = kwargs.pop('estop', 200)
-    if axes is None:
+    if group_axes is None:
       self.send('HN', '?', group_id)
-      axes = [int(axis.strip()) for axis in self.read().split(',')]
+      group_axes = [int(axis.strip()) for axis in self.read().split(',')]
     else:
       # NOTE - Deleting a lower ID group when more than one group exists
       #   is untested.
@@ -297,7 +327,7 @@ class StageController(object):
           'deceleration': deceleration,
           }
       if check or home:
-        for axis in axes:
+        for axis in group_axes:
           stage = self.axes[axis - 1]
           if check:
             kinematics['velocity'] = min(
@@ -309,34 +339,34 @@ class StageController(object):
           if home:
             stage.power_on()
             stage.go_to_home(wait=True)
-      self.send('HN', ",".join((str(i) for i in axes)), group_id)
+      self.send('HN', ",".join((str(i) for i in group_axes)), group_id)
       self.group_velocity(group_id, kinematics['velocity'])
       self.group_acceleration(group_id, kinematics['acceleration'])
       self.group_deceleration(group_id, kinematics['deceleration'])
       self.group_jerk(group_id, jerk)
       self.group_estop_deceleration(group_id, estop)
       self.group_on(group_id)
-    return axes
+    return group_axes
 
   def group_on(self, group_id):
     """Turns on power to all axis in a group."""
     self.send('HO', '', group_id)
 
-  def group_configuration(self, group_id):
+  def group_configuration(self, group_number):
     """Returns a dictionary of the configuration parameters
     needed to recreate the group using group_create()
 
     """
     configuration = dict()
-    if str(group_id) in self.groups():
+    if group_number in self.groups():
       configuration = dict([
-          ('group_id', group_id),
-          ('axes', self.group_create(group_id)),
-          ('velocity', self.group_velocity(group_id)),
-          ('acceleration', self.group_acceleration(group_id)),
-          ('deceleration', self.group_deceleration(group_id)),
-          ('jerk', self.group_jerk(group_id)),
-          ('estop', self.group_estop_deceleration(group_id))])
+          ('group_id', group_number),
+          ('group_axes', self.group_create(group_id=group_number)),
+          ('velocity', self.group_velocity(group_number)),
+          ('acceleration', self.group_acceleration(group_number)),
+          ('deceleration', self.group_deceleration(group_number)),
+          ('jerk', self.group_jerk(group_number)),
+          ('estop', self.group_estop_deceleration(group_number))])
     return configuration
 
   def group_position(self, group_id):
@@ -350,8 +380,8 @@ class StageController(object):
     coordinates = [float(x.strip()) for x in self.read().split(',')]
     # TODO this is likely slow.
     # Consider making a group class.
-    axes = self.group_create(group_id=group_id)
-    errors = [[self.axes[axis -1].resolution for axis in axes]]
+    group_axes = self.group_create(group_id=group_id)
+    errors = [[self.axes[axis -1].resolution for axis in group_axes]]
     return Vector(coordinates, errors)
 
   # Wait for group via point buffer. - NOT IMPLEMENTED.

@@ -7,6 +7,58 @@ motion controller.
 from itop.utilities import clamp
 from itop.math import Value
 
+class StageConfiguration(object):
+  DEFAULTS = {
+      'velocity': 50.0,
+      'velocity_limit': 50.0,
+      'acceleration': 20.0,
+      'acceleration_limit': 20.0,
+      'deceleration': 20.0,
+      'estop_acceleration': 100.0,
+      'jerk': 0,
+      'home_position': 0.0}
+
+  def __init__(self, stage=None, **kwargs):
+    self.parameters = dict(StageConfiguration.DEFAULTS)
+    if stage is not None:
+      self.get_configuration(stage)
+    if kwargs:
+      self._update_from_keywords(**kwargs)
+      if stage is not None:
+        self.set_configuration(stage)
+
+  def _update_from_keywords(self, **kwargs):
+    if kwargs:
+      for key in StageConfiguration.DEFAULTS.keys():
+        if key in kwargs:
+          self.parameters[key] = kwargs.pop(key)
+      if kwargs:
+        print "Bad configuration parameters:", kwargs
+
+  def get_configuration(self, stage):
+    self.parameters['velocity'] = stage.velocity()
+    self.parameters['velocity_limit'] = stage.velocity_limit()
+    self.parameters['acceleration'] = stage.acceleration()
+    self.parameters['acceleration_limit'] = stage.acceleration_limit()
+    self.parameters['deceleration'] = stage.deceleration()
+    self.parameters['estop_acceleration'] = stage.estop_acceleration()
+    self.parameters['jerk'] = stage.jerk()
+    self.parameters['home_position'] = stage.home_position()
+
+  def set_configuration(self, stage, **kwargs):
+    self._update_from_keywords(**kwargs)
+    stage.velocity(self.parameters['velocity'])
+    stage.velocity_limit(self.parameters['velocity_limit'])
+    stage.acceleration(self.parameters['acceleration'])
+    stage.acceleration_limit(self.parameters['acceleration_limit'])
+    stage.deceleration(self.parameters['deceleration'])
+    stage.estop_acceleration(self.parameters['estop_acceleration'])
+    stage.jerk(self.parameters['jerk'])
+    stage.home_position(self.parameters['home_position'])
+
+
+configurations = {'SNB127086':0}
+
 class Limits:
   """A class to represent the limits of motion of a stage.
 
@@ -17,6 +69,10 @@ class Limits:
     """
     self.lower = float(min(limit_1, limit_2))
     self.upper = float(max(limit_1, limit_2))
+
+  def __iter__(self):
+    for i in [self.lower, self.upper]:
+      yield i
 
   def middle(self):
     """Returns the center of the limit range.
@@ -56,13 +112,21 @@ class Stage(object):
     self.controller = controller
     self.axis_id = [str(axis)]
     self.axis_id = self.axis_id + self.identity()
-    self.resolution = 0.0001 # TODO - Read this from the stage.
+    self.resolution = self.encoder_resolution()
     self.limits = Limits(0, 0)
     if limits is not None:
       try:
         self.limits = Limits(*sorted(limits))
       except TypeError:
         self.limits = Limits(-1 * abs(limits), abs(limits))
+
+  def __repr__(self):
+    try:
+      return "Model {} ({}) on axis {}".format(
+          self.axis_id[1], self.axis_id[2], self.axis_id[0])
+    except IndexError:
+      return "Model {} on axis {}".format(
+          self.axis_id[1], self.axis_id[0])
 
   def set_limits(self, limits=None):
     """Defines the stage limits.
@@ -89,6 +153,17 @@ class Stage(object):
     self.send('ID', '?')
     return self.controller.read().strip().split(', ')
 
+  def encoder_resolution(self, resolution=None):
+    """Sets the stage encoder resolution. If no resolution is given, function
+    returns the current resolution.
+
+    """
+    if resolution is None:
+      self.send('SU', '?')
+      resolution = float(self.controller.read().strip())
+    else:
+      self.send('SU', resolution)
+    return resolution
 
   def targeted_position(self):
     """Returns the position the stage is currently targeting.
@@ -143,7 +218,7 @@ class Stage(object):
       position = self.controller.read()
     else:
       if self.limits is not None:
-        self.limits = Limits([i + position for i in self.limits])
+        self.limits = Limits(*[i + position for i in self.limits])
       self.send('DH', position)
     return float(position)
 
@@ -330,7 +405,18 @@ class Stage(object):
       self.send('AC', acceleration)
     return float(acceleration)
 
-  def e_stop_acceleration(self, acceleration=None):
+  def jerk(self, jerk=None):
+    """Sets the stage jerk rate.
+
+    """
+    if jerk is None:
+      self.send('JK', '?')
+      jerk = self.controller.read()
+    else:
+      self.send('JK', jerk)
+    return float(jerk)
+
+  def estop_acceleration(self, acceleration=None):
     """Sets the stage emergency stop acceleration.
 
     """
@@ -342,7 +428,7 @@ class Stage(object):
     return float(acceleration)
 
   def deceleration(self, deceleration=None):
-    """Sets te stage deceleration.
+    """Sets the stage deceleration.
 
     """
     if deceleration is None:
@@ -378,18 +464,23 @@ class Stage(object):
       self.send('BA', compensation)
     return float(compensation)
 
-  def home_preset(self, home_position=None):
-    """Sets the absolute position ascribed to the home position.
+  def home_position(self, position=None):
+    """Sets the absolute position ascribed to the home position. Updated
+    value only takes effect when the stage is re-homed.
 
     """
-    if home_position is None:
+    if position is None:
       self.send('SH', '?')
-      home_position = self.controller.read()
+      position = self.controller.read()
     else:
       if self.limits is not None:
-        self.limits = Limits([i + home_position for i in self.limits])
-      self.send('SH', home_position)
-    return float(home_position)
+        old_position = self.home_position()
+        if old_position != position:
+          self.limits = Limits(
+              *[i + position - old_position for i in self.limits])
+          self.send('SH', position)
+          self.go_to_home(wait=True)
+    return float(position)
 
   def velocity(self, velocity=None):
     """Sets the stage velocity.
