@@ -16,6 +16,9 @@ class DataPoint(object):
     self.beam_a = beam_a
     self.beam_b = beam_b
 
+  def __repr__(self):
+    return repr((self.mirror_position, self.beam_a, self.beam_b))
+
   def realign(self, alignment):
     pass
 
