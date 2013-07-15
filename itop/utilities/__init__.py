@@ -1,6 +1,8 @@
 """
 Miscellanous shorthand and utility functions to simplify iTOP measurements.
 """
+import zlib
+import cPickle
 
 def clamp(value, min_value, max_value):
   """Constrain a value to between a minimum and maximum.
@@ -27,7 +29,7 @@ def load_object(file_path):
       return cPickle.loads(pickled_data)
     except AttributeError as oops:
       # Ooops. Changed the implementation of something.
-      print "Failed to load object: ", oops
+      print "Failed to load object from", file_path, '(' + str(oops) + ')'
       return None
     except IOError:
       print "Failed to read file."
