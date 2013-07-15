@@ -114,18 +114,16 @@ class Profiler(object):
     readout = ''
     while True:
       readout = readout + self.serial.read(self.serial.inWaiting())
-      if ' \n' in readout:
-        lines = readout.split(' \n')
-        if len(lines) > 2:
-          last_full_line = lines[-2]
-          values = last_full_line.split(" ", 1)[1]
-          floats = [float(x) for x in values.split()]
-          if len(floats) == 14:
-            output = dict(zip(self.keys, floats))
-            output['centroid_x'] /= 1000.0
-            output['centroid_y'] /= 1000.0
-            output['centroid_r'] /= 1000.0
-            return output
+      try:
+        data = [float(i) for i in readout.split(' \n')[-2].split(' ')[1:]]
+        if len(data) < 14:
+          raise IndexError
+        data[1] /= 1000.0
+        data[2] /= 1000.0
+        data[3] /= 1000.0
+        return dict(zip(self.keys, data))
+      except IndexError:
+        pass
 
   def profile(self):
     """Returns the beam profile if the beam is in view."""
