@@ -12,10 +12,10 @@ import zlib
 
 parser = argparse.ArgumentParser(description='Scan a test mirror.')
 parser.add_argument('--range', dest='scan_range', nargs=2,
-    metavar=('START', 'STOP'), type=float, default=[100, 202],
+    metavar=('START', 'STOP'), type=float, default=[-100, -202],
     help='Specify beam input positions in mm with START < STOP')
 parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
-    default=5.0, help='Specify mirror sampling step size in mm')
+    default=-5.0, help='Specify mirror sampling step size in mm')
 parser.add_argument('--output', metavar='PATH', type=str,
     default='/home/matt/data_test.gz',
     help='Path to output gz data file')
@@ -28,41 +28,29 @@ args = parser.parse_args()
 
 profiler = itop.Profiler('/dev/ttyUSB0')
 esp_300 = itop.StageController('/dev/ttyUSB1',
-    limits=[500.0, [-45.0, 190.0], 125.0])
+    limits=[250.0, [-45.0, 190.0], 125.0])
 esp_301 = itop.StageController('/dev/ttyUSB2',
     limits=[125.0, [0.0, 25.0], 125.0])
 
-mirror_stage = esp_300.axis1
-profiler_rotation_stage = esp_300.axis2
-
-alignment_data = None
-latest_alignment_path = itop.data_path('alignment/latest.gz')
-if os.path.exists(latest_alignment_path):
-  alignment_data = latest_alignment_path
+mirror_stage = esp_300.axes[0]
+profiler_rotation_stage = esp_300.axes[1]
 
 tracker = itop.beam.profiler.Tracker(esp_301, profiler_rotation_stage,
-    profiler, home=args.home, check=True,
-    alignment_path=alignment_data)
-
-if args.align:
-  print('Aligning the beam tracker. This will take a few minutes.')
-  tracker.align()
-  tracker.save_alignment(latest_alignment_path)
-
-print('Using', tracker.alignment_date(), 'alignment data.')
+    profiler, home=args.home, check=True)
 
 mirror_stage.power_on()
 mirror_stage.velocity(10)
+mirror_stage.home_position(-250.0)
 if args.home:
   mirror_stage.go_to_home(wait=True)
 
-if len(esp_301.errors()) > 1 or len(esp_300.errors()) > 1:
-  print('[WARNING]','Stage driver error. Check home calibration and stage power.')
-  sys.exit()
+# if esp_301.errors() or esp_300.errors() > 1:
+#   print('[WARNING]','Stage driver error. Check home calibration and stage power.')
+#   sys.exit()
 
-focus = itop.FocalPoint(tracker, mirror_stage)
+alignment_path = itop.data_path('alignment/latest.gz')
+instrument = itop.Instrument(tracker, mirror_stage, alignment_path)
 run_starting_time = datetime.datetime.utcnow().isoformat()
-data = [run_starting_time, tracker.alignment]
 
 print('Starting data run at', run_starting_time, 'UTC.')
 print('Mirror position')
@@ -71,20 +59,7 @@ print('===============')
 for mirror_position in arange(
     args.scan_range[0], args.scan_range[1] + args.step_size, args.step_size):
   print(mirror_position)
-  data.append(focus.find_focal_points(250 - mirror_position, proximal=True))
-  print('    f(T) = ',
-      (data[-1].tangential_focus[0][0] + data[-1].tangential_focus[1][0]) / 2)
-  print('    f(S) = ',
-      (data[-1].sagittal_focus[0][0] + data[-1].sagittal_focus[1][0]) / 2)
-  print('    radius: ', data[-1].mirror_radius[0],
-      '±',data[-1].mirror_radius[1],' mm')
+  print(instrument.sample_position(mirror_position, proximal=True))
+  instrument.save_data(args.output)
 
-
-with open(args.output, 'wb') as output_file:
-        output_file.write(zlib.compress(
-            pickle.dumps(data, pickle.HIGHEST_PROTOCOL),9))
-
-# Reopen the data file in python using the command
-# >> with open('test.gz', 'rb') as rp:
-# >>   dat = zlib.decompress(rp.read())
-# >>   newdat = pickle.loads(dat)
+instrument.driver.home()
