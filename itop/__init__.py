@@ -38,3 +38,11 @@ def data_path(path):
   """
   return os.path.join(_ROOT, 'data', path)
 
+def initialize_instruments():
+  profiler = Profiler('/dev/ttyUSB0')
+  esp_300 = StageController('/dev/ttyUSB1',
+      limits=[250.0, [-45.0, 190.0], 125.0])
+  esp_301 = StageController('/dev/ttyUSB2',
+      limits=[125.0, [0.0, 25.0], 125.0])
+  return (profiler, esp_300, esp_301)
+
