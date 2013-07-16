@@ -44,10 +44,6 @@ mirror_stage.home_position(-250.0)
 if args.home:
   mirror_stage.go_to_home(wait=True)
 
-# if esp_301.errors() or esp_300.errors() > 1:
-#   print('[WARNING]','Stage driver error. Check home calibration and stage power.')
-#   sys.exit()
-
 alignment_path = itop.data_path('alignment/latest.gz')
 instrument = itop.Instrument(tracker, mirror_stage, alignment_path)
 run_starting_time = datetime.datetime.utcnow().isoformat()

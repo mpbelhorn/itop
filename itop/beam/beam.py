@@ -3,7 +3,7 @@ A module for tracking and parameterizing a beam segment in 3D space.
 
 """
 
-from numpy import arcsin
+from numpy import arcsin, array
 from numpy.linalg import lstsq, norm
 from itop.math.linalg import normalize
 from itop.math import Vector
@@ -50,14 +50,36 @@ class Beam(object):
     self._samples.append(sample)
     self._update()
 
-  def translate(self, displacement):
-    pass
-
   def __repr__(self):
     return repr(self.direction)
 
+  def translate(self, displacement):
+    """Returns the beam translated by the given displacement vector."""
+    output = Beam(self.z_direction)
+    output.distortions = self.distortions
+    displacement = Vector(displacement)
+    output._samples = [i + displacement for i in self._samples]
+    output._update()
+    return output
+
   def align(self, alignment):
-    pass
+    """Returns the beam rotated into the coordinate system described by the
+    given alignment.
+
+    """
+    output = Beam(self.z_direction)
+    output.distortions = self.distortions
+    rotation_axes = [[0, 1, 0],
+                     [1, 0, 0],
+                     [0, 0, 1]]
+    yxz_tait_bryan_parameters = zip(rotation_axes, alignment.angles)
+    for i in self._samples:
+      rotated_sample = Vector(i)
+      for axis, angle in yxz_tait_bryan_parameters:
+        rotated_sample = rotated_sample.rotate(axis, angle)
+      output._samples.append(rotated_sample)
+    output._update()
+    return output
 
   def last_sample(self):
     """Returns the last collected sample."""
@@ -67,13 +89,27 @@ class Beam(object):
     """Returns the first collected sample."""
     return self._samples[0]
 
+  def _increasing_z_indexes(self):
+    """Returns a list sample indices sorted by increasing z-coordinate."""
+    return array([i[2].value for i in self._samples]).argsort().tolist()
+
+  def max_z_sample(self):
+    """Returns the sample with the highest z-coordinate."""
+    return self._samples[self._increasing_z_indexes()[-1]]
+
+  def min_z_sample(self):
+    """Returns the sample with the smallest z-coordinate."""
+    return self._samples[self._increasing_z_indexes()[0]]
+
   def upstream_sample(self):
     """Returns the most upstream sample."""
-    pass
+    return self._samples[
+        self._increasing_z_indexes()[(self.z_direction - 1) / 2]]
 
   def downstream_sample(self):
     """Returns the most downstream sample."""
-    pass
+    return self._samples[
+        self._increasing_z_indexes()[(1 + self.z_direction) / -2]]
 
   def position(self, ordinate, dimension=2):
     """Returns the position in space at the given ordinate in the given
@@ -98,7 +134,8 @@ class Beam(object):
       fit = self.fit()
       length_through_tracker = norm(fit[0][0])
       normal = fit[0][0] / length_through_tracker
-      angular_resolution = [fit[1] / length_through_tracker] if fit[1].size > 0 else 0.002
+      angular_resolution = (
+          [fit[1] / length_through_tracker] if fit[1].size > 0 else 0.002)
       self.direction = Vector(normal, angular_resolution)
       self.intercept = fit[0][1]
       self._samples_in_fit = len(self._samples)
@@ -115,7 +152,6 @@ class Beam(object):
     If no trajectory data is available, None is returned.
 
     """
-    # TODO - Catch errors for impossible-to-fit cases.
     if len(self._samples) > 1:
       try:
         ordinates = [[i[dimension].value, 1.0] for i in self._samples]
@@ -146,6 +182,3 @@ class Beam(object):
     psi = 0.0
     return phi, theta, psi
 
-class ReflectedBeam(Beam):
-  def __init__(self):
-    pass
