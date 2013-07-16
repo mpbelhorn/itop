@@ -8,6 +8,7 @@ from itop.utilities import clamp
 from itop.math import Value
 
 class StageConfiguration(object):
+  """A class for managing stage parameters."""
   DEFAULTS = {
       'velocity': 50.0,
       'velocity_limit': 50.0,
@@ -18,61 +19,96 @@ class StageConfiguration(object):
       'jerk': 0,
       'home_position': 0.0}
 
-  def __init__(self, stage=None, **kwargs):
+  def __init__(self, stage, **kwargs):
+    """Constructor for StageConfiguration. Takes a stage object as the first
+    argument. Configuration data is read from the stage and stored internally
+    in a dictionary. Any keyword arguments passed are interpereted to be
+    custom stage parameters and are passed on to the stage. Only keys
+    in the default configuration class variable are passed on to the stage.
+
+    """
+    self.stage = stage
     self.parameters = dict(StageConfiguration.DEFAULTS)
-    if stage is not None:
-      self.get_configuration(stage)
+    self.configure(**kwargs)
+
+  def configure(self, **kwargs):
+    """Updates the stored configuration and writes any new passed
+    parameters to the stage.
+
+    """
+    self._get_configuration()
     if kwargs:
       self._update_from_keywords(**kwargs)
-      if stage is not None:
-        self.set_configuration(stage)
 
   def _update_from_keywords(self, **kwargs):
+    """Updates the stored configuration from the given
+    input keyword arguments. If none are given, nothing is done.
+
+    """
     if kwargs:
       for key in StageConfiguration.DEFAULTS.keys():
         if key in kwargs:
           self.parameters[key] = kwargs.pop(key)
       if kwargs:
         print "Bad configuration parameters:", kwargs
+      self._set_configuration()
 
-  def get_configuration(self, stage):
-    self.parameters['velocity'] = stage.velocity()
-    self.parameters['velocity_limit'] = stage.velocity_limit()
-    self.parameters['acceleration'] = stage.acceleration()
-    self.parameters['acceleration_limit'] = stage.acceleration_limit()
-    self.parameters['deceleration'] = stage.deceleration()
-    self.parameters['estop_acceleration'] = stage.estop_acceleration()
-    self.parameters['jerk'] = stage.jerk()
-    self.parameters['home_position'] = stage.home_position()
+  def _get_configuration(self):
+    """Reads the configuration of the associated stage."""
+    self.parameters['velocity'] = self.stage.velocity()
+    self.parameters['velocity_limit'] = self.stage.velocity_limit()
+    self.parameters['acceleration'] = self.stage.acceleration()
+    self.parameters['acceleration_limit'] = self.stage.acceleration_limit()
+    self.parameters['deceleration'] = self.stage.deceleration()
+    self.parameters['estop_acceleration'] = self.stage.estop_acceleration()
+    self.parameters['jerk'] = self.stage.jerk()
+    self.parameters['home_position'] = self.stage.home_position()
 
-  def set_configuration(self, stage, **kwargs):
-    self._update_from_keywords(**kwargs)
-    stage.velocity(self.parameters['velocity'])
-    stage.velocity_limit(self.parameters['velocity_limit'])
-    stage.acceleration(self.parameters['acceleration'])
-    stage.acceleration_limit(self.parameters['acceleration_limit'])
-    stage.deceleration(self.parameters['deceleration'])
-    stage.estop_acceleration(self.parameters['estop_acceleration'])
-    stage.jerk(self.parameters['jerk'])
-    stage.home_position(self.parameters['home_position'])
+  def _set_configuration(self):
+    """Writes the stored configuration to the associated stage."""
+    self.stage.velocity(self.parameters['velocity'])
+    self.stage.velocity_limit(self.parameters['velocity_limit'])
+    self.stage.acceleration(self.parameters['acceleration'])
+    self.stage.acceleration_limit(self.parameters['acceleration_limit'])
+    self.stage.deceleration(self.parameters['deceleration'])
+    self.stage.estop_acceleration(self.parameters['estop_acceleration'])
+    self.stage.jerk(self.parameters['jerk'])
+    self.stage.home_position(self.parameters['home_position'])
 
-
-configurations = {'SNB127086':0}
 
 class Limits:
   """A class to represent the limits of motion of a stage.
 
   """
-  def __init__(self, limit_1=0, limit_2=0):
+  def __init__(self, limits=None):
     """Constructor for Limits.
 
     """
-    self.lower = float(min(limit_1, limit_2))
-    self.upper = float(max(limit_1, limit_2))
+    self.lower = 0
+    self.upper = 0
+    self.update(limits)
 
   def __iter__(self):
     for i in [self.lower, self.upper]:
       yield i
+
+  def update(self, limits=None):
+    """Updates the stored limits to the given limits. Limits can be passed
+    as a single absolute number L where the the stage can move between ±|L|,
+    or as an iterable pair of limits (LowerLimit, UpperLimit).
+
+    If None is passed, the limits are set to (0, 0).
+
+    """
+    if limits is not None:
+      try:
+        self.lower, self.upper = sorted(limits)
+      except TypeError:
+        self.lower = -abs(limits)
+        self.upper = abs(limits)
+    else:
+      self.lower = 0.0
+      self.upper = 0.0
 
   def middle(self):
     """Returns the center of the limit range.
@@ -113,12 +149,7 @@ class Stage(object):
     self.axis_id = [str(axis)]
     self.axis_id = self.axis_id + self.identity()
     self.resolution = self.encoder_resolution()
-    self.limits = Limits(0, 0)
-    if limits is not None:
-      try:
-        self.limits = Limits(*sorted(limits))
-      except TypeError:
-        self.limits = Limits(-1 * abs(limits), abs(limits))
+    self.limits = Limits(limits)
 
   def __repr__(self):
     try:
@@ -127,20 +158,6 @@ class Stage(object):
     except IndexError:
       return "Model {} on axis {}".format(
           self.axis_id[1], self.axis_id[0])
-
-  def set_limits(self, limits=None):
-    """Defines the stage limits.
-
-    Takes either an iterable in the form (lower_limit, upper_limit) or a
-    single value where the stage can travel between ±value.
-
-    """
-    self.limits = Limits(0, 0)
-    if limits is not None:
-      try:
-        self.limits = Limits(*sorted(limits))
-      except TypeError:
-        self.limits = Limits(-1* abs(limits), abs(limits))
 
   def send(self, command, parameter=''):
     """Send a command to this axis.

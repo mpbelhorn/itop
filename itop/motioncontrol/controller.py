@@ -28,17 +28,17 @@ class StageController(object):
     self.serial = serial.Serial(serial_device, 19200, timeout=1)
     self.io_end = '\r\n'
     self.axes = []
-    for i in range(1,7):
-        stage = Stage(i, self)
-        errors = self.errors()
-        if errors is not None:
-          if 9 in [error[0] for error in errors]:
-            break
-          else:
-            print errors
+    for i in range(1, 7):
+      stage = Stage(i, self)
+      errors = self.errors()
+      if errors is not None:
+        if 9 in [error[0] for error in errors]:
+          break
         else:
-          self.axes.append(stage)
-          print "Added", stage
+          print errors
+      else:
+        self.axes.append(stage)
+        print "Added", stage
     self.gpio_directions(0b01)
     if limits is not None:
       try:
@@ -95,7 +95,10 @@ class StageController(object):
       self.group_create(**configuration)
 
   def pause_for_stages(self):
-    """Holds execution in while loop until all stages report being stationary."""
+    """Holds execution in while loop until all stages report being
+    stationary.
+
+    """
     while any([axis.is_moving() for axis in self.axes]):
       pass
 
