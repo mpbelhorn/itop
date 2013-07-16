@@ -66,7 +66,12 @@ class Value(object):
           self.error = (-abs(error), abs(error))
 
   def __repr__(self):
-    return repr(self.value) + ' ± ' + repr(self.error)
+    if self.error[0] == -self.error[1]:
+      return '{0: >-.4g} ± {1[1]: <-.3g}'.format(
+          self.value, self.error)
+    else:
+      return '{0: >-.4g} ({1[1]: >+.3g}/{1[0]: <+.3g})'.format(
+          self.value, self.error)
 
   def __str__(self):
     """str(self) must return only the value so it can be used as input to
@@ -74,6 +79,14 @@ class Value(object):
 
     """
     return str(self.value)
+
+  def __float__(self):
+    return float(self.value)
+
+  def __iter__(self):
+    for part in [self.value, self.error]:
+      yield part
+
 
   def __add__(self, other):
     other = Value(other)
@@ -464,7 +477,6 @@ class Vector(object):
         (2*erps[3]*delta_erps[2])**2 + (2*erps[2]*delta_erps[3])**2)
 
     return Vector(np.dot(matrix, self.array()),
-
         [[sum([sqrt(
             (matrix[i][j] * self.maximal_errors()[i])**2 +
             (self[i].value * delta_matrix[i][j])**2
