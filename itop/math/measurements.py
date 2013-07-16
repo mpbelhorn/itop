@@ -49,10 +49,10 @@ class Value(object):
 
     """
     try:
-      self.value = float(value.value)
-      self.error = tuple((float(err) for err in value.error))
+      self.value = value.value
+      self.error = value.error
     except AttributeError:
-      self.value = float(value)
+      self.value = value
       if error is None:
         self.error = (-0.0, 0.0)
       else:
@@ -87,7 +87,6 @@ class Value(object):
     for part in [self.value, self.error]:
       yield part
 
-
   def __add__(self, other):
     other = Value(other)
     return Value(self.value + other.value,
@@ -101,6 +100,9 @@ class Value(object):
         tuple(float((j * 2 - 1) * sign(self.value, other.value) *
             sqrt(i[0]**2 + i[1]**2))
             for j, i in enumerate(zip(self.error, other.error))))
+
+  def __neg__(self):
+    return Value(self * -1)
 
   def __mul__(self, other):
     other = Value(other)
@@ -226,31 +228,28 @@ class Vector(object):
     """
     if isinstance(values, Vector):
       # It's a Vector obect already. Clone it.
-      self.values = array(values.values)
-      self.dimensions = len(self.values)
+      self.values = values.values
     else:
       try:
-        if len(values) > 1:
+        dim = len(values)
+        if dim > 1:
           if all((isinstance(i, Value) for i in values)):
             # It's a list of Value objects. We're done.
             self.values = array(values)
-            self.dimensions = len(self.values)
           else:
             if errors is None:
               # Default mathematical vector.
               self.values = array([Value(i, 0.0) for i in values])
-              self.dimensions = len(self.values)
             else:
               try:
-                if len(errors) == 1 and len(errors[0]) == len(values):
+                error_type = len(errors)
+                if error_type == 1 and len(errors[0]) == dim:
                   # Per dimension errors.
                   self.values = array(
                       [Value(i,j) for i,j in zip(values, errors[0])])
-                  self.dimensions = len(self.values)
-                elif len(errors) == 2:
+                elif error_type == 2:
                   # Global asymmetric errors.
                   self.values = array([Value(i, errors) for i in values])
-                  self.dimensions = len(self.values)
                 else:
                   print errors
                   raise MeasurementException(
@@ -258,7 +257,6 @@ class Vector(object):
               except TypeError:
                 # Not an iterable. Must be global absolute error.
                 self.values = array([Value(i, errors) for i in values])
-                self.dimensions = len(self.values)
         else:
           raise MeasurementException(
               """Vector requires more than one component.""")
@@ -352,6 +350,9 @@ class Vector(object):
     other = Vector(other)
     return Vector(self.values - other.values)
 
+  def __neg__(self):
+    return Vector([-i for i in self])
+
   def __mul__(self, scalar):
     return Vector(self.values * scalar)
 
@@ -421,15 +422,15 @@ class Vector(object):
       half_theta = theta / 2
       delta_theta = 0
 
-    if axis.dimensions != self.dimensions:
+    if len(axis) != len(self):
       raise MeasurementException(
         """Vector and rotation axis of differing dimensions!
         Use consistant dimensionality to ensure meaningful output.""")
-    elif (self.dimensions < 2) or (3 < self.dimensions):
+    elif (len(self) < 2) or (3 < len(self)):
       raise MeasurementException(
         """Euler-Rodriguez rotation cannot be used for 4(+)D vectors
         or single points.""")
-    elif self.dimensions == 2:
+    elif len(self) == 2:
       # Pad the vectors to 3D in order to compute the rotation.
       raise MeasurementException("2D rotations not implemeneted yet.")
 
