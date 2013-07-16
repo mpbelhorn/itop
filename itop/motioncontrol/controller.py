@@ -26,7 +26,6 @@ class StageController(object):
 
     """
     self.serial = serial.Serial(serial_device, 19200, timeout=1)
-    self.io_end = '\r\n'
     self.axes = []
     for i in range(1, 7):
       stage = Stage(i, self)
@@ -53,7 +52,7 @@ class StageController(object):
     """Send a command to the controller.
 
     """
-    self.serial.write(str(axis) + str(command) + str(parameter) + self.io_end)
+    self.serial.write(str(axis) + str(command) + str(parameter) + '\r\n')
 
   def read(self):
     """Return a line read from the controller's serial buffer.
