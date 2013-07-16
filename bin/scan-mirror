@@ -64,4 +64,4 @@ for mirror_position in arange(
   print(instrument.sample_position(mirror_position, proximal=True))
   instrument.save_data(args.output)
 
-instrument.driver.home()
+instrument.tracker.driver.home()
