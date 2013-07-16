@@ -44,10 +44,10 @@ class StageController(object):
       try:
         if len(limits) == len(self.axes):
           for limit, axis in zip(limits, self.axes):
-            axis.set_limits(limit)
+            axis.limits.update(limit)
       except TypeError:
         for axis in self.axes:
-          axis.set_limits(limit)
+          axis.limits.update(limit)
 
   def send(self, command, parameter='', axis=''):
     """Send a command to the controller.
@@ -77,6 +77,8 @@ class StageController(object):
     """Perform a global stage homeing.
 
     """
+    for axis in self.axes:
+      axis.power_on()
     existing_groups = []
     try:
       for group in self.groups():

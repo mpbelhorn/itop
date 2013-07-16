@@ -235,7 +235,7 @@ class Stage(object):
       position = self.controller.read()
     else:
       if self.limits is not None:
-        self.limits = Limits(*[i + position for i in self.limits])
+        self.limits = Limits([i + position for i in self.limits])
       self.send('DH', position)
     return float(position)
 
@@ -494,7 +494,7 @@ class Stage(object):
         old_position = self.home_position()
         if old_position != position:
           self.limits = Limits(
-              *[i + position - old_position for i in self.limits])
+              [i + position - old_position for i in self.limits])
           self.send('SH', position)
           self.go_to_home(wait=True)
     return float(position)
