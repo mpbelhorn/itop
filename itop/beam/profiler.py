@@ -19,7 +19,6 @@ class Alignment(object):
     self.beam_a = None
     self.beam_b = None
     self.displacement = None  # r_b(x,y,0) - r_a(x,y,0) in tracker frame.
-    self.angles = None
     self.date = None
 
   def align(self, tracker, home=False):
@@ -47,7 +46,6 @@ class Alignment(object):
     self.beam_b = tracker.find_beam_trajectory([125-50, 8, 125],
         -1, -1, z_samples=25)
     self.displacement = self.beam_b.intercept - self.beam_a.intercept
-    self.angles = [angle for angle in self.beam_a.angles()]
     self.date = datetime.datetime.utcnow().isoformat()
 
     # Rotate camera to face mirror.

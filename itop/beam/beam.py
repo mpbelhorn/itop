@@ -3,7 +3,7 @@ A module for tracking and parameterizing a beam segment in 3D space.
 
 """
 
-from numpy import arcsin, array
+from numpy import arcsin, array, dot
 from numpy.linalg import lstsq, norm
 from itop.math.linalg import normalize
 from itop.math import Vector
@@ -32,7 +32,7 @@ class Beam(object):
     """
     self.direction = None
     self.intercept = None
-    self._samples = []
+    self.samples = []
     self._samples_in_fit = 0
     self.distortions = None
     self.z_direction = z_direction
@@ -47,68 +47,59 @@ class Beam(object):
     itop.Vector(centroid, error) objects.
 
     """
-    self._samples.append(sample)
-    self._update()
+    self.samples.append(sample)
+    self.update()
 
   def __repr__(self):
     return repr(self.direction)
 
   def translate(self, displacement):
-    """Returns the beam translated by the given displacement vector."""
-    output = Beam(self.z_direction)
-    output.distortions = self.distortions
-    displacement = Vector(displacement)
-    output._samples = [i + displacement for i in self._samples]
-    output._update()
-    return output
-
-  def align(self, alignment):
-    """Returns the beam rotated into the coordinate system described by the
-    given alignment.
+    """Returns the beam translated by the given displacement vector.
 
     """
-    output = Beam(self.z_direction)
-    output.distortions = self.distortions
-    rotation_axes = [[0, 1, 0],
-                     [1, 0, 0],
-                     [0, 0, 1]]
-    yxz_tait_bryan_parameters = zip(rotation_axes, alignment.angles)
-    for i in self._samples:
-      rotated_sample = Vector(i)
-      for axis, angle in yxz_tait_bryan_parameters:
-        rotated_sample = rotated_sample.rotate(axis, angle)
-      output._samples.append(rotated_sample)
-    output._update()
+    output = self
+    output.samples = [i + displacement for i in self.samples]
+    output.update(force=True)
+    return output
+
+  def transform(self, matrix):
+    """Returns the beam beam transformed by the given transformation matrix.
+
+    """
+    output = self
+    samples = [Vector(dot(matrix, i)) for i in self.samples]
+    output.samples = samples
+    output.update(force=True)
     return output
 
   def last_sample(self):
     """Returns the last collected sample."""
-    return self._samples[-1]
+    return self.samples[-1]
 
   def first_sample(self):
     """Returns the first collected sample."""
-    return self._samples[0]
+    return self.samples[0]
 
   def _increasing_z_indexes(self):
     """Returns a list sample indices sorted by increasing z-coordinate."""
-    return array([i[2].value for i in self._samples]).argsort().tolist()
+    return array([i[2].value for i in self.samples]).argsort().tolist()
 
   def max_z_sample(self):
     """Returns the sample with the highest z-coordinate."""
-    return self._samples[self._increasing_z_indexes()[-1]]
+    return self.samples[self._increasing_z_indexes()[-1]]
 
   def min_z_sample(self):
     """Returns the sample with the smallest z-coordinate."""
-    return self._samples[self._increasing_z_indexes()[0]]
+    return self.samples[self._increasing_z_indexes()[0]]
 
   def upstream_sample(self):
     """Returns the most upstream sample."""
-    return self._samples[
+    return self.samples[
         self._increasing_z_indexes()[(self.z_direction - 1) / 2]]
 
   def downstream_sample(self):
     """Returns the most downstream sample."""
-    return self._samples[
+    return self.samples[
         self._increasing_z_indexes()[(1 + self.z_direction) / -2]]
 
   def position(self, ordinate, dimension=2):
@@ -127,10 +118,10 @@ class Beam(object):
     else:
       return None
 
-  def _update(self):
+  def update(self, force=False):
     """Updates the beam trajectory information given the samples taken."""
-    if ((len(self._samples) > 1) and
-        (len(self._samples) != self._samples_in_fit)):
+    if ((len(self.samples) > 1) and (force or
+        (len(self.samples) != self._samples_in_fit))):
       fit = self.fit()
       length_through_tracker = norm(fit[0][0])
       normal = fit[0][0] / length_through_tracker
@@ -138,7 +129,7 @@ class Beam(object):
           [fit[1] / length_through_tracker] if fit[1].size > 0 else 0.002)
       self.direction = Vector(normal, angular_resolution)
       self.intercept = fit[0][1]
-      self._samples_in_fit = len(self._samples)
+      self._samples_in_fit = len(self.samples)
 
   def fit(self, dimension=2):
     """Fits the sampled trajectory to a line using a least-squares
@@ -152,33 +143,15 @@ class Beam(object):
     If no trajectory data is available, None is returned.
 
     """
-    if len(self._samples) > 1:
+    if len(self.samples) > 1:
       try:
-        ordinates = [[i[dimension].value, 1.0] for i in self._samples]
-        data = [i.array() for i in self._samples]
+        ordinates = [[i[dimension].value, 1.0] for i in self.samples]
+        data = [i.array() for i in self.samples]
         return lstsq(ordinates, data)
       except AttributeError:
-        ordinates = [[i[dimension], 1.0] for i in self._samples]
-        data = [i for i in self._samples]
+        ordinates = [[i[dimension], 1.0] for i in self.samples]
+        data = [i for i in self.samples]
         return lstsq(ordinates, data)
     else:
       return None
-
-  def angles(self, reverse=False):
-    """Returns the yxz-convention (phi, theta, psi) Tait-Bryan angles needed
-    to rotate the tracker coordinate system into the beam coordinate system.
-
-    Conventionally, the incoming beam x-axis is always taken to be in the
-    table/stage xz-plane, and thus psi == 0. This convention is chosen
-    to correspond to the beam polarization.
-
-    """
-    sign = -1 if reverse else 1
-    direction = sign * self.direction.array()
-    # The alpha angle is signed and related to the xz-projection.
-    phi = arcsin(normalize(direction[0::2])[0])
-    # The polar angle about y doesn't change with rotations about y, thus:
-    theta = -arcsin(direction[1])
-    psi = 0.0
-    return phi, theta, psi
 
