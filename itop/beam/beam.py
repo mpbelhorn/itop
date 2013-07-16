@@ -57,7 +57,7 @@ class Beam(object):
     """Returns the beam translated by the given displacement vector.
 
     """
-    output = self
+    output = Beam(self.z_direction)
     output.samples = [i + displacement for i in self.samples]
     output.update(force=True)
     return output
@@ -66,7 +66,7 @@ class Beam(object):
     """Returns the beam beam transformed by the given transformation matrix.
 
     """
-    output = self
+    output = Beam(self.z_direction)
     samples = [Vector(dot(matrix, i)) for i in self.samples]
     output.samples = samples
     output.update(force=True)
