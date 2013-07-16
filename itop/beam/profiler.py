@@ -8,8 +8,6 @@ from numpy import array, mean, std, arange
 from itop.beam import Beam
 from itop.math import Vector
 import datetime
-import zlib
-import cPickle
 
 
 class Alignment(object):
@@ -117,14 +115,16 @@ class Profiler(object):
     while True:
       readout = readout + self.serial.read(self.serial.inWaiting())
       try:
-        data = [float(i) for i in readout.split(' \n')[-2].split(' ')[1:]]
-        if len(data) < 14:
-          raise IndexError
+        # ValueError raised if '$R' and '\n' not in readout at least once.
+        # single_line is '' if $R not ahead of \n and separated by characters.
+        single_line = readout[readout.index('$R'):readout.rindex('\n')]
+        # IndexError raised if single_line is ''.
+        data = [float(i) for i in single_line.split('$R')[1].strip().split()]
         data[1] /= 1000.0
         data[2] /= 1000.0
         data[3] /= 1000.0
         return dict(zip(self.keys, data))
-      except IndexError:
+      except (ValueError, IndexError):
         pass
 
   def profile(self):

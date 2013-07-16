@@ -5,13 +5,20 @@ A module for tracking the focal point of a spherical mirror.
 """
 
 import time
-from itop.beam.beam import Beam
 from itop.beam.profiler import Alignment
 from itop.utilities import save_object
 from itop.utilities import load_object
 
 class DataPoint(object):
+  """A representation of a pair of beams sampled from a given mirror
+  position.
+
+  """
   def __init__(self, mirror_position, beam_a, beam_b):
+    """Constructor for DataPoint. Takes a mirror position and two fully
+    established Beam objects.
+
+    """
     self.mirror_position = mirror_position
     self.beam_a = beam_a
     self.beam_b = beam_b
@@ -20,12 +27,17 @@ class DataPoint(object):
     return repr((self.mirror_position, self.beam_a, self.beam_b))
 
   def realign(self, alignment):
+    """Applies an alignment to the data point trajectories."""
     pass
 
   def focal_point(self):
+    """Returns the focal point of the beams."""
     pass
 
   def translate(self, displacement):
+    """Translates the beams' data points by the given displacement vector.
+
+    """
     pass
 
 class Instrument(object):
@@ -63,7 +75,7 @@ class Instrument(object):
     # Output data.
     self.data = [] # (mirror_position, beam_a, beam_b)
 
-  def sample_position(self, mirror_position, refresh=False, proximal=False):
+  def sample_position(self, mirror_position, proximal=False):
     """Returns the reflected beam trajectories with the mirror at the given
     mirror stage position.
 
@@ -99,7 +111,11 @@ class Instrument(object):
     return data_point
 
   def save_data(self, path):
-    # TODO - filter path name.
+    """Saves the data in a serialized object format to a gzipped tarball at
+    the given path. To reopen the data, unpickle it using
+    itop.utilities.load_object()
+
+    """
     output = list(self.data)
     output.insert(0, self.alignment)
     save_object(self.data, path)
