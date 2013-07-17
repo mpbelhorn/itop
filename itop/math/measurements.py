@@ -101,7 +101,7 @@ class Value(object):
 
   def __radd__(self, other):
     other = Value(other)
-    return other.__add__(self)
+    return other + self
 
   def __sub__(self, other):
     other = Value(other)
@@ -112,7 +112,7 @@ class Value(object):
 
   def __rsub__(self, other):
     other = Value(other)
-    return other.__sub__(self)
+    return other - self
 
   def __neg__(self):
     return Value(self * -1)
@@ -424,6 +424,12 @@ class Vector(object):
   def dot(self, other):
     """Returns the dot product of this vector with another vector object."""
     return sum([i[0] * i[1] for i in zip(self, Vector(other))])
+
+  def transform(self, matrix):
+    """Return the vector transformed by the given matrix as
+    M.dot(self) = output
+    """
+    return Vector(np.dot(matrix, self))
 
   def rotate(self, axis, theta):
     """Returns the Vector rotated about the given axis by the given angle.
