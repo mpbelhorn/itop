@@ -100,7 +100,8 @@ class Value(object):
             for j, i in enumerate(zip(self.error, other.error))))
 
   def __radd__(self, other):
-    return self.__add__(other)
+    other = Value(other)
+    return other.__add__(self)
 
   def __sub__(self, other):
     other = Value(other)
@@ -108,6 +109,10 @@ class Value(object):
         tuple(float((j * 2 - 1) * sign(self.value, other.value) *
             sqrt(i[0]**2 + i[1]**2))
             for j, i in enumerate(zip(self.error, other.error))))
+
+  def __rsub__(self, other):
+    other = Value(other)
+    return other.__sub__(self)
 
   def __neg__(self):
     return Value(self * -1)
@@ -128,9 +133,6 @@ class Value(object):
     # Scalar multiplication is commutative.
     return self.__mul__(other)
 
-  def __rdiv__(self, other):
-    return Value(other) / self
-
   def __div__(self, other):
     other = Value(other)
     return Value(self.value / other.value,
@@ -138,6 +140,9 @@ class Value(object):
             (i[0] / other.value)**2 +
             (i[1] * self.value / (other.value**2))**2))
             for j, i in enumerate(zip(self.error, other.error))))
+
+  def __rdiv__(self, other):
+    return Value(other) / self
 
   def __pow__(self, other):
     other = Value(other)
@@ -213,6 +218,12 @@ class Vector(object):
   """A representation of a measured N-dimensional vector and its associated
   uncertainty.
 
+  Warning about using this class with numpy arrays:
+  Multiplication using the * operator in this class is supposed to be
+  restricted to vector-scalar multiplication. This class can block
+  Vector * Vector and Vector * Array but it cannot catch Array * Vector
+  since apparently that is well defined within numpy. Be careful about
+  type casting when using this class.
   """
   def __init__(self, values, errors=None):
     """Constructor for Vector. Takes either an existing Vector object or
