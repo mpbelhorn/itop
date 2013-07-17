@@ -3,9 +3,8 @@ A module for tracking and parameterizing a beam segment in 3D space.
 
 """
 
-from numpy import arcsin, array, dot
+from numpy import array, dot
 from numpy.linalg import lstsq, norm
-from itop.math.linalg import normalize
 from itop.math import Vector
 
 class Beam(object):
