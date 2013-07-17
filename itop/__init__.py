@@ -24,6 +24,7 @@ from itop import math
 from itop import utilities
 from itop import motioncontrol
 from itop import beam
+from itop import analysis
 
 from itop.math import Value, Vector
 from itop.motioncontrol import StageController
@@ -38,7 +39,17 @@ def data_path(path):
   """
   return os.path.join(_ROOT, 'data', path)
 
+
+#####################################################################
+
 def initialize_instruments():
+  """A rough initializer for the profiler and stage controllers.
+
+  This function returns instances of the instrument equipment dependencies
+  with hardcoded options, especially the device names as they appear on
+  M. Belhorn's development machine. This function SHOULD NOT BE USED
+  for production code. It is intended SOLELY FOR DEBUGGING PURPOSES!
+  """
   profiler = Profiler('/dev/ttyUSB0')
   esp_300 = StageController('/dev/ttyUSB1',
       limits=[250.0, [-45.0, 190.0], 125.0])
