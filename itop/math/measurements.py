@@ -48,22 +48,27 @@ class Value(object):
     is thrown.
 
     """
-    try:
+    if isinstance(value, Value):
       self.value = value.value
       self.error = value.error
-    except AttributeError:
-      self.value = value
-      if error is None:
-        self.error = (-0.0, 0.0)
-      else:
-        try:
-          if len(error) == 2 and error[0] * error[1] <= 0.0:
-            self.error = tuple(sorted(error))
-          else:
-            raise MeasurementException(
-                "Bad iterable input to measured Value error.")
-        except TypeError:
-          self.error = (-abs(error), abs(error))
+    else:
+      try:
+        if len(value):
+          raise MeasurementException(
+              """Cannot form a value from a vector-like object.""")
+      except TypeError:
+        self.value = value
+        if error is None:
+          self.error = (-0.0, 0.0)
+        else:
+          try:
+            if len(error) == 2 and error[0] * error[1] <= 0.0:
+              self.error = tuple(sorted(error))
+            else:
+              raise MeasurementException(
+                  "Bad iterable input to measured Value error.")
+          except TypeError:
+            self.error = (-abs(error), abs(error))
 
   def __repr__(self):
     if self.error[0] == -self.error[1]:
@@ -94,6 +99,9 @@ class Value(object):
             sqrt(i[0]**2 + i[1]**2))
             for j, i in enumerate(zip(self.error, other.error))))
 
+  def __radd__(self, other):
+    return self.__add__(other)
+
   def __sub__(self, other):
     other = Value(other)
     return Value(self.value - other.value,
@@ -105,14 +113,19 @@ class Value(object):
     return Value(self * -1)
 
   def __mul__(self, other):
-    other = Value(other)
-    return Value(self.value * other.value,
-        tuple(float((j * 2.0 - 1.0) * sign(self.value, other.value) * sqrt(
-            (other.value * i[0])**2 +
-            (self.value * i[1])**2))
-            for j, i in enumerate(zip(self.error, other.error))))
+    try:
+      other = Value(other)
+      return Value(self.value * other.value,
+          tuple(float((j * 2.0 - 1.0) * sign(self.value, other.value) * sqrt(
+              (other.value * i[0])**2 +
+              (self.value * i[1])**2))
+              for j, i in enumerate(zip(self.error, other.error))))
+    except MeasurementException:
+      # A value object cannot be constructed.
+      return NotImplemented
 
   def __rmul__(self, other):
+    # Scalar multiplication is commutative.
     return self.__mul__(other)
 
   def __rdiv__(self, other):
@@ -194,7 +207,7 @@ def sign(first, second):
   and 1 if they are the same.
 
   """
-  return -1.0 if first * second < 0 else 1.0
+  return -1.0 if (first * second < 0) else 1.0
 
 class Vector(object):
   """A representation of a measured N-dimensional vector and its associated
@@ -354,7 +367,7 @@ class Vector(object):
     return Vector([-i for i in self])
 
   def __mul__(self, scalar):
-    return Vector(self.values * scalar)
+    return Vector(self.values * Value(scalar))
 
   def __rmul__(self, other):
     return self.__mul__(other)
@@ -399,7 +412,7 @@ class Vector(object):
 
   def dot(self, other):
     """Returns the dot product of this vector with another vector object."""
-    return Vector([i[0] * i[1] for i in zip(self, Vector(other))])
+    return sum([i[0] * i[1] for i in zip(self, Vector(other))])
 
   def rotate(self, axis, theta):
     """Returns the Vector rotated about the given axis by the given angle.
