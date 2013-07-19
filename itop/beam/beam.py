@@ -112,8 +112,12 @@ class Beam(object):
       if dimension == 2:
         return Vector(self.direction * ordinate + self.intercept)
       else:
-        # Calculate the trajectory in this dimension and pass the point on.
-        pass
+        fit = self.fit(dimension)
+        length_through_tracker = norm(fit[0][0])
+        normal = fit[0][0] / length_through_tracker
+        angular_resolution = (
+            [fit[1] / length_through_tracker] if fit[1].size > 0 else 0.002)
+        return Vector(normal, angular_resolution)
     else:
       return None
 

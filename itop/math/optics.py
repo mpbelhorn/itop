@@ -2,7 +2,7 @@
 A module for the mathematics of optics.
 
 """
-from numpy import array, linalg, dot
+from numpy import array, linalg, dot, sqrt
 import math
 from itop.math import Vector
 
@@ -12,14 +12,14 @@ def refract(ray, normal, origin_index, final_index):
   indexes of refraction
 
   """
-  original_direction = array(ray) / linalg.norm(ray)
-  normal = array(normal) / linalg.norm(normal)
+  original_direction = ray.normalize()
+  normal = normal.normalize()
   index_ratio = origin_index / final_index
-  incidence = dot(-original_direction, normal)
-  complement = math.sqrt(1.0 - index_ratio**2 * (1.0 - incidence**2))
+  incidence = -original_direction.dot(normal)
+  complement = sqrt(1.0 - index_ratio**2 * (1.0 - (incidence.value)**2))
   sign = 1.0 if incidence > 0 else -1.0
-  return (index_ratio * original_direction +
-      sign * (index_ratio * incidence - complement) * normal)
+  return (original_direction * index_ratio + normal *
+      sign * (index_ratio * incidence - complement))
 
 def reflection_normal(outgoing_ray, incoming_ray):
   """Returns the normal vector between incoming and outgoing
@@ -60,12 +60,11 @@ def radius_from_normals(normal1, normal2, x_displacement, y_displacement):
   axis.
 
   """
-  x_sum = normal1[0] + normal2[0]
-  y_sum = normal1[1] + normal2[1]
-  z_difference = normal1[2]**2 - normal2[2]**2
-  return -(x_displacement * x_sum + y_displacement * y_sum) / z_difference
+  total = normal1 + normal2
+  z_difference = normal1[2] * normal1[2] - normal2[2] * normal2[2]
+  return -(x_displacement * total[0] + y_displacement * total[1]) / z_difference
 
-def focus(beam_a, beam_b, plane='T'):
+def focus(beam_1, beam_2, plane='T'):
   """Returns the focal point for the given beams.
 
   The beams must be of the type itop.beam.Beam and fully initialized.
@@ -76,21 +75,30 @@ def focus(beam_a, beam_b, plane='T'):
 
   """
   index = 1 if plane is 'S' else 0
-  beam_a.intercept = beam_a.intercept
-  beam_b.intercept = beam_b.intercept
   # Equations in the form (sz*x - sx*z == sz*x0 - sx*z0)
   coefficients = array(
-      [[beam_a.slope[2], -beam_a.slope[index]],
-       [beam_b.slope[2], -beam_b.slope[index]]])
+      [[beam_1.direction[2], -beam_1.direction[index]],
+       [beam_2.direction[2], -beam_2.direction[index]]])
   ordinates = array(
-      [(beam_a.slope[2] * beam_a.intercept[index] -
-        beam_a.slope[index] * beam_a.intercept[2]),
-       (beam_b.slope[2] * beam_b.intercept[index] -
-        beam_b.slope[index] * beam_b.intercept[2])])
+      [(beam_1.direction[2] * beam_1.intercept[index] -
+        beam_1.direction[index] * beam_1.intercept[2]),
+       (beam_2.direction[2] * beam_2.intercept[index] -
+        beam_2.direction[index] * beam_2.intercept[2])])
   solution = linalg.solve(coefficients, ordinates)
-  fraction_a = ((solution[1] - beam_a.intercept[2]) / beam_a.slope[2])
-  fraction_b = ((solution[1] - beam_b.intercept[2]) / beam_b.slope[2])
-  return [(beam_a.intercept + fraction_a * beam_a.slope),
-          (beam_b.intercept + fraction_b * beam_b.slope)]
+  fraction_a = ((solution[1] - beam_1.intercept[2]) / beam_1.direction[2])
+  fraction_b = ((solution[1] - beam_2.intercept[2]) / beam_2.direction[2])
+
+  focus_1 = Vector(beam_1.intercept + fraction_a * beam_1.direction).array()
+  focus_2 = Vector(beam_1.intercept + fraction_a * beam_1.direction).array()
+  focus_1_error = [
+      sqrt(sum((error**2 for error in axis)))
+          for axis in zip(*(beam_1.position(ordinate, index).maximal_errors()
+          for index, ordinate in enumerate(focus_1)))]
+  focus_2_error = [
+      sqrt(sum((error**2 for error in axis)))
+          for axis in zip(*(beam_2.position(ordinate, index).maximal_errors()
+          for index, ordinate in enumerate(focus_2)))]
+
+  return [Vector(focus_1, [focus_1_error]), Vector(focus_2, [focus_2_error])]
 
 
