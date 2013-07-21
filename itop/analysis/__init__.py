@@ -67,7 +67,7 @@ def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
   in the tracker/lab frame.
   """
   tcal_from_tracker = Vector(
-      [121.11, 0.0, -125.315], [[0.01, 0.0075, 0.01]])
+      [125.0, 0.0, -125.0], [[0.0005, 0.0075, 0.0005]])
   tracker_from_mcal = Vector(calibration) - tcal_from_tracker
 
   beam_separation = Vector(
@@ -77,8 +77,7 @@ def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
   matrix = rotation_matrix(-alignment.beam_a.direction)
   output = []
   for i in data:
-    mirror_from_mcal = (Vector([i.mirror_position, mirror_height, 0]) +
-        Vector([39.18, 0, 0], [[0.01, 0, 0]]))
+    mirror_from_mcal = Vector([i.mirror_position, mirror_height, 0])
     tracker_from_mirror = tracker_from_mcal - mirror_from_mcal
 
     beam_a, beam_b = translate_beams(i, tracker_from_mirror)
