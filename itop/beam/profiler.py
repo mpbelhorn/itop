@@ -39,11 +39,11 @@ class Alignment(object):
     shutter(0, 0)
     shutter(1, 1)
     self.beam_a = tracker.find_beam_trajectory(
-        [tracker.axes[0].limits.upper, 12, 125],
+        [tracker.axes[0].limits.upper, 6, 125],
         -1, -1, z_samples=25)
     shutter(1, 0)
     shutter(0, 1)
-    self.beam_b = tracker.find_beam_trajectory([125-50, 8, 125],
+    self.beam_b = tracker.find_beam_trajectory([125-50, 0, 125],
         -1, -1, z_samples=25)
     self.displacement = self.beam_b.intercept - self.beam_a.intercept
     self.date = datetime.datetime.utcnow().isoformat()
