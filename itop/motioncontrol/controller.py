@@ -26,6 +26,9 @@ class StageController(object):
 
     """
     self.serial = serial.Serial(serial_device, 19200, timeout=1)
+    print '\nInitializing stage driver on {}.'.format(serial_device)
+    print 'Clearing response buffer. Last item was "{}"'.format(self.read())
+    print 'Checking errors: {}'.format(self.errors())
     self.axes = []
     for i in range(1, 7):
       stage = Stage(i, self)
@@ -83,8 +86,12 @@ class StageController(object):
       for group in self.groups():
         existing_groups.append(self.group_configuration(group))
     except TypeError:
-      # No groups established.
-      pass
+      # No groups established. Trying to read the groups is an error. Clear it
+      # and print errors only if there were others in the buffer.
+      errors = self.errors()
+      if errors is not None:
+        if len(errors) > 1:
+          print errors
     else:
       # There are groups established.
       wait = True # Must wait for each stage before regrouping.
