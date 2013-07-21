@@ -401,13 +401,24 @@ class Tracker(object):
 
     # The beam should now be in view.
     self.change_grouping(3, fast=True)
-    while True:
+    centered_position = self.center_beam()
+    if centered_position is None:
+      self.stage_position(
+          self.stage_position() + [
+            self.facing_z_direction * scan_direction_x * 10.0, 0, 0],
+          wait=True)
+    for i in range(1, 4):
       centered_position = self.center_beam()
       if centered_position is None:
         self.stage_position(
-            self.stage_position() - [scan_direction_x * 2.0, 0, 0], wait=True)
+            self.stage_position() - [
+              self.facing_z_direction * scan_direction_x * i * 5.0, 0, 0],
+            wait=True)
       else:
         return centered_position
+    else:
+      # Lost the beam! WTF.
+      return None
 
   def find_beam_trajectory(self, start_point=None,
       scan_direction_x=1, scan_direction_z=1, z_samples=5):
@@ -436,15 +447,17 @@ class Tracker(object):
     sample_positions.reverse()
 
     intercept = self.find_beam_center(start_point, scan_direction_x)
-    for i in [1, -1, 2, -2]:
-      if intercept is None:
+    if intercept is None:
+      for i in arange(
+          self.axes[1].limits.lower, self.axes[1].limits.upper, 4.0):
+        start_point[1] = i
         intercept = self.find_beam_center(
-            start_point + [0, i * 4.0, 0], scan_direction_x)
+          start_point, scan_direction_x)
+        if intercept:
+          break
       else:
-        break
-    else:
-      print "Cannot find beam. Check beam power and camera height."
-      return None
+        print "Cannot find beam. Check beam power and camera height."
+        return None
 
     # Calculate rough trajectory of the beam.
     beam.add_sample(intercept)
