@@ -28,6 +28,7 @@ class Alignment(object):
     home (False): Recalibrates the rotation stage to it's home switch.
 
     """
+    print 'Measuring tracker alignment. This will take some time.'
     self.beam_a = Beam(-1)
     self.beam_b = Beam(-1)
     tracker.rotation_stage.power_on()
