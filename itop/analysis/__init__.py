@@ -8,7 +8,8 @@ from matplotlib.ticker import MaxNLocator
 from itop.math import Vector
 import numpy as np
 from itop.math.linalg import rotation_matrix
-from itop.math.optics import focus
+from itop.math.optics import focus, radius_from_normals as radius
+from itop.math.optics import reconstruct_mirror_normal as mirror_normal
 
 
 def distortions(data):
@@ -93,13 +94,38 @@ def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
 def focii(data, beam_1, beam_2, plane):
   """Take a list of data in the form
       [((beam_a_input, beam_a), (beam_b_input, beam_b))]
-  and return a list of the beam_1 focal points for beam_1 with beam_2 in the
+  and return a list of the focal points for beam_1 with beam_2 in the
   'T'angential or 'S'agittal plane. The beam_n are indexes 0 for beam_a or
-  1 for beam_b.
+  1 for beam_b. The output list is in the format:
+    ((beam_1_input, beam_1_focus), (beam_2_input, beam_2_focus))
   """
-  return [(i[beam_1][0],
-           Vector(focus(i[beam_1][1], j[beam_2][1], plane=plane)[0]))
-           for i in data for j in data[data.index(i) + 1:]]
+  output = []
+  if beam_1 != beam_2:
+    for i in data:
+      for j in data:
+        focal_point = focus(i[beam_1][1], j[beam_2][1], plane=plane)
+        output.append(
+            ((i[beam_1][0], focal_point[0]), (j[beam_2][0], focal_point[1])))
+  else:
+    for i in data:
+      for j in data[data.index(i) + 1:]:
+        focal_point = focus(i[beam_1][1], j[beam_2][1], plane=plane)
+        output.append(
+            ((i[beam_1][0], focal_point[0]), (j[beam_2][0], focal_point[1])))
+  return output
+
+def radii(data, beam_1, beam_2, **kwargs):
+  """Return a list of the radii between beam_1 and beam_2 in the given data
+  as a tuple (s, r) where s is the absolute separation distance in x and r
+  is the radius. Any additional keyword arguments are passed on to the
+  mirror normal reconstruction.
+  """
+  return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
+           radius(mirror_normal(i[beam_1][1].direction.array(), **kwargs),
+                  mirror_normal(j[beam_2][1].direction.array(), **kwargs),
+                  i[beam_1][0].array()[:2],
+                  j[beam_2][0].array()[:2])
+          ) for i in data for j in data if i is not j]
 
 STYLE = {
     'aat_color': '#ff0000',
@@ -113,53 +139,69 @@ STYLE = {
     'labelsize': 14,
     'titlesize': 14}
 
+def draw_radii(data, **kwargs):
+  """Plot the radius of the mirror as a function of beam separation distance
+  in x. The radius is computed from each of the beam pairs in the given data.
+  Data points must be in the form of
+      ((beam_a_input, beam_a), (beam_b_input, beam_b))).
+
+  Any keyword arguments are passed on to the mirror normal reconstruction
+  method.
+  """
+  aa_radii = radii(data, 0, 0, **kwargs)
+  ab_radii = radii(data, 0, 1, **kwargs)
+  bb_radii = radii(data, 1, 1, **kwargs)
+  plt.figure(figsize=(18, 4), dpi=150)
+  plt.suptitle("Calculated Radius vs Beam Separation",
+      fontsize=STYLE['titlesize'])
+  plt.plot(*zip(*aa_radii), marker='o', ls='None',
+      color=STYLE['aat_color'], alpha=0.75, label="A-A Radii")
+  plt.plot(*zip(*ab_radii), marker='o', ls='None',
+      color=STYLE['abt_color'], alpha=0.75, label="A-B Radii")
+  plt.plot(*zip(*bb_radii), marker='o', ls='None',
+      color=STYLE['bbt_color'], alpha=0.75, label="B-B Radii")
+  plt.legend(loc='best', numpoints=1)
+  plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
+  plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
+  plt.show()
+
 def draw_focii_vs_input_tangential(data):
   """Take a list of data in the form
       [((beam_a_input, beam_a), (beam_b_input, beam_b))]
 
   and draw the tangential focii against the beam-mirror input positions.
   """
-  beam_0_focii = focii(data, 0, 0, 'T')
-  beam_1_focii = focii(data, 1, 1, 'T')
-  b0in, b0in_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,0,0].tolist()])
-  b0x, b0x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,0].tolist()])
-  b0y, b0y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,1].tolist()])
-  b0z, b0z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,2].tolist()])
-  b1in, b1in_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,0,0].tolist()])
-  b1x, b1x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,0].tolist()])
-  b1y, b1y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,1].tolist()])
-  b1z, b1z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,2].tolist()])
+  beam_0_focii = np.array(focii(data, 0, 0, 'T'))
+  beam_1_focii = np.array(focii(data, 1, 1, 'T'))
+  b0in = [i.value for i in beam_0_focii[:,0,0,0]]
+  b0x, b0y, b0z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:,0,1]])
+  b1in = [i.value for i in beam_1_focii[:,0,0,0]]
+  b1x, b1y, b1z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:,0,1]])
 
   plt.figure(1, figsize=(18, 4), dpi=150)
   plt.suptitle("Tangential Focus Coordinates vs Beam Input Position",
       fontsize=STYLE['titlesize'])
   plt.subplot(1, 3, 1)
-  plt.errorbar(b0in, b0x, xerr=b0in_err, yerr=b0x_err, marker='o', ls='None',
+  plt.plot(b0in, b0x, marker='o', ls='None',
       color=STYLE['aat_color'], alpha=0.75, label="Tangential A-A")
-  plt.errorbar(b1in, b1x, xerr=b1in_err, yerr=b1x_err, marker='o', ls='None',
+  plt.plot(b1in, b1x, marker='o', ls='None',
       color=STYLE['bbt_color'], alpha=0.75, label="Tangential B-B")
   plt.legend(loc=2, numpoints=1)
   plt.ylabel("Focus X coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.subplot(1, 3, 2)
-  plt.errorbar(b0in, b0y, xerr=b0in_err, yerr=b0y_err, marker='o', ls='None',
+  plt.plot(b0in, b0y, marker='o', ls='None',
       color=STYLE['aat_color'], alpha=0.75)
-  plt.errorbar(b1in, b1y, xerr=b1in_err, yerr=b1y_err, marker='o', ls='None',
+  plt.plot(b1in, b1y, marker='o', ls='None',
       color=STYLE['bbt_color'], alpha=0.75)
   plt.ylabel("Focus Y coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.subplot(1, 3, 3)
-  plt.errorbar(b0in, b0z, xerr=b0in_err, yerr=b0z_err, marker='o', ls='None',
+  plt.plot(b0in, b0z, marker='o', ls='None',
       color=STYLE['aat_color'], alpha=0.75)
-  plt.errorbar(b1in, b1z, xerr=b1in_err, yerr=b1z_err, marker='o', ls='None',
+  plt.plot(b1in, b1z, marker='o', ls='None',
       color=STYLE['bbt_color'], alpha=0.75)
   plt.ylabel("Focus Z coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
@@ -171,47 +213,36 @@ def draw_focii_vs_input_sagittal(data):
 
   and draw the tangential focii against the beam-mirror input positions.
   """
-  beam_0_focii = focii(data, 0, 1, 'S')
-  beam_1_focii = focii(data, 1, 0, 'S')
-  b0in, b0in_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,0,0].tolist()])
-  b0x, b0x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,0].tolist()])
-  b0y, b0y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,1].tolist()])
-  b0z, b0z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,2].tolist()])
-  b1in, b1in_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,0,0].tolist()])
-  b1x, b1x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,0].tolist()])
-  b1y, b1y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,1].tolist()])
-  b1z, b1z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,2].tolist()])
+  beam_focii = np.array(focii(data, 0, 1, 'S'))
+  b0in = [i.value for i in beam_focii[:,0,0,0]]
+  b0x, b0y, b0z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,0,1]])
+  b1in = [i.value for i in beam_focii[:,1,0,0]]
+  b1x, b1y, b1z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,1,1]])
 
   plt.figure(1, figsize=(18, 4), dpi=150)
   plt.suptitle("Sagittal Focus Coordinates vs Beam Input Position",
       fontsize=STYLE['titlesize'])
   plt.subplot(1, 3, 1)
-  plt.errorbar(b0in, b0x, xerr=b0in_err, yerr=b0x_err, marker='o', ls='None',
+  plt.plot(b0in, b0x, marker='o', ls='None',
       color=STYLE['abs_color'], alpha=0.75, label="Sagittal A-A")
-  plt.errorbar(b1in, b1x, xerr=b1in_err, yerr=b1x_err, marker='o', ls='None',
+  plt.plot(b1in, b1x, marker='o', ls='None',
       color=STYLE['bas_color'], alpha=0.75, label="Sagittal B-B")
   plt.legend(loc=2, numpoints=1)
   plt.ylabel("Focus X coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.subplot(1, 3, 2)
-  plt.errorbar(b0in, b0y, xerr=b0in_err, yerr=b0y_err, marker='o', ls='None',
+  plt.plot(b0in, b0y, marker='o', ls='None',
       color=STYLE['abs_color'], alpha=0.75)
-  plt.errorbar(b1in, b1y, xerr=b1in_err, yerr=b1y_err, marker='o', ls='None',
+  plt.plot(b1in, b1y, marker='o', ls='None',
       color=STYLE['bas_color'], alpha=0.75)
   plt.ylabel("Focus Y coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.subplot(1, 3, 3)
-  plt.errorbar(b0in, b0z, xerr=b0in_err, yerr=b0z_err, marker='o', ls='None',
+  plt.plot(b0in, b0z, marker='o', ls='None',
       color=STYLE['abs_color'], alpha=0.75)
-  plt.errorbar(b1in, b1z, xerr=b1in_err, yerr=b1z_err, marker='o', ls='None',
+  plt.plot(b1in, b1z, marker='o', ls='None',
       color=STYLE['bas_color'], alpha=0.75)
   plt.ylabel("Focus Z coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
@@ -224,37 +255,29 @@ def draw_focii_in_space_tangential(data):
   and draw the tangential focii in 3D space projections in a mirror-centered
   frame.
   """
-  beam_0_focii = focii(data, 0, 0, 'T')
-  beam_1_focii = focii(data, 1, 1, 'T')
-  b0x, b0x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,0].tolist()])
-  b0y, b0y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,1].tolist()])
-  b0z, b0z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,2].tolist()])
-  b1x, b1x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,0].tolist()])
-  b1y, b1y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,1].tolist()])
-  b1z, b1z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,2].tolist()])
+  beam_0_focii = np.array(focii(data, 0, 0, 'T'))
+  beam_1_focii = np.array(focii(data, 1, 1, 'T'))
+  b0x, b0y, b0z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:,0,1]])
+  b1x, b1y, b1z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:,0,1]])
 
   fig = plt.figure(1, figsize=(14, 9), dpi=150)
   zy_plot = plt.subplot(223)
-  plt.errorbar(b0z, b0y, xerr=b0z_err, yerr=b0y_err, marker='o', ls='None',
+  plt.plot(b0z, b0y, marker='o', ls='None',
       alpha=0.7, color=STYLE['aat_color'], label='Tangential A-A')
-  plt.errorbar(b1z, b1y, xerr=b1z_err, yerr=b1y_err, marker='o', ls='None',
+  plt.plot(b1z, b1y, marker='o', ls='None',
       alpha=0.7, color=STYLE['bbt_color'], label='Tangential B-B')
   plt.legend(loc='best', numpoints=1)
   zx_plot = plt.subplot(221, sharex=zy_plot)
-  plt.errorbar(b0z, b0x, xerr=b0z_err, yerr=b0x_err, marker='o', ls='None',
+  plt.plot(b0z, b0x, marker='o', ls='None',
       alpha=0.7, color=STYLE['aat_color'])
-  plt.errorbar(b1z, b1x, xerr=b1z_err, yerr=b1x_err, marker='o', ls='None',
+  plt.plot(b1z, b1x, marker='o', ls='None',
       alpha=0.7, color=STYLE['bbt_color'])
   xy_plot = plt.subplot(224, sharey=zy_plot)
-  plt.errorbar(b0x, b0y, xerr=b0x_err, yerr=b0y_err, marker='o', ls='None',
+  plt.plot(b0x, b0y, marker='o', ls='None',
       alpha=0.7, color=STYLE['aat_color'])
-  plt.errorbar(b1x, b1y, xerr=b1x_err, yerr=b1y_err, marker='o', ls='None',
+  plt.plot(b1x, b1y, marker='o', ls='None',
       alpha=0.7, color=STYLE['bbt_color'])
   for xlabel_i in zx_plot.axes.get_xticklabels():
     xlabel_i.set_visible(False)
@@ -281,37 +304,28 @@ def draw_focii_in_space_sagittal(data):
   and draw the sagittal focii in 3D space projections in a mirror-centered
   frame.
   """
-  beam_0_focii = focii(data, 0, 1, 'S')
-  beam_1_focii = focii(data, 1, 0, 'S')
-  b0x, b0x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,0].tolist()])
-  b0y, b0y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,1].tolist()])
-  b0z, b0z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_0_focii)[:,1,2].tolist()])
-  b1x, b1x_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,0].tolist()])
-  b1y, b1y_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,1].tolist()])
-  b1z, b1z_err = zip(*[(i.value, i.maximal_error())
-      for i in np.array(beam_1_focii)[:,1,2].tolist()])
+  beam_focii = np.array(focii(data, 0, 1, 'S'))
+  b0x, b0y, b0z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,0,1]])
+  b1x, b1y, b1z = zip(
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,1,1]])
 
   fig = plt.figure(2, figsize=(14, 9), dpi=150)
   zy_plot = plt.subplot(223)
-  plt.errorbar(b0z, b0y, xerr=b0z_err, yerr=b0y_err, marker='o', ls='None',
+  plt.plot(b0z, b0y, marker='o', ls='None',
       alpha=0.7, color=STYLE['abs_color'], label='Sagittal A-B')
-  plt.errorbar(b1z, b1y, xerr=b1z_err, yerr=b1y_err, marker='o', ls='None',
+  plt.plot(b1z, b1y, marker='o', ls='None',
       alpha=0.7, color=STYLE['bas_color'], label='Sagittal B-A')
   plt.legend(loc='best', numpoints=1)
   zx_plot = plt.subplot(221, sharex=zy_plot)
-  plt.errorbar(b0z, b0x, xerr=b0z_err, yerr=b0x_err, marker='o', ls='None',
+  plt.plot(b0z, b0x, marker='o', ls='None',
       alpha=0.7, color=STYLE['abs_color'])
-  plt.errorbar(b1z, b1x, xerr=b1z_err, yerr=b1x_err, marker='o', ls='None',
+  plt.plot(b1z, b1x, marker='o', ls='None',
       alpha=0.7, color=STYLE['bas_color'])
   xy_plot = plt.subplot(224, sharey=zy_plot)
-  plt.errorbar(b0x, b0y, xerr=b0x_err, yerr=b0y_err, marker='o', ls='None',
+  plt.plot(b0x, b0y, marker='o', ls='None',
       alpha=0.7, color=STYLE['abs_color'])
-  plt.errorbar(b1x, b1y, xerr=b1x_err, yerr=b1y_err, marker='o', ls='None',
+  plt.plot(b1x, b1y, marker='o', ls='None',
       alpha=0.7, color=STYLE['bas_color'])
   for xlabel_i in zx_plot.axes.get_xticklabels():
     xlabel_i.set_visible(False)
