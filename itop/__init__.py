@@ -54,6 +54,6 @@ def initialize_instruments():
   esp_300 = StageController('/dev/ttyUSB1',
       limits=[250.0, [-45.0, 190.0], 125.0])
   esp_301 = StageController('/dev/ttyUSB2',
-      limits=[125.0, [0.0, 25.0], 125.0])
+      limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
   return (profiler, esp_300, esp_301)
 
