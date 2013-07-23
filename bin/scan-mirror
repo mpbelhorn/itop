@@ -17,7 +17,6 @@ parser.add_argument('--range', dest='scan_range', nargs=2,
 parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
     default=-5.0, help='Specify mirror sampling step size in mm')
 parser.add_argument('--output', metavar='PATH', type=str,
-    default='/home/matt/data_test.gz',
     help='Path to output gz data file')
 parser.add_argument('--home', action='store_true', default=False,
     help='Home the stages before taking data')
@@ -53,6 +52,9 @@ if args.align:
 
 instrument = itop.Instrument(tracker, mirror_stage, alignment_path)
 run_starting_time = datetime.datetime.utcnow().isoformat()
+
+if args.output is None:
+  args.output = itop.data_path('runs/{}-data.gz'.format(run_starting_time))
 
 print('Starting data run at', run_starting_time, 'UTC.')
 print('Mirror position')
