@@ -369,22 +369,18 @@ class Tracker(object):
     x_axis = self.axes[0]
     beam_position = self.get_beam_position()
     self.change_grouping(1, fast=True)
-    if beam_position is None:
-      # Move camera into starting point.
-      self.stage_position(start_point)
-      while x_axis.is_moving():
-        beam_position = self.get_beam_position()
-        if beam_position is not None:
-          x_axis.stop(wait=True)
-          break
-
     if beam_position is not None:
-      beam_position = Vector(
-          [beam_position[0], beam_position[1], start_point[2]])
-      self.stage_position(beam_position, wait=True)
+      # Beam is already in view. Move to desired z position and check for
+      # beam again.
+      self.stage_position(
+          [beam_position[0], beam_position[1], start_point[2]],
+          wait=True)
+      beam_position = self.get_beam_position()
 
-    # Scan for beam crossing if beam wasn't seen moving to start point.
     if beam_position is None:
+      # Beam not in view. Move camera into full starting point.
+      self.stage_position(start_point, wait=True)
+      # Scan for beam crossing if beam wasn't seen moving to start point.
       self.change_grouping(1, fast=False)
       x_axis.position(self.axes[0].limits.direction(scan_direction_x))
       while x_axis.is_moving():
