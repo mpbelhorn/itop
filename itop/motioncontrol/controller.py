@@ -146,6 +146,12 @@ class StageController(object):
     else:
       return None
 
+  def save_to_memory(self):
+    """Save all current controller and stage settings to non-volatile
+    memory. Settings will be restored after a controller reset.
+    """
+    self.send('SM')
+
   def read_firmware_version(self):
     """Report the controller firmware version.
 
