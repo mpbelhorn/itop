@@ -168,7 +168,7 @@ class Stage(object):
   def identity(self):
     """Returns the model and serial number of the stage."""
     self.send('ID', '?')
-    return self.controller.read().strip().split(', ')
+    return self.controller.read().split(', ')
 
   def encoder_resolution(self, resolution=None):
     """Sets the stage encoder resolution. If no resolution is given, function
@@ -368,7 +368,7 @@ class Stage(object):
     """
     if units is None:
       self.send('SN', '?')
-      units = int((self.controller.read()).strip())
+      units = int((self.controller.read()))
     else:
       self.send('SN', units)
     unit_codes = [

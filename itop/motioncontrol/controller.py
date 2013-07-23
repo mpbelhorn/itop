@@ -61,7 +61,7 @@ class StageController(object):
     """Return a line read from the controller's serial buffer.
 
     """
-    return self.serial.readline()
+    return self.serial.readline().strip()
 
   def reset(self):
     """Perform a full controller reset.
@@ -124,12 +124,12 @@ class StageController(object):
     self.send('TX')
     return self.read()
 
-  def error(self):
+  def _get_error(self):
     """Read the first error message in the error FIFO buffer.
 
     """
     self.send('TB?')
-    code, timestamp, message = self.read().strip().split(', ')
+    code, timestamp, message = self.read().split(', ')
     return (int(code), int(timestamp), message)
 
 
@@ -138,9 +138,9 @@ class StageController(object):
 
     """
     messages = []
-    messages.append(self.error())
+    messages.append(self._get_error())
     while messages[-1][0] != 0:
-      messages.append(self.error())
+      messages.append(self._get_error())
     if len(messages) > 1:
       return messages[:-1]
     else:
@@ -151,7 +151,7 @@ class StageController(object):
 
     """
     self.send('VE?')
-    return self.read().strip()
+    return self.read()
 
   def wait(self, milliseconds='0'):
     """Pause internal command execution for given time.
@@ -183,7 +183,7 @@ class StageController(object):
     """
     if (acceleration is None):
       self.send('HA', '?', group_id)
-      acceleration = float(self.read().strip())
+      acceleration = float(self.read())
     else:
       self.send('HA', acceleration, group_id)
     return acceleration
@@ -193,7 +193,7 @@ class StageController(object):
 
     """
     self.send('HB')
-    group_ids = self.read().strip().split(' ')
+    group_ids = self.read().split(' ')
     if group_ids[0]:
       return [int(i) for i in group_ids]
     else:
@@ -221,7 +221,7 @@ class StageController(object):
     """
     if (deceleration is None):
       self.send('HD', '?', group_id)
-      deceleration = float(self.read().strip())
+      deceleration = float(self.read())
     else:
       self.send('HD', deceleration, group_id)
     return deceleration
@@ -234,7 +234,7 @@ class StageController(object):
     """
     if (deceleration is None):
       self.send('HE', '?', group_id)
-      deceleration = float(self.read().strip())
+      deceleration = float(self.read())
     else:
       self.send('HE', deceleration, group_id)
     return deceleration
@@ -251,7 +251,7 @@ class StageController(object):
     """
     if (jerk is None):
       self.send('HJ', '?', group_id)
-      jerk = float(self.read().strip())
+      jerk = float(self.read())
     else:
       self.send('HJ', jerk, group_id)
     return jerk
@@ -423,7 +423,7 @@ class StageController(object):
     """
     if (velocity is None):
       self.send('HV', '?', group_id)
-      velocity = float(self.read().strip())
+      velocity = float(self.read())
     else:
       self.send('HV', velocity, group_id)
     return velocity
@@ -454,7 +454,7 @@ class StageController(object):
     """
     if directions is None:
       self.send('BO', '?')
-      return int(self.read().strip().replace('H', ''), 16)
+      return int(self.read().replace('H', ''), 16)
     else:
       self.send('BO', hex(directions).replace('x', '') + 'H')
 
@@ -468,7 +468,7 @@ class StageController(object):
     """
     if status is None:
       self.send('SB','?')
-      return int(self.read().strip().replace('H', ''), 16)
+      return int(self.read().replace('H', ''), 16)
     else:
       self.send('SB', hex(status).replace('x', '') + 'H')
 
