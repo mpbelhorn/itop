@@ -92,6 +92,9 @@ class Limits:
     for i in [self.lower, self.upper]:
       yield i
 
+  def __repr__(self):
+    return repr((self.lower, self.upper))
+
   def update(self, limits=None):
     """Updates the stored limits to the given limits. Limits can be passed
     as a single absolute number L where the the stage can move between ±|L|,
@@ -177,7 +180,7 @@ class Stage(object):
     """
     if resolution is None:
       self.send('SU', '?')
-      resolution = float(self.controller.read().strip())
+      resolution = float(self.controller.read())
     else:
       self.send('SU', resolution)
     return resolution
