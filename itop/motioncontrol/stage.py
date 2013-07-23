@@ -185,6 +185,17 @@ class Stage(object):
       self.send('SU', resolution)
     return resolution
 
+  def _set_software_limits(self):
+    """Issue the set of limits to the stage and enforce software limit
+    checking at the controller level.
+
+    WARNING: Setting limits that exclude access to the home switch will
+    cause motion errors until corrected manually.
+    """
+    self.send('SL', self.limits.lower)
+    self.send('SR', self.limits.upper)
+    self.send('ZS', hex(0b101).replace('x', '') + 'H')
+
   def targeted_position(self):
     """Returns the position the stage is currently targeting.
 
@@ -228,19 +239,6 @@ class Stage(object):
 
     """
     self.send('MF')
-
-  def define_home(self, position=None):
-    """Sets the stage home position to given position in current units.
-
-    """
-    if position is None:
-      self.send('DH', '?')
-      position = self.controller.read()
-    else:
-      if self.limits is not None:
-        self.limits = Limits([i + position for i in self.limits])
-      self.send('DH', position)
-    return float(position)
 
   def move_to_limit(self, direction=None):
     """Given the argument '+' or '-', moves stage that hardware limit.
@@ -499,6 +497,8 @@ class Stage(object):
           self.limits = Limits(
               [i + position - old_position for i in self.limits])
           self.send('SH', position)
+          self._set_software_limits()
+          self.power_on()
           self.go_to_home(wait=True)
     return float(position)
 
