@@ -120,5 +120,5 @@ class Instrument(object):
     """
     output = list(self.data)
     output.insert(0, self.alignment)
-    save_object(self.data, path)
+    save_object(output, path)
 
