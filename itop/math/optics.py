@@ -3,7 +3,6 @@ A module for the mathematics of optics.
 
 """
 from numpy import array, linalg, dot, sqrt
-import math
 from itop.math import Vector
 from itop.math.linalg import normalize
 
@@ -70,10 +69,10 @@ def radius_from_normals(normal_1, normal_2, impact_1, impact_2):
   y1y2 = impact_1[1] * impact_2[1]
   r1r1 = impact_1.dot(impact_1)
   r2r2 = impact_2.dot(impact_2)
-  a = (n1n2**2 - 1)
-  b = (r2r2 + r1r1 - 2 * n1n2 * (x1x2 + y1y2))
-  c = (x1x2 + y1y2)**2 - (r2r2 * r1r1)
-  return sqrt((-b - sqrt(b**2 - 4 * a * c))/(2 * a))
+  quad_a = (n1n2**2 - 1)
+  quad_b = (r2r2 + r1r1 - 2 * n1n2 * (x1x2 + y1y2))
+  quad_c = (x1x2 + y1y2)**2 - (r2r2 * r1r1)
+  return sqrt((-quad_b - sqrt(quad_b**2 - 4 * quad_a * quad_c))/(2 * quad_a))
 
 def focus(beam_0, beam_1, plane='T'):
   """Returns the focal point for the given beams.
@@ -100,7 +99,7 @@ def focus(beam_0, beam_1, plane='T'):
   fraction_b = ((solution[1] - beam_1.intercept[2]) / beam_1.direction[2])
 
   focus_0 = Vector(beam_0.intercept + fraction_a * beam_0.direction).array()
-  focus_1 = Vector(beam_1.intercept + fraction_a * beam_1.direction).array()
+  focus_1 = Vector(beam_1.intercept + fraction_b * beam_1.direction).array()
   focus_0_error = [
       sqrt(sum((error**2 for error in axis)))
           for axis in zip(*(beam_0.position(ordinate, index).maximal_errors()
