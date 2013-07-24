@@ -81,14 +81,11 @@ def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
     mirror_from_mcal = Vector([i.mirror_position, mirror_height, 0])
     tracker_from_mirror = tracker_from_mcal - mirror_from_mcal
 
-    beam_a, beam_b = translate_beams(i, tracker_from_mirror)
-    beam_a_input, beam_b_input = input_positions(
-        mirror_from_mcal, beam_separation, alignment)
-    beam_a = beam_a.transform(matrix)
-    beam_b = beam_b.transform(matrix)
-    beam_a_input = beam_a_input.transform(matrix)
-    beam_b_input = beam_b_input.transform(matrix)
-    output.append(((beam_a_input, beam_a), (beam_b_input, beam_b)))
+    beams = translate_beams(i, tracker_from_mirror)
+    inputs = input_positions(mirror_from_mcal, beam_separation, alignment)
+    beams = [i.transform(matrix) for i in beams]
+    inputs = [i.transform(matrix) for i in inputs]
+    output.append(((inputs[0], beams[0]), (inputs[1], beams[1])))
   return output
 
 def focii(data, beam_1, beam_2, plane):
@@ -173,10 +170,10 @@ def draw_focii_vs_input_tangential(data):
   """
   beam_0_focii = np.array(focii(data, 0, 0, 'T'))
   beam_1_focii = np.array(focii(data, 1, 1, 'T'))
-  b0in = [i.value for i in beam_0_focii[:,0,0,0]]
+  b0in = [i.value for i in beam_0_focii[:, 0, 0, 0]]
   b0x, b0y, b0z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:,0,1]])
-  b1in = [i.value for i in beam_1_focii[:,0,0,0]]
+  b1in = [i.value for i in beam_1_focii[:, 0, 0, 0]]
   b1x, b1y, b1z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:,0,1]])
 
@@ -214,10 +211,10 @@ def draw_focii_vs_input_sagittal(data):
   and draw the tangential focii against the beam-mirror input positions.
   """
   beam_focii = np.array(focii(data, 0, 1, 'S'))
-  b0in = [i.value for i in beam_focii[:,0,0,0]]
+  b0in = [i.value for i in beam_focii[:, 0, 0, 0]]
   b0x, b0y, b0z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,0,1]])
-  b1in = [i.value for i in beam_focii[:,1,0,0]]
+  b1in = [i.value for i in beam_focii[:, 1, 0, 0]]
   b1x, b1y, b1z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,1,1]])
 
