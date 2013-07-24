@@ -45,8 +45,8 @@ class Alignment(object):
     shutter(1, 0)
     shutter(0, 1)
     self.beam_b = tracker.find_beam_trajectory(
-        [65, 11, tracker.axes[2].limits.upper],
-        -1, -1, z_samples=25)
+        self.beam_a.last_sample() + [-30, -5, 0],
+        -1, 1, z_samples=25)
     self.displacement = self.beam_b.intercept - self.beam_a.intercept
     self.date = datetime.datetime.utcnow().isoformat()
 
@@ -329,11 +329,11 @@ class Tracker(object):
       return self.stage_position() + centroid
 
   def center_beam(self):
-    """Centers the camera on the beam if beam is visible. If the beam is already
-    centered, the function returns the position of the beam in the relative
-    to the stage group home + uncertainty. If the beam is visible and not
-    centered, the camera is moved to the center. If the beam is not visible,
-    None is returned.
+    """Centers the camera on the beam if beam is visible. If the beam is
+    already centered, the function returns the position of the beam in the
+    relative to the stage group home + uncertainty. If the beam is visible
+    and not centered, the camera is moved to the center. If the beam is not
+    visible, None is returned.
 
     """
     centroid = self.centroid()
@@ -493,5 +493,4 @@ class Tracker(object):
       else:
         # Cross this bridge when we get there.
         pass
-
     return beam
