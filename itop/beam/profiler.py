@@ -353,6 +353,17 @@ class Tracker(object):
       else:
         return centered_position
 
+  def _scan_until_beam_visible(self, axis):
+    """While the axis is moving, check for beam position. If beam
+    becomes visible, stop the axis and return the position of the beam,
+    otherwise return None.
+    """
+    while axis.is_moving():
+      beam_position = self.get_beam_position()
+      if beam_position is not None:
+        axis.stop(wait=True)
+        return beam_position
+
   def find_beam_center(self, start_point=None, scan_direction_x=1):
     """Scans in X for a single beam and centers it on the CCD.
 
@@ -391,54 +402,42 @@ class Tracker(object):
       while beam_position is None:
         # Scan for beam crossing.
         x_axis.position(self.axes[0].limits.direction(scan_direction_x))
-        while x_axis.is_moving():
-          beam_position = self.get_beam_position()
-          if beam_position is not None:
-            x_axis.stop(wait=True)
-            break
-        else:
-          number_of_scans += 1
-          if number_of_scans * 6 > self.axes[1].limits.length():
-            print "Beam cannot be found. Check beam height and power."
-            return None
-          scan_direction_x = -scan_direction_x
+        beam_position = self._scan_until_beam_visible(x_axis)
+        number_of_scans += 1
+        if number_of_scans * 6 > self.axes[1].limits.length():
+          print "Beam cannot be found. Check beam height and power."
+          return None
+        scan_direction_x = -scan_direction_x
+        if beam_position is None:
           if self.axes[1].position() == self.axes[1].limits.upper:
             self.axes[1].position(0, wait=True)
           else:
             self.axes[1].position(self.axes[1].position() + 6, wait=True)
 
-    self.change_grouping(1, fast=True)
     # Move back to beam position.
+    self.change_grouping(1, fast=True)
     self.stage_position(beam_position, wait=True)
 
     # The beam should now be in view.
     self.change_grouping(3, fast=True)
-    centered_position = self.center_beam()
-    if centered_position is None:
+    beam_position = self.center_beam()
+    if beam_position is None:
       # If it's not in view do a short scan to refind it.
       self.change_grouping(1, fast=False)
       self.stage_position(
           self.stage_position() + [
             self.facing_z_direction * scan_direction_x * 10.0, 0, 0],
           wait=False)
-      while x_axis.is_moving():
-        centered_position = self.get_beam_position()
-        if beam_position is not None:
-          x_axis.stop(wait=True)
-          break
-      if centered_position is None:
+      beam_position = self._scan_until_beam_visible(x_axis)
+      if beam_position is None:
         self.stage_position(
             self.stage_position() + [
               self.facing_z_direction * scan_direction_x * -20.0, 0, 0],
             wait=False)
-        while x_axis.is_moving():
-          centered_position = self.get_beam_position()
-          if beam_position is not None:
-            x_axis.stop(wait=True)
-            break
-      centered_position = self.center_beam()
+        beam_position = self._scan_until_beam_visible(x_axis)
+      beam_position = self.center_beam()
     # Return position or None, whatever it may be.
-    return centered_position
+    return beam_position
 
   def find_beam_trajectory(self, start_point=None,
       scan_direction_x=1, scan_direction_z=1, z_samples=5):
@@ -460,10 +459,11 @@ class Tracker(object):
           self.axes[1].limits.middle(),
           self.axes[2].limits.direction(-scan_direction_z)])
 
+    delta_z = -scan_direction_z * self.axes[2].limits.length() / z_samples
     sample_positions = list(arange(
             self.axes[2].limits.direction(scan_direction_z),
             self.axes[2].limits.direction(-scan_direction_z),
-            -scan_direction_z * self.axes[2].limits.length() / z_samples))
+            delta_z))
     sample_positions.reverse()
 
     intercept = self.find_beam_center(start_point, scan_direction_x)
@@ -473,18 +473,20 @@ class Tracker(object):
 
     # Calculate rough trajectory of the beam.
     beam.add_sample(intercept)
-    delta_z = scan_direction_z * array([0, 0, 10])
-
-    small_step = intercept + delta_z
-    # TODO - Optimize stage speeds here to minimize vibration.
     self.change_grouping(1, fast=True)
-    self.stage_position(small_step, wait=True)
+    small_step = intercept + scan_direction_z * array([0, 0, 10])
+    if abs(delta_z) > 10:
+      self.stage_position(small_step, wait=True)
+    else:
+      self.stage_position(intercept + [0, 0, delta_z], wait=True)
     intercept = self.center_beam()
     while intercept is None:
-      small_step = small_step - scan_direction_z * array([0, 0, 10])
+      small_step = small_step - scan_direction_z * array([0, 0, 2])
       self.stage_position(small_step, wait=True)
       intercept = self.center_beam()
     beam.add_sample(intercept)
+    if sample_positions[0] == intercept[2]:
+      sample_positions.pop(0)
     for z_sample in sample_positions:
       self.stage_position(beam.position(z_sample), wait=True)
       intercept = self.center_beam()
