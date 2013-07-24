@@ -460,20 +460,11 @@ class Tracker(object):
 
     intercept = self.find_beam_center(start_point, scan_direction_x)
     if intercept is None:
-      for i in arange(
-          self.axes[1].limits.lower, self.axes[1].limits.upper, 4.0):
-        start_point[1] = i
-        intercept = self.find_beam_center(
-          start_point, scan_direction_x)
-        if intercept:
-          break
-      else:
-        print "Cannot find beam. Check beam power and camera height."
-        return None
+      print "Trajectory cannot be established."
+      return None
 
     # Calculate rough trajectory of the beam.
     beam.add_sample(intercept)
-
     delta_z = scan_direction_z * array([0, 0, 10])
 
     small_step = intercept + delta_z
