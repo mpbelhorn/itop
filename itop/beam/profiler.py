@@ -415,22 +415,30 @@ class Tracker(object):
     self.change_grouping(3, fast=True)
     centered_position = self.center_beam()
     if centered_position is None:
+      # If it's not in view do a short scan to refind it.
+      self.change_grouping(1, fast=False)
       self.stage_position(
           self.stage_position() + [
             self.facing_z_direction * scan_direction_x * 10.0, 0, 0],
-          wait=True)
-    for i in range(1, 4):
-      centered_position = self.center_beam()
+          wait=False)
+      while x_axis.is_moving():
+        centered_position = self.get_beam_position()
+        if beam_position is not None:
+          x_axis.stop(wait=True)
+          break
       if centered_position is None:
         self.stage_position(
-            self.stage_position() - [
-              self.facing_z_direction * scan_direction_x * i * 5.0, 0, 0],
-            wait=True)
-      else:
-        return centered_position
-    else:
-      # Lost the beam!
-      return None
+            self.stage_position() + [
+              self.facing_z_direction * scan_direction_x * -20.0, 0, 0],
+            wait=False)
+        while x_axis.is_moving():
+          centered_position = self.get_beam_position()
+          if beam_position is not None:
+            x_axis.stop(wait=True)
+            break
+      centered_position = self.center_beam()
+    # Return position or None, whatever it may be.
+    return centered_position
 
   def find_beam_trajectory(self, start_point=None,
       scan_direction_x=1, scan_direction_z=1, z_samples=5):
