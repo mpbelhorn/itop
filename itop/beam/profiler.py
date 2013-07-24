@@ -364,33 +364,48 @@ class Tracker(object):
     if start_point is None:
       start_point = [
           self.axes[0].limits.lower,
-          self.axes[1].limits.middle(),
+          self.axes[1].limits.lower,
           self.axes[2].limits.lower]
     x_axis = self.axes[0]
     beam_position = self.get_beam_position()
-    self.change_grouping(1, fast=True)
     if beam_position is not None:
-      # Beam is already in view. Move to desired z position and check for
-      # beam again.
-      self.stage_position(
-          [beam_position[0], beam_position[1], start_point[2]],
-          wait=True)
-      beam_position = self.get_beam_position()
-
-    if beam_position is None:
+      # Beam is already in view.
+      if beam_position[2] != start_point[2]:
+        # Capture trajectory and move to correct z position.
+        beam = Beam()
+        beam.add_sample(self.center_beam)
+        delta_z_sign = ((start_point[2] - beam_position[2]) /
+            abs(start_point[2] - beam_position[2]))
+        self.change_grouping(1, fast=True)
+        self.stage_position(beam_position +
+            delta_z_sign * array([0, 0, 10]), wait=True)
+        beam.add_sample(self.center_beam)
+        beam_position = self.stage_position(
+            beam.position(start_point[2]), wait=True)
+    else:
       # Beam not in view. Move camera into full starting point.
+      self.change_grouping(1, fast=True)
       self.stage_position(start_point, wait=True)
-      # Scan for beam crossing if beam wasn't seen moving to start point.
       self.change_grouping(1, fast=False)
-      x_axis.position(self.axes[0].limits.direction(scan_direction_x))
-      while x_axis.is_moving():
-        beam_position = self.get_beam_position()
-        if beam_position is not None:
-          x_axis.stop(wait=True)
-          break
-      else:
-        print "Beam not seen!"
-        return None
+      number_of_scans = 0
+      while beam_position is None:
+        # Scan for beam crossing.
+        x_axis.position(self.axes[0].limits.direction(scan_direction_x))
+        while x_axis.is_moving():
+          beam_position = self.get_beam_position()
+          if beam_position is not None:
+            x_axis.stop(wait=True)
+            break
+        else:
+          number_of_scans += 1
+          if number_of_scans * 6 > self.axes[1].limits.length():
+            print "Beam cannot be found. Check beam height and power."
+            return None
+          scan_direction_x = -scan_direction_x
+          if self.axes[1].position() == self.axes[1].limits.upper:
+            self.axes[1].position(0, wait=True)
+          else:
+            self.axes[1].position(self.axes[1].position() + 6, wait=True)
 
     self.change_grouping(1, fast=True)
     # Move back to beam position.
@@ -414,7 +429,7 @@ class Tracker(object):
       else:
         return centered_position
     else:
-      # Lost the beam! WTF.
+      # Lost the beam!
       return None
 
   def find_beam_trajectory(self, start_point=None,
