@@ -8,6 +8,7 @@ from numpy import array, mean, std, arange
 from itop.beam import Beam
 from itop.math import Vector
 import datetime
+from time import time as clock
 
 
 class Alignment(object):
@@ -64,7 +65,8 @@ class Alignment(object):
     else:
       return self.date
 
-
+class ProfilerError(EnvironmentError):
+  pass
 
 class Profiler(object):
   """Provides an interface to a Newport HD-LBP over serial link.
@@ -78,7 +80,8 @@ class Profiler(object):
     self.device = device
     self.serial = serial.Serial(device, 115200, timeout=1)
     if not self.serial.read(10):
-      raise serial.SerialException("Profiler data cannot be read.")
+      raise ProfilerError(
+          1, 'No response from profiler. Is it on and transmitting?')
     self.keys = ['time', 'centroid_x', 'centroid_y', 'centroid_r',
                  'level_1', 'level_2', 'level_3',
                  'width_1', 'width_2', 'width_3',
@@ -112,6 +115,7 @@ class Profiler(object):
     # Clear the current contents of the read buffer.
     self.serial.flushInput()
     readout = ''
+    start_time = clock()
     while True:
       readout = readout + self.serial.read(self.serial.inWaiting())
       try:
@@ -125,7 +129,9 @@ class Profiler(object):
         data[3] /= 1000.0
         return dict(zip(self.keys, data))
       except (ValueError, IndexError):
-        pass
+        if clock() - start_time > 5:
+          raise ProfilerError(
+              1, 'No response from profiler. Is it on and transmitting?')
 
   def profile(self):
     """Returns the beam profile if the beam is in view."""
