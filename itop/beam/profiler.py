@@ -411,10 +411,10 @@ class Tracker(object):
         # Scan for beam crossing.
         x_axis.position(self.axes[0].limits.direction(scan_direction_x))
         beam_position = self._scan_until_beam_visible(x_axis)
-        number_of_scans += 1
         if number_of_scans * 6 > self.axes[1].limits.length():
           print "Beam cannot be found. Check beam height and power."
           return None
+        number_of_scans += 1
         scan_direction_x = -scan_direction_x
         if beam_position is None:
           if self.axes[1].position() == self.axes[1].limits.upper:
@@ -482,14 +482,15 @@ class Tracker(object):
     # Calculate rough trajectory of the beam.
     beam.add_sample(intercept)
     self.change_grouping(1, fast=True)
-    small_step = intercept + scan_direction_z * array([0, 0, 10])
+    small_step = intercept + (scan_direction_z * array([0, 0, 10]))
     if abs(delta_z) > 10:
       self.stage_position(small_step, wait=True)
     else:
-      self.stage_position(intercept + [0, 0, delta_z], wait=True)
+      self.stage_position(intercept + (
+          scan_direction_z * array([0, 0, abs(delta_z)])), wait=True)
     intercept = self.center_beam()
     while intercept is None:
-      small_step = small_step - scan_direction_z * array([0, 0, 2])
+      small_step = small_step - (scan_direction_z * array([0, 0, 2]))
       self.stage_position(small_step, wait=True)
       intercept = self.center_beam()
     beam.add_sample(intercept)
