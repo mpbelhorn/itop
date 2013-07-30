@@ -75,7 +75,7 @@ class Profiler(object):
 
   """
 
-  def __init__(self, device, threshold_power=0.003):
+  def __init__(self, device, threshold_power=0.01):
     """Establish serial communication with an HD-LBP.
 
     """
