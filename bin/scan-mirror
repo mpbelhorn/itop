@@ -65,7 +65,6 @@ print('===============')
 
 for mirror_position in arange(
     args.scan_range[0], args.scan_range[1] + args.step_size, args.step_size):
-  print(mirror_position)
   print(instrument.sample_position(mirror_position, proximal=True))
   instrument.save_data(args.output)
 

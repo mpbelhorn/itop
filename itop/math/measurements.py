@@ -72,10 +72,10 @@ class Value(object):
 
   def __repr__(self):
     if self.error[0] == -self.error[1]:
-      return '{0: >-.4g} ± {1[1]: <-.3g}'.format(
+      return '{0: .2e} ± {1[1]:.2e}'.format(
           self.value, self.error)
     else:
-      return '{0: >-.4g} ({1[1]: >+.3g}/{1[0]: <+.3g})'.format(
+      return '{0: .2e} ({1[1]:+.2e}/{1[0]:+.2e})'.format(
           self.value, self.error)
 
   def __str__(self):
