@@ -55,13 +55,12 @@ if args.align:
   itop.utilities.save_object(alignment_data, alignment_path)
 
 instrument = itop.Instrument(tracker, mirror_stage, alignment_path)
-run_starting_time = datetime.datetime.utcnow().isoformat()
+run_starting_time = datetime.datetime.now().isoformat()
 
 if args.output is None:
   args.output = itop.data_path('runs/{}-data.gz'.format(run_starting_time))
 
-print('Starting data run at', run_starting_time, 'UTC.')
-print('Mirror position')
+print('Starting data run at {}.'.format(run_starting_time))
 print('===============')
 
 for mirror_position in arange(

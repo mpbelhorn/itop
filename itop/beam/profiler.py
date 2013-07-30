@@ -48,7 +48,7 @@ class Alignment(object):
         self.beam_a.last_sample() + [-30, -5, 0],
         -1, 1, z_samples=25)
     self.displacement = self.beam_b.intercept - self.beam_a.intercept
-    self.date = datetime.datetime.utcnow().isoformat()
+    self.date = datetime.datetime.now().isoformat()
 
     # Rotate camera to face mirror.
     tracker.rotation_stage.position(0, wait=True)
