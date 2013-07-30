@@ -97,15 +97,11 @@ def focii(data, beam_1, beam_2, plane):
     ((beam_1_input, beam_1_focus), (beam_2_input, beam_2_focus))
   """
   output = []
-  if beam_1 != beam_2:
-    for i in data:
-      for j in data:
-        focal_point = focus(i[beam_1][1], j[beam_2][1], plane=plane)
-        output.append(
-            ((i[beam_1][0], focal_point[0]), (j[beam_2][0], focal_point[1])))
-  else:
-    for i in data:
-      for j in data[data.index(i) + 1:]:
+  for i in data:
+    for j in data:
+      if beam_1 == beam_2 and i is j:
+        pass
+      else:
         focal_point = focus(i[beam_1][1], j[beam_2][1], plane=plane)
         output.append(
             ((i[beam_1][0], focal_point[0]), (j[beam_2][0], focal_point[1])))
@@ -117,12 +113,20 @@ def radii(data, beam_1, beam_2, **kwargs):
   is the radius. Any additional keyword arguments are passed on to the
   mirror normal reconstruction.
   """
-  return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
-           radius(mirror_normal(i[beam_1][1].direction.array(), **kwargs),
-                  mirror_normal(j[beam_2][1].direction.array(), **kwargs),
-                  i[beam_1][0].array()[:2],
-                  j[beam_2][0].array()[:2])
-          ) for i in data for j in data if i is not j]
+  if beam_1 == beam_2:
+    return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
+             radius(mirror_normal(i[beam_1][1].direction.array(), **kwargs),
+                    mirror_normal(j[beam_2][1].direction.array(), **kwargs),
+                    i[beam_1][0].array()[:2],
+                    j[beam_2][0].array()[:2])
+            ) for i in data for j in data if i is not j]
+  else:
+    return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
+             radius(mirror_normal(i[beam_1][1].direction.array(), **kwargs),
+                    mirror_normal(j[beam_2][1].direction.array(), **kwargs),
+                    i[beam_1][0].array()[:2],
+                    j[beam_2][0].array()[:2])
+            ) for i in data for j in data]
 
 STYLE = {
     'aat_color': '#ff0000',
