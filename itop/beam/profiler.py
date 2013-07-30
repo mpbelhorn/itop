@@ -41,7 +41,9 @@ class Alignment(object):
     shutter(0, 0)
     shutter(1, 1)
     self.beam_a = tracker.find_beam_trajectory(
-        [tracker.axes[0].limits.upper, 16, tracker.axes[2].limits.upper],
+        [tracker.axes[0].limits.upper,
+         tracker.axes[1].limits.lower + 5,
+         tracker.axes[2].limits.upper],
         -1, -1, z_samples=25)
     shutter(1, 0)
     shutter(0, 1)
