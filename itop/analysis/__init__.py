@@ -152,13 +152,16 @@ def draw_radii(data, **kwargs):
   aa_radii = radii(data, 0, 0, **kwargs)
   ab_radii = radii(data, 0, 1, **kwargs)
   bb_radii = radii(data, 1, 1, **kwargs)
-  plt.figure(figsize=(18, 4), dpi=150)
+  plt.figure(figsize=(20, 4), dpi=150)
   plt.suptitle("Calculated Radius vs Beam Separation",
       fontsize=STYLE['titlesize'])
+  plt.subplot(131)
   plt.plot(*zip(*aa_radii), marker='o', ls='None',
       color=STYLE['aat_color'], alpha=0.75, label="A-A Radii")
+  plt.subplot(132)
   plt.plot(*zip(*ab_radii), marker='o', ls='None',
       color=STYLE['abt_color'], alpha=0.75, label="A-B Radii")
+  plt.subplot(133)
   plt.plot(*zip(*bb_radii), marker='o', ls='None',
       color=STYLE['bbt_color'], alpha=0.75, label="B-B Radii")
   plt.legend(loc='best', numpoints=1)
@@ -189,7 +192,7 @@ def draw_focii_vs_input_tangential(data):
       color=STYLE['aat_color'], alpha=0.75, label="Tangential A-A")
   plt.plot(b1in, b1x, marker='o', ls='None',
       color=STYLE['bbt_color'], alpha=0.75, label="Tangential B-B")
-  plt.legend(loc=2, numpoints=1)
+  plt.legend(loc='best', numpoints=1)
   plt.ylabel("Focus X coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.subplot(1, 3, 2)
@@ -230,7 +233,7 @@ def draw_focii_vs_input_sagittal(data):
       color=STYLE['abs_color'], alpha=0.75, label="Sagittal A-A")
   plt.plot(b1in, b1x, marker='o', ls='None',
       color=STYLE['bas_color'], alpha=0.75, label="Sagittal B-B")
-  plt.legend(loc=2, numpoints=1)
+  plt.legend(loc='best', numpoints=1)
   plt.ylabel("Focus X coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.subplot(1, 3, 2)
