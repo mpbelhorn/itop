@@ -107,7 +107,7 @@ def focii(data, beam_1, beam_2, plane):
             ((i[beam_1][0], focal_point[0]), (j[beam_2][0], focal_point[1])))
   return output
 
-def radii(data, beam_1, beam_2, **kwargs):
+def radii(data, beam_1, beam_2, in_1=None, in_2=None, **kwargs):
   """Return a list of the radii between beam_1 and beam_2 in the given data
   as a tuple (s, r) where s is the absolute separation distance in x and r
   is the radius. Any additional keyword arguments are passed on to the
@@ -115,18 +115,22 @@ def radii(data, beam_1, beam_2, **kwargs):
   """
   if beam_1 == beam_2:
     return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
-             radius(mirror_normal(i[beam_1][1].direction.array(), **kwargs),
-                    mirror_normal(j[beam_2][1].direction.array(), **kwargs),
+             radius(mirror_normal(i[beam_1][1].direction.array(),
+                    incoming_ray=in_1, **kwargs),
+                    mirror_normal(j[beam_2][1].direction.array(),
+                    incoming_ray=in_2, **kwargs),
                     i[beam_1][0].array()[:2],
                     j[beam_2][0].array()[:2])
-            ) for i in data for j in data if i is not j]
+            ) for k, j in enumerate(data) for i in data[k:] if i is not j]
   else:
     return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
-             radius(mirror_normal(i[beam_1][1].direction.array(), **kwargs),
-                    mirror_normal(j[beam_2][1].direction.array(), **kwargs),
+             radius(mirror_normal(i[beam_1][1].direction.array(),
+                    incoming_ray=in_1, **kwargs),
+                    mirror_normal(j[beam_2][1].direction.array(),
+                    incoming_ray=in_2, **kwargs),
                     i[beam_1][0].array()[:2],
                     j[beam_2][0].array()[:2])
-            ) for i in data for j in data]
+            ) for j in data for i in data]
 
 STYLE = {
     'aat_color': '#ff0000',
@@ -140,7 +144,7 @@ STYLE = {
     'labelsize': 14,
     'titlesize': 14}
 
-def draw_radii(data, **kwargs):
+def draw_radii(data, alignment, **kwargs):
   """Plot the radius of the mirror as a function of beam separation distance
   in x. The radius is computed from each of the beam pairs in the given data.
   Data points must be in the form of
@@ -149,9 +153,16 @@ def draw_radii(data, **kwargs):
   Any keyword arguments are passed on to the mirror normal reconstruction
   method.
   """
-  aa_radii = radii(data, 0, 0, **kwargs)
-  ab_radii = radii(data, 0, 1, **kwargs)
-  bb_radii = radii(data, 1, 1, **kwargs)
+
+  aa_radii = radii(data, 0, 0,
+      in_1=-alignment.beam_a.direction.array(),
+      in_2=-alignment.beam_a.direction.array(), **kwargs)
+  ab_radii = radii(data, 0, 1,
+      in_1=-alignment.beam_a.direction.array(),
+      in_2=-alignment.beam_b.direction.array(), **kwargs)
+  bb_radii = radii(data, 1, 1,
+      in_1=-alignment.beam_b.direction.array(),
+      in_2=-alignment.beam_b.direction.array(), **kwargs)
   plt.figure(figsize=(20, 4), dpi=150)
   plt.suptitle("Calculated Radius vs Beam Separation",
       fontsize=STYLE['titlesize'])

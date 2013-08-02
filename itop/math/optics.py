@@ -64,6 +64,7 @@ def radius_from_normals(normal_1, normal_2, impact_1, impact_2):
 
   This does not check nor take into account acoplanarity of the normals.
   """
+
   n1n2 = normal_1.dot(normal_2)
   x1x2 = impact_1[0] * impact_2[0]
   y1y2 = impact_1[1] * impact_2[1]
