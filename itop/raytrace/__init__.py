@@ -23,6 +23,16 @@ class Ray(object):
     """Return the position of the ray at some parametric 'time' later."""
     return Ray(self.direction, self.position + time * self.direction)
 
+  def sample(self, z_position, warp=None):
+    """Return the beam position at the given z-coordinate."""
+    if self.direction[2] != 0:
+      z_plane = PlaneSurface([0, 0, 1], [0, 0, z_position])
+      if (z_plane._position - self.position).dot(self.direction) > 0:
+        ray = self
+      else:
+        ray = Ray(-self.direction, self.position)
+    return ray.propagate(z_plane.time_to_bound(ray)).position
+
 
 class RayTraceError(Exception):
   """An exception to handle ray tracing errors."""
