@@ -46,7 +46,7 @@ class Beam(object):
     itop.Vector(centroid, error) objects.
 
     """
-    self.samples.append(sample)
+    self.samples.append(Vector(sample))
     self.update()
 
   def __repr__(self):
