@@ -278,7 +278,11 @@ class ItopMirror(_OpticalElement):
 
 
 class Beam(object):
-  def __init__(self, direction, initial_position, jitter=None):
+  """A collection of ray segments joined by their interactions with optical
+  elements."""
+
+  def __init__(self, direction, initial_position,
+      initial_element=None, jitter=None):
     """Create a beam along the initial direction and position given. Optionally,
     jitter can be added to the beam by passing the standard deviation of the
     polar direction in radians."""
@@ -289,22 +293,21 @@ class Beam(object):
               [np.random.normal(0, jitter), np.random.normal(0, jitter), 0]))
     self._ray = Ray(direction, initial_position)
     self._history = [self._ray]
-    self.elements = []
+    self._element = Air() if initial_element is None else initial_element
 
-  def _next_hit(self):
-    hits = ((item, item.next_hit(self._ray)) for item in self.elements)
+  def _next_hit(self, elements):
+    """Find the next interaction with the set of optical elements."""
+    hits = ((item, item.next_hit(self._ray)) for item in elements)
     try:
       return sorted(
           [(hit[0], hit[1], item) for item, hit in hits if hit is not None])[0]
     except IndexError:
       return None
 
-  def propagate(self):
-    current_region = Air()
-    next_region = None
+  def propagate(self, elements):
     while True:
       try:
-        tti, bound, element = self._next_hit()
+        tti, bound, next_element = self._next_hit(elements)
       except TypeError:
         # That's all, folks!
         return
@@ -312,11 +315,9 @@ class Beam(object):
       self._history.append((tti, self._ray))
       if self._ray.direction.dot(bound.normal(self._ray.position)) > 0:
         next_element = Air()
-      else:
-        next_region = element
       self._ray = bound.propagate(
-          self._ray, current_region.index, next_region.index)
+          self._ray, self._element.index, next_element.index)
       self._history.append((tti, self._ray))
-      current_region = next_region
+      self._element = next_element
 
 
