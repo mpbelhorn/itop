@@ -6,9 +6,7 @@ from numpy import array, dot
 from itop.math.linalg import normalize, rotation_matrix_arrays
 from itop.math.linalg import rotation_matrix_euler as rotation_matrix
 
-def null_wobble(stage_position):
-  """Return 0 for all input."""
-  return 0
+
 
 class Ray(object):
   """A beam segment connecting two optical elements."""
@@ -79,8 +77,8 @@ class _Surface(object):
     return False
 
   def rotate(self, angle, axis, position=None):
-    """Rotate the surface by angle radians about an axis passing through a
-    given position. If no position is given, surface is rotated about the origin."""
+    """Rotate the surface by an angle about an axis at a position.
+    If no position is given, surface is rotated about the origin."""
     if position is not None:
       pos = np.array(position)
       self.translate(-pos)
@@ -110,7 +108,7 @@ class _Surface(object):
         ray.direction - 2 * dot(ray.direction, normal) * normal, ray.position)
 
   def propagate(self, ray, index_0, index_1):
-    """Propagate the beam given the surface from a region of refractive index index_0
+    """Propagate the beam from region of refractive index index_0
     into a region of refractive index index_1."""
     if self._reflective:
       return self.reflect(ray)
@@ -231,16 +229,29 @@ class _OpticalElement(object):
     except IndexError:
       return None
 
+  def translate(self, displacement):
+    """Move the optical element by the displacement with fixed orientation."""
+    for bound in self._bounds:
+      bound.translate(displacement)
+
+  def rotate(self, angle, axis, position=None):
+    """Rotate the element about the axis located at the position by the angle.
+    If no position is given, the element is rotated about the origin."""
+    for bound in self._bounds:
+      bound.rotate(angle, axis, position)
+
+
 class Air(_OpticalElement):
   """The labratory air."""
   def __init__(self):
     _OpticalElement.__init__(self, 'air', 1.000277)
 
 class ItopMirror(_OpticalElement):
-  def __init__(self, radius, dimensions):
+  """A model of a production itop mirror."""
+  def __init__(self, radius, dimensions, index=1.4608):
     """Construct an itop mirror. Be default, the mirror is located with front
     face in the z=0 plane and substrate centered on the z-zxis facing z+."""
-    _OpticalElement.__init__(self, 'itop mirror', 1.47)
+    _OpticalElement.__init__(self, 'itop mirror', index)
     self.add_boundary(SphericalSurface(
         [0, 0, radius - dimensions[2]], radius, name='-z',
         reflective=True))
