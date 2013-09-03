@@ -8,6 +8,7 @@ from matplotlib.ticker import MaxNLocator
 from itop.math import Vector
 import numpy as np
 from itop.math.linalg import rotation_matrix
+from itop.math.linalg import rotation_matrix_arrays
 from itop.math.optics import focus, radius_from_normals as radius
 from itop.math.optics import reconstruct_mirror_normal as mirror_normal
 
@@ -30,15 +31,15 @@ def input_positions(
   system but with an origin that is fixed to the mirror-frame origin.
 
   """
-  nominal_in_a = Vector(mirror_center_from_calibration)
-  nominal_in_a[1] = -nominal_in_a[1]
-  nominal_in_b = nominal_in_a - beam_separation
-  beam_a_true_input = (
-      nominal_in_a.dot(alignment.beam_a.direction) *
-      Vector(alignment.beam_a.direction) - nominal_in_a)
-  beam_b_true_input = (
-      nominal_in_b.dot(alignment.beam_b.direction) *
-      Vector(alignment.beam_b.direction) - nominal_in_b)
+  nominal_in_a = -mirror_center_from_calibration
+  nominal_in_b = nominal_in_a + beam_separation
+
+  beam_a_true_input = (nominal_in_a -
+      nominal_in_a.dot(-alignment.beam_a.direction) *
+      Vector(-alignment.beam_a.direction))
+  beam_b_true_input = (nominal_in_b -
+      nominal_in_b.dot(-alignment.beam_b.direction) *
+      Vector(-alignment.beam_b.direction))
   return (beam_a_true_input, beam_b_true_input)
 
 def translate_beams(data_point, displacement):
@@ -99,7 +100,7 @@ def focii(data, beam_1, beam_2, plane):
   output = []
   for i in data:
     for j in data:
-      if beam_1 == beam_2 and i is j:
+      if beam_1 == beam_2 and data.index(j) <= data.index(i):
         pass
       else:
         focal_point = focus(i[beam_1][1], j[beam_2][1], plane=plane)
@@ -107,7 +108,7 @@ def focii(data, beam_1, beam_2, plane):
             ((i[beam_1][0], focal_point[0]), (j[beam_2][0], focal_point[1])))
   return output
 
-def radii(data, beam_1, beam_2, in_1=None, in_2=None, **kwargs):
+def radii(data, beam_1, beam_2, in_1, in_2, face_normal, index_in, index_out):
   """Return a list of the radii between beam_1 and beam_2 in the given data
   as a tuple (s, r) where s is the absolute separation distance in x and r
   is the radius. Any additional keyword arguments are passed on to the
@@ -116,21 +117,25 @@ def radii(data, beam_1, beam_2, in_1=None, in_2=None, **kwargs):
   if beam_1 == beam_2:
     return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
              radius(mirror_normal(i[beam_1][1].direction.array(),
-                    incoming_ray=in_1, **kwargs),
+                        in_1, face_normal, index_in, index_out),
                     mirror_normal(j[beam_2][1].direction.array(),
-                    incoming_ray=in_2, **kwargs),
+                        in_2, face_normal, index_in, index_out),
+                    in_1,
                     i[beam_1][0].array()[:2],
                     j[beam_2][0].array()[:2])
             ) for k, j in enumerate(data) for i in data[k:] if i is not j]
   else:
     return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
              radius(mirror_normal(i[beam_1][1].direction.array(),
-                    incoming_ray=in_1, **kwargs),
+                        in_1, face_normal, index_in, index_out),
                     mirror_normal(j[beam_2][1].direction.array(),
-                    incoming_ray=in_2, **kwargs),
+                        in_2, face_normal, index_in, index_out),
+                    in_1,
                     i[beam_1][0].array()[:2],
                     j[beam_2][0].array()[:2])
             ) for j in data for i in data]
+
+
 
 STYLE = {
     'aat_color': '#ff0000',
@@ -144,7 +149,84 @@ STYLE = {
     'labelsize': 14,
     'titlesize': 14}
 
-def draw_radii(data, alignment, **kwargs):
+def draw_alignment(alignment):
+  """Plot alignment diagnostics."""
+  samples_a = np.array(
+      [j.array() for j in alignment.beam_a.samples])
+  samples_b = np.array(
+      [j.array() for j in alignment.beam_b.samples])
+  samples_a_err = np.array(
+      [i.errors() for i in alignment.beam_a.samples]).T.tolist()
+  samples_b_err = np.array(
+      [i.errors() for i in alignment.beam_b.samples]).T.tolist()
+  opts = {'marker':'o', 'ls':'None', 'alpha':0.5}
+
+  fig, axes_a = plt.subplots(1, 3, figsize=(18, 4))
+  axes_b = np.array([axis.twinx() for axis in axes_a])
+
+  axes_a[0].errorbar(samples_a[:,2], samples_a[:,0],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='r', **opts)
+  axes_b[0].errorbar(samples_b[:,2], samples_b[:,0],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='y', **opts)
+  axes_a[0].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes_a[0].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes_b[0].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
+
+  axes_a[1].errorbar(samples_a[:,2], samples_a[:,1],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='r', **opts)
+  axes_b[1].errorbar(samples_b[:,2], samples_b[:,1],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='y', **opts)
+  axes_a[1].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes_a[1].set_ylabel('Beam A y-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes_b[1].set_ylabel('Beam B y-coordinate [mm]', fontsize=STYLE['labelsize'])
+
+  axes_a[2].errorbar(samples_a[:,0], samples_a[:,1],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='r', **opts)
+  axes_b[2].errorbar(samples_b[:,0], samples_b[:,1],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='y', **opts)
+  axes_a[2].set_xlabel('x-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes_a[2].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes_b[2].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
+
+  plt.tight_layout()
+  fig.suptitle('Alignment Diagnostics', y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("alignment.pdf")
+  plt.show()
+
+def draw_samples(data):
+  """Draw the beam sample points in the frame of the tracker.
+  Data points must be in the form of
+      ((beam_a_input, beam_a), (beam_b_input, beam_b))).
+  """
+  plt.figure(figsize=(18, 4))
+  for i in data:
+      samples_a = np.array([j.array() for j in i[0][1].samples])
+      samples_b = np.array([j.array() for j in i[1][1].samples])
+      plt.subplot(131)
+      plt.plot(samples_a[:,2], samples_a[:,0], color='r', marker='o', alpha=0.5)
+      plt.plot(samples_b[:,2], samples_b[:,0], color='y', marker='o', alpha=0.5)
+      plt.subplot(132)
+      plt.plot(samples_a[:,2], samples_a[:,1], color='r', marker='o', alpha=0.5)
+      plt.plot(samples_b[:,2], samples_b[:,1], color='y', marker='o', alpha=0.5)
+      plt.subplot(133)
+      plt.plot(samples_a[:,0], samples_a[:,1], color='r', marker='o', alpha=0.5)
+      plt.plot(samples_b[:,0], samples_b[:,1], color='y', marker='o', alpha=0.5)
+  plt.subplot(131)
+  plt.ylabel("x-coordinate [mm]", fontsize=STYLE['labelsize'])
+  plt.xlabel("z-coordinate [mm]", fontsize=STYLE['labelsize'])
+  plt.subplot(132)
+  plt.ylabel("y-coordinate [mm]", fontsize=STYLE['labelsize'])
+  plt.xlabel("z-coordinate [mm]", fontsize=STYLE['labelsize'])
+  plt.subplot(133)
+  plt.ylabel("y-coordinate [mm]", fontsize=STYLE['labelsize'])
+  plt.xlabel("x-coordinate [mm]", fontsize=STYLE['labelsize'])
+
+  plt.tight_layout()
+  plt.suptitle("Beam Samples", y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("samples.pdf")
+  plt.show()
+
+def draw_radii(data, alignment, index_in=1.46, index_out=1.000277):
   """Plot the radius of the mirror as a function of beam separation distance
   in x. The radius is computed from each of the beam pairs in the given data.
   Data points must be in the form of
@@ -155,29 +237,43 @@ def draw_radii(data, alignment, **kwargs):
   """
 
   aa_radii = radii(data, 0, 0,
-      in_1=-alignment.beam_a.direction.array(),
-      in_2=-alignment.beam_a.direction.array(), **kwargs)
+      -alignment.beam_a.direction.array(),
+      -alignment.beam_a.direction.array(),
+      alignment.beam_a.direction.array(),
+      index_in, index_out)
   ab_radii = radii(data, 0, 1,
-      in_1=-alignment.beam_a.direction.array(),
-      in_2=-alignment.beam_b.direction.array(), **kwargs)
+      -alignment.beam_a.direction.array(),
+      -alignment.beam_b.direction.array(),
+      alignment.beam_a.direction.array(),
+      index_in, index_out)
   bb_radii = radii(data, 1, 1,
-      in_1=-alignment.beam_b.direction.array(),
-      in_2=-alignment.beam_b.direction.array(), **kwargs)
-  plt.figure(figsize=(20, 4), dpi=150)
-  plt.suptitle("Calculated Radius vs Beam Separation",
-      fontsize=STYLE['titlesize'])
-  plt.subplot(131)
+      -alignment.beam_b.direction.array(),
+      -alignment.beam_b.direction.array(),
+      alignment.beam_a.direction.array(),
+      index_in, index_out)
+  plt.figure(figsize=(10, 4), dpi=150)
+  plt.subplot(121)
+  plt.title('A-A Radii', fontsize=STYLE['titlesize'])
   plt.plot(*zip(*aa_radii), marker='o', ls='None',
       color=STYLE['aat_color'], alpha=0.75, label="A-A Radii")
-  plt.subplot(132)
-  plt.plot(*zip(*ab_radii), marker='o', ls='None',
-      color=STYLE['abt_color'], alpha=0.75, label="A-B Radii")
-  plt.subplot(133)
-  plt.plot(*zip(*bb_radii), marker='o', ls='None',
-      color=STYLE['bbt_color'], alpha=0.75, label="B-B Radii")
-  plt.legend(loc='best', numpoints=1)
   plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
+  #plt.subplot(132)
+  #plt.title('A-B Radii', fontsize=STYLE['titlesize'])
+  #plt.plot(*zip(*ab_radii), marker='o', ls='None',
+  #    color=STYLE['abt_color'], alpha=0.75, label="A-B Radii")
+  #plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
+  #plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
+  plt.subplot(122)
+  plt.title('B-B Radii', fontsize=STYLE['titlesize'])
+  plt.plot(*zip(*bb_radii), marker='o', ls='None',
+      color=STYLE['bbt_color'], alpha=0.75, label="B-B Radii")
+  plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
+  plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
+
+  plt.tight_layout()
+  plt.suptitle("Calculated Radius vs Beam Separation", y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("radii.pdf")
   plt.show()
 
 def draw_focii_vs_input_tangential(data):
@@ -195,9 +291,7 @@ def draw_focii_vs_input_tangential(data):
   b1x, b1y, b1z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:,0,1]])
 
-  plt.figure(1, figsize=(18, 4), dpi=150)
-  plt.suptitle("Tangential Focus Coordinates vs Beam Input Position",
-      fontsize=STYLE['titlesize'])
+  plt.figure(figsize=(18, 4), dpi=150)
   plt.subplot(1, 3, 1)
   plt.plot(b0in, b0x, marker='o', ls='None',
       color=STYLE['aat_color'], alpha=0.75, label="Tangential A-A")
@@ -220,6 +314,10 @@ def draw_focii_vs_input_tangential(data):
       color=STYLE['bbt_color'], alpha=0.75)
   plt.ylabel("Focus Z coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
+
+  plt.tight_layout()
+  plt.suptitle("Tangential Focus Coordinates vs Beam Input Position", y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("focii-input_tangential.pdf")
   plt.show()
 
 def draw_focii_vs_input_sagittal(data):
@@ -236,9 +334,7 @@ def draw_focii_vs_input_sagittal(data):
   b1x, b1y, b1z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,1,1]])
 
-  plt.figure(1, figsize=(18, 4), dpi=150)
-  plt.suptitle("Sagittal Focus Coordinates vs Beam Input Position",
-      fontsize=STYLE['titlesize'])
+  plt.figure(figsize=(18, 4), dpi=150)
   plt.subplot(1, 3, 1)
   plt.plot(b0in, b0x, marker='o', ls='None',
       color=STYLE['abs_color'], alpha=0.75, label="Sagittal A-A")
@@ -261,6 +357,10 @@ def draw_focii_vs_input_sagittal(data):
       color=STYLE['bas_color'], alpha=0.75)
   plt.ylabel("Focus Z coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
+
+  plt.tight_layout()
+  plt.suptitle("Sagittal Focus Coordinates vs Beam Input Position", y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("focii-input_sagittal.pdf")
   plt.show()
 
 def draw_focii_in_space_tangential(data):
@@ -277,7 +377,7 @@ def draw_focii_in_space_tangential(data):
   b1x, b1y, b1z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:,0,1]])
 
-  fig = plt.figure(1, figsize=(14, 9), dpi=150)
+  fig = plt.figure(figsize=(14, 9), dpi=150)
   zy_plot = plt.subplot(223)
   plt.plot(b0z, b0y, marker='o', ls='None',
       alpha=0.7, color=STYLE['aat_color'], label='Tangential A-A')
@@ -308,9 +408,12 @@ def draw_focii_in_space_tangential(data):
   zx_plot.set_title('zx-Plane', fontsize=STYLE['titlesize'])
   zx_plot.set_ylabel('x Coordinate [mm]', fontsize=STYLE['labelsize'])
   zx_plot.yaxis.set_major_locator(MaxNLocator(9, prune='both'))
+
+  plt.tight_layout()
   fig.subplots_adjust(hspace=0, wspace=0)
-  fig.suptitle('Focal Points in Mirror Coordinate System',
-       fontsize=STYLE['titlesize'], fontweight='bold')
+  plt.suptitle("Tangential Focal Points in Mirror Coordinate System", y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("focii-space_tangential.pdf")
+  plt.show()
 
 def draw_focii_in_space_sagittal(data):
   """Take a list of data in the form
@@ -325,7 +428,7 @@ def draw_focii_in_space_sagittal(data):
   b1x, b1y, b1z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,1,1]])
 
-  fig = plt.figure(2, figsize=(14, 9), dpi=150)
+  fig = plt.figure(figsize=(14, 9), dpi=150)
   zy_plot = plt.subplot(223)
   plt.plot(b0z, b0y, marker='o', ls='None',
       alpha=0.7, color=STYLE['abs_color'], label='Sagittal A-B')
@@ -356,6 +459,9 @@ def draw_focii_in_space_sagittal(data):
   zx_plot.set_title('zx-Plane', fontsize=STYLE['titlesize'])
   zx_plot.set_ylabel('x Coordinate [mm]', fontsize=STYLE['labelsize'])
   zx_plot.yaxis.set_major_locator(MaxNLocator(9, prune='both'))
+
+  plt.tight_layout()
   fig.subplots_adjust(hspace=0, wspace=0)
-  fig.suptitle('Focal Points in Mirror Coordinate System',
-       fontsize=STYLE['titlesize'], fontweight='bold')
+  plt.suptitle("Sagittal Focal Points in Mirror Coordinate System", y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("focii-space_sagittal.pdf")
+  plt.show()

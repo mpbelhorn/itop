@@ -5,8 +5,9 @@ from math import sqrt
 from numpy import array, dot
 from itop.math.linalg import normalize, rotation_matrix_arrays
 from itop.math.linalg import rotation_matrix_euler as rotation_matrix
-
-
+from itop.beam.profiler import Alignment as DataAlignment
+from itop.beam.beam import Beam as DataBeam
+from itop.beam.focus import DataPoint
 
 class Ray(object):
   """A beam segment connecting two optical elements."""
@@ -104,9 +105,8 @@ class _Surface(object):
     if normal.dot(ray.direction) > 0:
       normal = -normal
     incidence = dot(-ray.direction, normal)
-    complement = sqrt(1.0 - rho**2 * (1.0 - incidence**2))
-    sign = 1.0 if incidence > 0 else -1.0
-    return Ray(ray.direction / rho + sign * (
+    complement = sqrt(1.0 - (1.0 - incidence**2) / rho**2)
+    return Ray((ray.direction / rho +
         (incidence / rho - complement) * normal), ray.position)
 
   def reflect(self, ray):
@@ -281,18 +281,18 @@ class Beam(object):
   """A collection of ray segments joined by their interactions with optical
   elements."""
 
-  def __init__(self, direction, initial_position,
+  def __init__(self, initial_direction, initial_position,
       initial_element=None, jitter=None):
     """Create a beam along the initial direction and position given. Optionally,
     jitter can be added to the beam by passing the standard deviation of the
     polar direction in radians."""
     if jitter is not None:
-      direction = normalize(direction)
-      direction += np.linalg.inv(
-          rotation_matrix_arrays(direction)).dot(array(
+      initial_direction = normalize(initial_direction)
+      initial_direction += np.linalg.inv(
+          rotation_matrix_arrays(initial_direction)).dot(array(
               [np.random.normal(0, jitter), np.random.normal(0, jitter), 0]))
-    self._ray = Ray(direction, initial_position)
-    self._history = [self._ray]
+    self._ray = Ray(initial_direction, initial_position)
+    self._history = [(0, self._ray)]
     self._element = Air() if initial_element is None else initial_element
 
   def _next_hit(self, elements):
@@ -312,12 +312,94 @@ class Beam(object):
         # That's all, folks!
         return
       self._ray = self._ray.propagate(tti)
-      self._history.append((tti, self._ray))
-      if self._ray.direction.dot(bound.normal(self._ray.position)) > 0:
+      self._history.append((self._history[-1][0] + tti, self._ray))
+      if not bound._reflective and self._ray.direction.dot(
+          bound.normal(self._ray.position)) > 0:
         next_element = Air()
       self._ray = bound.propagate(
           self._ray, self._element.index, next_element.index)
-      self._history.append((tti, self._ray))
+      self._history.append((self._history[-1][0] + tti, self._ray))
       self._element = next_element
 
+def simulate_alignment(
+    beam_a_direction, beam_b_direction, beam_a_intercept, separation,
+    samples=25):
+  """Return the beam construction parameters and an itop.Alignment of the
+  simulated beams."""
+  alignment = DataAlignment()
+  ray_a = Ray(beam_a_direction, beam_a_intercept)
+  ray_a = Ray(beam_a_direction, ray_a.sample(150))
 
+  ray_b = Ray(beam_b_direction,
+      np.array(beam_a_intercept) + np.array(separation))
+  ray_b = Ray(beam_b_direction, ray_b.sample(150))
+  beam_a = DataBeam()
+  beam_b = DataBeam()
+
+  for z in (np.arange(125, -95, -220/samples).tolist() + [-95]):
+      beam_a.add_sample(ray_a.sample(z))
+      beam_b.add_sample(ray_b.sample(z))
+  alignment.beam_a = beam_a
+  alignment.beam_b = beam_b
+  alignment.displacement = beam_b.intercept - beam_a.intercept
+  return alignment
+
+
+def simulate_data(
+    start, stop, step, mirror_height, calibration,
+    mirror_parameters=None, beam_a_parameters=None, beam_b_parameters=None):
+  """Return a sample of simulated raw data on the half-open interval
+  [start, stop) of mirror stage positions. Each sample is spaced by
+  'step' mm. The mirror is positioned at a height 'mirror_height' with respect
+  to the mirror calibration point. The mirror calibration must be specified to
+  correctly position the mirror with respect to the tracker.
+
+  By default, this function simulates perfectly parallel beams, separated by
+  [-50, -5, 0] with no jitter impinging upon a R=7000mm itop mirror on a stage
+  with no wobble.
+
+  The mirror and beam parameters can be substituted by passing dictionaries to
+  the appropriate keyword arguments. The content of the dictionaries for
+  mirror and beam parameters must reflect the required and optional arguments
+  to raytrace.ItopMirror() and raytrace.Beam() respectively. See those objects
+  for available parameters.
+
+  Beam parameters are expressed in the tracker coordinate frame.
+  """
+  if mirror_parameters is None:
+    mirror_parameters = {
+        'radius':7000,
+        'dimensions':[440, 20, 20],
+        }
+  if beam_a_parameters is None:
+    beam_a_parameters = {
+        'initial_direction': [0, 0, -1],
+        'initial_position': [122, 0, 150]
+        }
+  if beam_b_parameters is None:
+    beam_b_parameters = {
+        'initial_direction': [0, 0, -1],
+        'initial_position': [72, -5, 150],
+        }
+
+  data = []
+  mirror = ItopMirror(**mirror_parameters)
+  # Move the mirror to the mirror calibration point in the tracker
+  # frame (tracker_cal - mirror_cal)
+  mirror.translate(array([125, 0, -125]) - array(calibration))
+  mirror.translate([start - step, mirror_height, 0])
+  for mirror_stage_position in np.arange(start, stop, step):
+    # For a given mirror position, the mirror stage is translated in the
+    # opposite direction.
+      mirror.translate([step, 0, 0])
+      simulated_beam_a = Beam(**beam_a_parameters)
+      simulated_beam_a.propagate([mirror])
+      simulated_beam_b = Beam(**beam_b_parameters)
+      simulated_beam_b.propagate([mirror])
+      beam_a = DataBeam()
+      beam_b = DataBeam()
+      for z_coordinate in np.arange(-95, 125, 220/5).tolist() + [125]:
+          beam_a.add_sample(simulated_beam_a._ray.sample(z_coordinate))
+          beam_b.add_sample(simulated_beam_b._ray.sample(z_coordinate))
+      data.append(DataPoint(mirror_stage_position, beam_a, beam_b))
+  return data
