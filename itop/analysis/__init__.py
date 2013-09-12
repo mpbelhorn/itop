@@ -239,17 +239,17 @@ def draw_radii(data, alignment, index_in=1.46, index_out=1.000277):
   aa_radii = radii(data, 0, 0,
       -alignment.beam_a.direction.array(),
       -alignment.beam_a.direction.array(),
-      alignment.beam_a.direction.array(),
+      [0,0,1],
       index_in, index_out)
   ab_radii = radii(data, 0, 1,
       -alignment.beam_a.direction.array(),
       -alignment.beam_b.direction.array(),
-      alignment.beam_a.direction.array(),
+      [0,0,1],
       index_in, index_out)
   bb_radii = radii(data, 1, 1,
       -alignment.beam_b.direction.array(),
       -alignment.beam_b.direction.array(),
-      alignment.beam_a.direction.array(),
+      [0,0,1],
       index_in, index_out)
   plt.figure(figsize=(10, 4), dpi=150)
   plt.subplot(121)
