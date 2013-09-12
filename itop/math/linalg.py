@@ -125,5 +125,8 @@ def rotate_yxz_tait_bryan(vector, angles):
 def normalize(vector):
   """Returns a normalized vector parallel to the given vector.
   """
-  return np.array(vector) / np.linalg.norm(np.array(vector))
+  try:
+    return vector.normalize()
+  except AttributeError:
+    return np.array(vector) / np.linalg.norm(np.array(vector))
 

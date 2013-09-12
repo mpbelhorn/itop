@@ -19,7 +19,7 @@ def refract(ray, normal, origin_index, final_index):
   if normal.dot(ray_direction) > 0:
     normal = -normal
   incidence = dot(-ray_direction, normal)
-  complement = sqrt(1.0 - (1.0 - incidence**2) / rho**2)
+  complement = (1.0 - (1.0 - incidence**2) / rho**2)**(0.5)
   return (ray_direction / rho + (incidence / rho - complement) * normal)
 
 def reflection_normal(outgoing_ray, incoming_ray):
