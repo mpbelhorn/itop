@@ -110,7 +110,9 @@ class Beam(object):
     """
     if self.direction is not None:
       if dimension == 2:
-        return Vector(self.direction * ordinate + self.intercept)
+        return Vector(
+            (self.direction/self.direction[dimension]) *
+            ordinate + self.intercept)
       else:
         fit = self.fit(dimension)
         length_through_tracker = norm(fit[0][0])
