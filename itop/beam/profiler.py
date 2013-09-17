@@ -4,9 +4,10 @@ A class to read the data from a Newport HD-LBP laser beam profiler.
 
 """
 import serial
+import math as sys_math
 from numpy import array, mean, std, arange
 from itop.beam import Beam
-from itop.math import Vector
+from itop.math import Vector, Value
 import datetime
 from time import time as clock
 
@@ -75,15 +76,15 @@ class Profiler(object):
 
   """
 
-  def __init__(self, device, threshold_power=0.01):
+  def __init__(self, device, threshold_power=1.000):
     """Establish serial communication with an HD-LBP.
 
     """
     self.device = device
     self.serial = serial.Serial(device, 115200, timeout=1)
+    self.serial.flushOutput()
     if not self.serial.read(10):
-      raise ProfilerError(
-          1, 'No response from profiler. Is it on and transmitting?')
+      print('No response from profiler. Check link.')
     self.keys = ['time', 'centroid_x', 'centroid_y', 'centroid_r',
                  'level_1', 'level_2', 'level_3',
                  'width_1', 'width_2', 'width_3',
@@ -156,6 +157,14 @@ class Profiler(object):
             profile['height_2']/profile['width_2'],
             profile['height_3']/profile['width_3'])
 
+  def average_power(self, samples=10):
+    """Return the average power of a number of samples with standard error."""
+    try:
+      data = [self.profile()['power'] for _ in range(samples)]
+    except TypeError:
+      return None
+    return Value(mean(data), std(data))
+
 
 class Tracker(object):
   """A class to represent an HD-LBP on a set of ESP stages.
@@ -169,7 +178,7 @@ class Tracker(object):
       'Slow LTA': {'velocity':  2.0, 'acceleration': 20, 'deceleration': 20},
       }
 
-  def __init__(self, driver, rotation_stage, profiler, **kwargs):
+  def __init__(self, driver, rotation_stage, profiler, beam_monitor, **kwargs):
     """Constructor for beam Tracker.
 
     The tracker needs a reference to an externally defined stage driver and
@@ -205,6 +214,7 @@ class Tracker(object):
     self.driver = driver
     self.rotation_stage = rotation_stage
     self.profiler = profiler
+    self.beam_monitor = beam_monitor
     xyz_axes = kwargs.pop('xyz_axes', [1, 2, 3])
     self.axes = (self.driver.axes[xyz_axes[0] - 1],
                  self.driver.axes[xyz_axes[1] - 1],
@@ -258,7 +268,7 @@ class Tracker(object):
       self.axes[2].deceleration(ils_configuration['deceleration'])
       self.group_state = 1
 
-  def stage_position(self, xyz_coordinates=None, wait=False):
+  def position(self, xyz_coordinates=None, wait=False):
     """Returns the stage position of the stage. If passed a set of coordinates,
     also moves stage to that position.
 
@@ -334,7 +344,7 @@ class Tracker(object):
     if centroid is None:
       return None
     else:
-      return self.stage_position() + centroid
+      return self.position() + centroid
 
   def center_beam(self):
     """Centers the camera on the beam if beam is visible. If the beam is
@@ -349,15 +359,15 @@ class Tracker(object):
       return None
     # Do quick sampling to get centroid close to center.
     while centroid != Vector([0.0, 0.0, 0.0], 0.050):
-      rough_position = self.stage_position() + centroid
-      self.stage_position(rough_position, wait=True)
+      rough_position = self.position() + centroid
+      self.position(rough_position, wait=True)
       centroid = self.centroid()
     # Perhaps replace following while loop with a finite number of iterations?
     while True:
       centroid = self.centroid(8)
-      centered_position = centroid + self.stage_position()
+      centered_position = centroid + self.position()
       if centroid != Vector([0.0, 0.0, 0.0], 0.001):
-        self.stage_position(centered_position, wait=True)
+        self.position(centered_position, wait=True)
       else:
         return centered_position
 
@@ -396,15 +406,15 @@ class Tracker(object):
         delta_z_sign = ((start_point[2] - beam_position[2]) /
             abs(start_point[2] - beam_position[2]))
         self.change_grouping(1, fast=True)
-        self.stage_position(beam_position +
+        self.position(beam_position +
             delta_z_sign * array([0, 0, 10]), wait=True)
         beam.add_sample(self.center_beam)
-        beam_position = self.stage_position(
+        beam_position = self.position(
             beam.position(start_point[2]), wait=True)
     else:
       # Beam not in view. Move camera into full starting point.
       self.change_grouping(1, fast=True)
-      self.stage_position(start_point, wait=True)
+      self.position(start_point, wait=True)
       self.change_grouping(1, fast=False)
       number_of_scans = 0
       while beam_position is None:
@@ -424,7 +434,7 @@ class Tracker(object):
 
     # Move back to beam position.
     self.change_grouping(1, fast=True)
-    self.stage_position(beam_position, wait=True)
+    self.position(beam_position, wait=True)
 
     # The beam should now be in view.
     self.change_grouping(3, fast=True)
@@ -432,14 +442,14 @@ class Tracker(object):
     if beam_position is None:
       # If it's not in view do a short scan to refind it.
       self.change_grouping(1, fast=False)
-      self.stage_position(
-          self.stage_position() + [
+      self.position(
+          self.position() + [
             self.facing_z_direction * scan_direction_x * 10.0, 0, 0],
           wait=False)
       beam_position = self._scan_until_beam_visible(x_axis)
       if beam_position is None:
-        self.stage_position(
-            self.stage_position() + [
+        self.position(
+            self.position() + [
               self.facing_z_direction * scan_direction_x * -20.0, 0, 0],
             wait=False)
         beam_position = self._scan_until_beam_visible(x_axis)
@@ -484,24 +494,33 @@ class Tracker(object):
     self.change_grouping(1, fast=True)
     small_step = intercept + (scan_direction_z * array([0, 0, 10]))
     if abs(delta_z) > 10:
-      self.stage_position(small_step, wait=True)
+      self.position(small_step, wait=True)
     else:
-      self.stage_position(intercept + (
+      self.position(intercept + (
           scan_direction_z * array([0, 0, abs(delta_z)])), wait=True)
     intercept = self.center_beam()
     while intercept is None:
       small_step = small_step - (scan_direction_z * array([0, 0, 2]))
-      self.stage_position(small_step, wait=True)
+      self.position(small_step, wait=True)
       intercept = self.center_beam()
     beam.add_sample(intercept)
     if sample_positions[0] == intercept[2]:
       sample_positions.pop(0)
     for z_sample in sample_positions:
-      self.stage_position(beam.position(z_sample), wait=True)
+      self.position(beam.position(z_sample), wait=True)
       intercept = self.center_beam()
       if intercept is not None:
         beam.add_sample(intercept)
       else:
         # Cross this bridge when we get there.
         pass
+    # TODO Methodize this angle calculation in the beam object.
+    beam_angle = sys_math.degrees(
+        sys_math.asin(
+            beam.direction.project([0,2]).normalize()[0].value))
+    stage_angle = self.rotation_stage.position()
+    self.rotation_stage.position(stage_angle - beam_angle, wait=True)
+    self.center_beam()
+    beam.power = (self.profiler.average_power(), self.beam_monitor.read())
+    self.rotation_stage.position(stage_angle, wait=True)
     return beam

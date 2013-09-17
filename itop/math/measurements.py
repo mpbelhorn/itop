@@ -153,12 +153,7 @@ class Value(object):
           for j, i in enumerate(zip(self.error, other.error))))
 
   def __abs__(self):
-    return (
-        abs(self.value), tuple(
-        sorted(
-            [sign(self.value, self.value) * self.error[0],
-             sign(self.value, self.value) * self.error[1]]
-        )))
+    return Value(abs(self.value), self.error)
 
   def __lt__(self, other):
     other = Value(other)
@@ -390,7 +385,7 @@ class Vector(object):
     return repr([i for i in self])
 
   def __abs__(self):
-    return (norm([i.value for i in self.values]),
+    return Value(norm([i.value for i in self.values]),
         (-norm(self.lower_errors()), norm(self.upper_errors())))
 
   def array(self):
@@ -419,7 +414,7 @@ class Vector(object):
 
   def normalize(self):
     """Returns a normalized copy of the vector with normalized errors."""
-    return Vector(self / abs(self)[0])
+    return Vector(self / abs(self).value)
 
   def dot(self, other):
     """Returns the dot product of this vector with another vector object."""

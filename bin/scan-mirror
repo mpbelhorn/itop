@@ -11,9 +11,9 @@ import sys
 import zlib
 
 parser = argparse.ArgumentParser(description='Scan a test mirror.')
-parser.add_argument('--range', dest='scan_range', nargs=2,
-    metavar=('START', 'STOP'), type=float, default=[-100, -202],
-    help='Specify beam input positions in mm with START < STOP')
+parser.add_argument('--inputs', dest='scan_range', nargs=2,
+    metavar=('FIRST', 'LAST'), type=float, default=[-100, -202],
+    help='Specify beam input positions in mm with FIRST < LAST')
 parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
     default=-5.0, help='Specify mirror sampling step size in mm')
 parser.add_argument('--output', metavar='PATH', type=str,
@@ -24,6 +24,9 @@ parser.add_argument('--align', action='store_true', default=False,
     help='Re-compute the tracker alignment to the beams.')
 parser.add_argument('--alt', action='store_true', default=False,
     help='Run scan on alternate mirror.')
+parser.add_argument('--start', dest='start_point', nargs=3,
+    metavar=('X', 'Y', 'Z'), type=float,
+    help='Start first scan at position [X,Y,Z].')
 
 args = parser.parse_args()
 
@@ -32,13 +35,14 @@ esp_300 = itop.StageController('/dev/ttyUSB1',
     limits=[250.0, [-45.0, 190.0], 125.0])
 esp_301 = itop.StageController('/dev/ttyUSB2',
     limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
+beam_monitor = itop.Photodiode('/dev/itop_lds1000')
 
 mirror_axis_id = 2 if args.alt else 0
 mirror_stage = esp_300.axes[mirror_axis_id]
 profiler_rotation_stage = esp_300.axes[1]
 
 tracker = itop.beam.profiler.Tracker(esp_301, profiler_rotation_stage,
-    profiler, home=args.home, check=True)
+    profiler, beam_monitor, home=args.home, check=True)
 
 mirror_stage.power_on()
 if args.home or args.alt:
@@ -63,9 +67,14 @@ if args.output is None:
 print('Starting data run at {}.'.format(run_starting_time))
 print('===============')
 
+print(instrument.sample_position(args.scan_range[0],
+                                 start_point=args.start_point))
+instrument.save_data(args.output)
+
 for mirror_position in arange(
-    args.scan_range[0], args.scan_range[1] + args.step_size, args.step_size):
+    args.scan_range[0] + args.step_size,
+    args.scan_range[1] + args.step_size,
+    args.step_size):
   print(instrument.sample_position(mirror_position, proximal=True))
   instrument.save_data(args.output)
 
-instrument.tracker.driver.home()

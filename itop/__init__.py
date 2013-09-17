@@ -24,8 +24,10 @@ from itop import math
 from itop import utilities
 from itop import motioncontrol
 from itop import beam
+from itop import photodiode
 from itop import analysis
 
+from itop.photodiode import Photodiode
 from itop.math import Value, Vector
 from itop.motioncontrol import StageController
 from itop.beam import Beam, Profiler, Tracker, DataPoint, Alignment, Instrument
@@ -55,5 +57,17 @@ def initialize_instruments():
       limits=[250.0, [-45.0, 190.0], 125.0])
   esp_301 = StageController('/dev/itop_esp-301',
       limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
-  return (profiler, esp_300, esp_301)
+  beam_monitor = Photodiode('/dev/itop_lds1000')
+  rotator = esp_300.axes[1]
+  tracker = Tracker(esp_301, rotator, profiler, beam_monitor)
+  mirror = esp_300.axes[0]
+  instrument = Instrument(
+      tracker, mirror, os.path.join(_ROOT, 'data/alignment/test.gz'))
+  return (
+      profiler,
+      esp_300,
+      esp_301,
+      tracker,
+      instrument)
+
 

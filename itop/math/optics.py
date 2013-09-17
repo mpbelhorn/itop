@@ -3,6 +3,7 @@ A module for the mathematics of optics.
 
 """
 import numpy as np
+import math as sys_math
 from numpy import array, linalg, dot, sqrt
 from itop.math import Vector
 from itop.math.linalg import normalize
@@ -65,16 +66,17 @@ def radius_from_normals_old(normal_1, normal_2, impact_1, impact_2):
   return sqrt((-quad_b - sqrt(quad_b**2 - 4 * quad_a * quad_c))/(2 * quad_a))
 
 def radius_from_normals(normal_1, normal_2, input_1, impact_1, impact_2):
-  alpha = abs(np.arccos(normal_1.dot(normal_2)))
-  plane = normalize(np.cross(normal_1, normal_2))
+  alpha = abs(sys_math.acos(normal_1.dot(normal_2)))
+  plane = normalize(Vector(np.cross(normal_1, normal_2)))
   input_in_plane = normalize(input_1 - (input_1.dot(plane) * plane))
-  theta = abs(np.arccos(normal_1.dot(input_in_plane)))
+  theta = abs(sys_math.acos(normal_1.dot(input_in_plane)))
   separation = impact_1 - impact_2
-  separation = np.append(separation, 0)
+  #separation = np.append(separation, 0)
   separation -= separation.dot(plane) * plane
-  separation = np.linalg.norm(separation)
+  separation = (abs(separation)).value
 
-  return separation / (2 * abs(np.sin(alpha/2)) * abs(np.cos(theta + alpha/2)))
+  return (separation, separation / (
+      2 * abs(sys_math.sin(alpha/2)) * abs(sys_math.cos(theta + alpha/2))))
 
 def focus(beam_0, beam_1, plane='T'):
   """Returns the focal point for the given beams.
@@ -113,4 +115,38 @@ def focus(beam_0, beam_1, plane='T'):
 
   return [Vector(focus_0, [focus_0_error]), Vector(focus_1, [focus_1_error])]
 
+def fresnel_coefficients(theta_i, index_i, index_t, polarization=None):
+  """Return {'R', 'T'} where 'R' and 'T' are the reflection and transmission
+  coefficients at a transition with incident refractive index index_i to
+  transmitted index index_t.
+
+  Takes the optional argument
+    polarization (None):
+        'p' for E-field parallel to the plane of incidence.
+        's' for E-field perpendicular to the plane of incidence.
+  """
+  rho = index_i / index_t
+  cos_i = sys_math.cos(theta_i)
+  cos_t_squared = 1 - (rho * sys_math.sin(theta_i))**2
+  output = {'R': 1.0, 'T': 0.0}
+  if cos_t_squared >= 0:
+    # Not totally internally reflected.
+    cos_t = sys_math.sqrt(cos_t_squared)
+    coeff = {}
+    coeff['rs'] = ((rho * cos_i - cos_t) / (rho * cos_i + cos_t))**2
+    coeff['rp'] = ((rho * cos_t - cos_i) / (rho * cos_t + cos_i))**2
+    coeff['ts'] = 1.0 - coeff['rs']
+    coeff['tp'] = 1.0 - coeff['rp']
+
+    if polarization is 's':
+      output['R'] = coeff['rs']
+      output['T'] = coeff['ts']
+    elif polarization is 'p':
+      output['R'] = coeff['rp']
+      output['T'] = coeff['tp']
+    else:
+      output['R'] = (coeff['rs'] + coeff['rp']) / 2
+      output['T'] = (coeff['ts'] + coeff['tp']) / 2
+
+  return output
 

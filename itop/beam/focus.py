@@ -41,6 +41,9 @@ class DataPoint(object):
     """
     pass
 
+class InstrumentError(Exception):
+  pass
+
 class Instrument(object):
   """An iTOP mirror scanning instrument.
 
@@ -64,8 +67,8 @@ class Instrument(object):
           file_data = load_object(alignment)
           if file_data.alignment_date() is not None:
             self.alignment = file_data
-        except AttributeError:
-          # Input alignment instance or file path is not valid.
+        except AttributeError, IOError:
+          # Input alignment file is not valid.
           pass
     if self.alignment is None:
       self.alignment = Alignment()
@@ -76,26 +79,32 @@ class Instrument(object):
     # Output data.
     self.data = [] # (mirror_position, beam_a, beam_b)
 
-  def sample_position(self, mirror_position, proximal=False):
+  def sample_position(self, mirror_position, proximal=False, start_point=None):
     """Returns the reflected beam trajectories with the mirror at the given
     mirror stage position.
 
-    Takes two optional keyword arguments.
-    refresh  -- Boolean (False). If true, the trajectory data is cleared
-                and the beams are relocated.
-    proximal -- Boolean (False). Implies refresh. The beams are relocated
-                assuming they are very near the last trajectories.
+    Takes the optional keyword arguments.
+      start_point (None):
+        Start the scan at a position given by the coordinates in the form
+        [x, y, z]. By default, the start point is determined from the
+        stage limits.
+
+      proximal (False):
+        The scan start point is automatically determined assuming the beam
+        trajectories are very near their last known trajectories.
 
     """
     self.mirror.position(mirror_position, wait=True)
-    start_point = None
     if proximal:
       try:
         start_point = self.data[-1].beam_a.first_sample() + [-25, 0, 0]
       except IndexError:
-        start_point = [self.tracker.axes[0].limits.lower,
-                       self.tracker.axes[1].limits.lower,
-                       self.tracker.axes[2].limits.lower]
+        # No established trajectories.
+        pass
+    if start_point is None:
+      start_point = [self.tracker.axes[0].limits.lower,
+                     self.tracker.axes[1].limits.lower,
+                     self.tracker.axes[2].limits.lower]
     # Block beam 'B' and find beam 'A' trajectory.
     shutter = self.tracker.driver.shutter_state
     shutter(0, 0)

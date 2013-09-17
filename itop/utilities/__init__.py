@@ -23,15 +23,16 @@ def load_object(file_path):
   with itop.utilities.save_object()
 
   """
-  with open(file_path, 'rb') as input_file:
-    try:
-      pickled_data = zlib.decompress(input_file.read())
-      return cPickle.loads(pickled_data)
-    except AttributeError as oops:
-      # Ooops. Changed the implementation of something.
-      print "Failed to load object from", file_path, '(' + str(oops) + ')'
-      return None
-    except IOError:
-      print "Failed to read file."
-      return None
+  try:
+    with open(file_path, 'rb') as input_file:
+      try:
+        pickled_data = zlib.decompress(input_file.read())
+        return cPickle.loads(pickled_data)
+      except AttributeError as oops:
+        # Ooops. Changed the implementation of something.
+        print "Failed to load object from", file_path, '(' + str(oops) + ')'
+        return None
+  except IOError:
+    print "Failed to read file."
+    return None
 

@@ -7,9 +7,13 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from itop.math import Vector
 import numpy as np
+import math as sys_math
 from itop.math.linalg import rotation_matrix
 from itop.math.linalg import rotation_matrix_arrays
-from itop.math.optics import focus, radius_from_normals as radius
+from itop.math.optics import focus
+from itop.math.optics import refract
+from itop.math.optics import fresnel_coefficients
+from itop.math.optics import radius_from_normals as optical_radius
 from itop.math.optics import reconstruct_mirror_normal as mirror_normal
 
 
@@ -49,6 +53,19 @@ def translate_beams(data_point, displacement):
   return (data_point.beam_a.translate(displacement),
           data_point.beam_b.translate(displacement))
 
+class AlignedData(object):
+  """Data that has been aligned to the mirror frame."""
+
+  def __init__(self, mirror_position,
+      beam_a, beam_a_position,
+      beam_b, beam_b_position):
+    """Constructor for aligned data."""
+    self.mirror_position = mirror_position
+    self.beam_a = beam_a
+    self.beam_b = beam_b
+    self.beam_a_position = beam_a_position
+    self.beam_b_position = beam_b_position
+
 def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
   """Return the data transformed into the mirror-centered frame.
 
@@ -78,18 +95,22 @@ def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
 
   matrix = rotation_matrix(-alignment.beam_a.direction)
   output = []
-  for i in data:
-    mirror_from_mcal = Vector([i.mirror_position, mirror_height, 0])
+  for sample in data:
+    mirror_from_mcal = Vector([sample.mirror_position, mirror_height, 0])
     tracker_from_mirror = tracker_from_mcal - mirror_from_mcal
 
-    beams = translate_beams(i, tracker_from_mirror)
+    beams = translate_beams(sample, tracker_from_mirror)
     inputs = input_positions(mirror_from_mcal, beam_separation, alignment)
-    beams = [i.transform(matrix) for i in beams]
-    inputs = [i.transform(matrix) for i in inputs]
-    output.append(((inputs[0], beams[0]), (inputs[1], beams[1])))
+    beams = [beam.transform(matrix) for beam in beams]
+    inputs = [position.transform(matrix) for position in inputs]
+    output.append(
+        AlignedData(
+          sample.mirror_position,
+          beams[0], inputs[0],
+          beams[1], inputs[1]))
   return output
 
-def focii(data, beam_1, beam_2, plane):
+def focii(data):
   """Take a list of data in the form
       [((beam_a_input, beam_a), (beam_b_input, beam_b))]
   and return a list of the focal points for beam_1 with beam_2 in the
@@ -97,55 +118,118 @@ def focii(data, beam_1, beam_2, plane):
   1 for beam_b. The output list is in the format:
     ((beam_1_input, beam_1_focus), (beam_2_input, beam_2_focus))
   """
-  output = []
-  for i in data:
-    for j in data:
-      if beam_1 == beam_2 and data.index(j) <= data.index(i):
-        pass
-      else:
-        focal_point = focus(i[beam_1][1], j[beam_2][1], plane=plane)
-        output.append(
-            ((i[beam_1][0], focal_point[0]), (j[beam_2][0], focal_point[1])))
-  return output
+  tangential_focii_a = []
+  tangential_focii_b = []
+  sagittal_focii = []
+  for data_1_n, data_1 in enumerate(data):
+    for data_2_n, data_2 in enumerate(data):
+      if data_1_n > data_2_n:
+        focus_t_a = focus(data_1.beam_a, data_2.beam_a, plane='T')
+        focus_t_b = focus(data_1.beam_b, data_2.beam_b, plane='T')
+        tangential_focii_a.append(
+            ((data_1.beam_a_position, focus_t_a[0]),
+             (data_2.beam_a_position, focus_t_a[1])))
+        tangential_focii_b.append(
+            ((data_1.beam_b_position, focus_t_b[0]),
+             (data_2.beam_b_position, focus_t_b[1])))
+      focus_s = focus(data_1.beam_a, data_2.beam_b, plane='S')
+      sagittal_focii.append(
+          ((data_1.beam_a_position, focus_s[0]),
+           (data_2.beam_b_position, focus_s[1])))
+  return (tangential_focii_a, tangential_focii_b, sagittal_focii)
 
-def radii(data, beam_1, beam_2, in_1, in_2, face_normal, index_in, index_out):
+def radius(
+    output_beam_1, input_position_1,
+    output_beam_2, input_position_2,
+    input_beam_direction,
+    mirror_index,
+    lab_index = 1.000277,
+    face_normal=None):
+  """Return the radius of curvature from two output beam trajectories
+  from a common input beam at two different input positions and the
+  subtrate refraction index.
+
+  Takes the optional arguments:
+    lab_index (1.000277):
+      The refraction index of the laboratory air.
+
+    face_normal ([0,0,1]):
+      The normal vector of the front face.
+  """
+  if output_beam_1 is output_beam_2:
+    raise Exception('Radius Calculation requires two unique beams.')
+  if face_normal is None:
+    face_normal = [0,0,1]
+  reflection_normal_1 = mirror_normal(
+      output_beam_1.direction,
+      input_beam_direction,
+      face_normal, mirror_index, lab_index)
+  reflection_normal_2 = mirror_normal(
+      output_beam_2.direction,
+      input_beam_direction,
+      face_normal, mirror_index, lab_index)
+  return optical_radius(
+      reflection_normal_1,
+      reflection_normal_2,
+      input_beam_direction,
+      input_position_1,
+      input_position_2)
+
+def radii(data, alignment, mirror_index, lab_index=1.000277):
   """Return a list of the radii between beam_1 and beam_2 in the given data
   as a tuple (s, r) where s is the absolute separation distance in x and r
   is the radius. Any additional keyword arguments are passed on to the
   mirror normal reconstruction.
   """
-  if beam_1 == beam_2:
-    return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
-             radius(mirror_normal(i[beam_1][1].direction.array(),
-                        in_1, face_normal, index_in, index_out),
-                    mirror_normal(j[beam_2][1].direction.array(),
-                        in_2, face_normal, index_in, index_out),
-                    in_1,
-                    i[beam_1][0].array()[:2],
-                    j[beam_2][0].array()[:2])
-            ) for k, j in enumerate(data) for i in data[k:] if i is not j]
-  else:
-    return [(i[beam_1][0].array()[0] - j[beam_2][0].array()[0],
-             radius(mirror_normal(i[beam_1][1].direction.array(),
-                        in_1, face_normal, index_in, index_out),
-                    mirror_normal(j[beam_2][1].direction.array(),
-                        in_2, face_normal, index_in, index_out),
-                    in_1,
-                    i[beam_1][0].array()[:2],
-                    j[beam_2][0].array()[:2])
-            ) for j in data for i in data]
+  beam_a_direction = -alignment.beam_a.transform(
+      rotation_matrix(alignment.beam_a.direction)).direction
+  beam_b_direction = -alignment.beam_b.transform(
+      rotation_matrix(alignment.beam_a.direction)).direction
+  mirror_radii = np.array([(radius(
+        data_1.beam_a, data_1.beam_a_position,
+        data_2.beam_a, data_2.beam_a_position,
+        beam_a_direction, mirror_index, lab_index),
+    radius(
+        data_1.beam_b, data_1.beam_b_position,
+        data_2.beam_b, data_2.beam_b_position,
+        beam_b_direction, mirror_index, lab_index)
+    ) for data_1_n, data_1 in enumerate(data)
+        for data_2_n, data_2 in enumerate(data)
+          if data_2_n > data_1_n])
+  return (mirror_radii[:, 0], mirror_radii[:, 1])
 
-
+def reflectance(
+    reflected_beam, input_position, original_beam, alignment,
+    mirror_index, lab_index=1.000277):
+  """Return the reflectance of the mirror at the given input position
+  given the reflected beam, the original beam, and the refractive
+  indexes."""
+  input_angle = sys_math.acos(
+      (original_beam.transform(
+          rotation_matrix(alignment.beam_a.direction)).direction
+      ).dot([0,0,1]))
+  exit_angle = sys_math.acos(
+      -refract(
+          -reflected_beam.direction, [0,0,1], lab_index, mirror_index
+      ).dot([0,0,1]))
+  transmittance_in = fresnel_coefficients(
+      input_angle, lab_index, mirror_index)['T']
+  transmittance_out = fresnel_coefficients(
+      exit_angle, mirror_index, lab_index)['T']
+  reflectance = ((reflected_beam.power[0] / (
+      original_beam.power[0] * transmittance_in * transmittance_out)
+      ) * (original_beam.power[1] / reflected_beam.power[1]))
+  return (input_position[0], reflectance)
 
 STYLE = {
-    'aat_color': '#ff0000',
-    'abt_color': '#ff6600',
-    'bat_color': '#ff9900',
-    'bbt_color': '#ffff00',
-    'aas_color': '#0066ff',
-    'abs_color': '#0000ff',
-    'bas_color': '#00ffff',
-    'bbs_color': '#0099ff',
+    'aat_color': '#ee0000',
+    'abt_color': '#ee6600',
+    'bat_color': '#ee9900',
+    'bbt_color': '#eecc00',
+    'aas_color': '#0066ee',
+    'abs_color': '#0000ee',
+    'bas_color': '#00ccee',
+    'bbs_color': '#0099ee',
     'labelsize': 14,
     'titlesize': 14}
 
@@ -165,25 +249,25 @@ def draw_alignment(alignment):
   axes_b = np.array([axis.twinx() for axis in axes_a])
 
   axes_a[0].errorbar(samples_a[:,2], samples_a[:,0],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='r', **opts)
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['aat_color'], **opts)
   axes_b[0].errorbar(samples_b[:,2], samples_b[:,0],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='y', **opts)
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['bbt_color'], **opts)
   axes_a[0].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_a[0].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_b[0].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
 
   axes_a[1].errorbar(samples_a[:,2], samples_a[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='r', **opts)
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['aat_color'], **opts)
   axes_b[1].errorbar(samples_b[:,2], samples_b[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='y', **opts)
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['bbt_color'], **opts)
   axes_a[1].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_a[1].set_ylabel('Beam A y-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_b[1].set_ylabel('Beam B y-coordinate [mm]', fontsize=STYLE['labelsize'])
 
   axes_a[2].errorbar(samples_a[:,0], samples_a[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='r', **opts)
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['aat_color'], **opts)
   axes_b[2].errorbar(samples_b[:,0], samples_b[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color='y', **opts)
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['bbt_color'], **opts)
   axes_a[2].set_xlabel('x-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_a[2].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_b[2].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
@@ -200,17 +284,17 @@ def draw_samples(data):
   """
   plt.figure(figsize=(18, 4))
   for i in data:
-      samples_a = np.array([j.array() for j in i[0][1].samples])
-      samples_b = np.array([j.array() for j in i[1][1].samples])
+      samples_a = np.array([j.array() for j in i.beam_a.samples])
+      samples_b = np.array([j.array() for j in i.beam_b.samples])
       plt.subplot(131)
-      plt.plot(samples_a[:,2], samples_a[:,0], color='r', marker='o', alpha=0.5)
-      plt.plot(samples_b[:,2], samples_b[:,0], color='y', marker='o', alpha=0.5)
+      plt.plot(samples_a[:,2], samples_a[:,0], color=STYLE['aat_color'], marker='o', alpha=0.5)
+      plt.plot(samples_b[:,2], samples_b[:,0], color=STYLE['bbt_color'], marker='o', alpha=0.5)
       plt.subplot(132)
-      plt.plot(samples_a[:,2], samples_a[:,1], color='r', marker='o', alpha=0.5)
-      plt.plot(samples_b[:,2], samples_b[:,1], color='y', marker='o', alpha=0.5)
+      plt.plot(samples_a[:,2], samples_a[:,1], color=STYLE['aat_color'], marker='o', alpha=0.5)
+      plt.plot(samples_b[:,2], samples_b[:,1], color=STYLE['bbt_color'], marker='o', alpha=0.5)
       plt.subplot(133)
-      plt.plot(samples_a[:,0], samples_a[:,1], color='r', marker='o', alpha=0.5)
-      plt.plot(samples_b[:,0], samples_b[:,1], color='y', marker='o', alpha=0.5)
+      plt.plot(samples_a[:,0], samples_a[:,1], color=STYLE['aat_color'], marker='o', alpha=0.5)
+      plt.plot(samples_b[:,0], samples_b[:,1], color=STYLE['bbt_color'], marker='o', alpha=0.5)
   plt.subplot(131)
   plt.ylabel("x-coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("z-coordinate [mm]", fontsize=STYLE['labelsize'])
@@ -226,7 +310,7 @@ def draw_samples(data):
   plt.savefig("samples.pdf")
   plt.show()
 
-def draw_radii(data, alignment, index_in=1.46, index_out=1.000277):
+def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
   """Plot the radius of the mirror as a function of beam separation distance
   in x. The radius is computed from each of the beam pairs in the given data.
   Data points must be in the form of
@@ -235,22 +319,7 @@ def draw_radii(data, alignment, index_in=1.46, index_out=1.000277):
   Any keyword arguments are passed on to the mirror normal reconstruction
   method.
   """
-
-  aa_radii = radii(data, 0, 0,
-      -alignment.beam_a.direction.array(),
-      -alignment.beam_a.direction.array(),
-      [0,0,1],
-      index_in, index_out)
-  ab_radii = radii(data, 0, 1,
-      -alignment.beam_a.direction.array(),
-      -alignment.beam_b.direction.array(),
-      [0,0,1],
-      index_in, index_out)
-  bb_radii = radii(data, 1, 1,
-      -alignment.beam_b.direction.array(),
-      -alignment.beam_b.direction.array(),
-      [0,0,1],
-      index_in, index_out)
+  aa_radii, bb_radii = radii(data, alignment, mirror_index, lab_index)
   plt.figure(figsize=(10, 4), dpi=150)
   plt.subplot(121)
   plt.title('A-A Radii', fontsize=STYLE['titlesize'])
@@ -258,12 +327,6 @@ def draw_radii(data, alignment, index_in=1.46, index_out=1.000277):
       color=STYLE['aat_color'], alpha=0.75, label="A-A Radii")
   plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
-  #plt.subplot(132)
-  #plt.title('A-B Radii', fontsize=STYLE['titlesize'])
-  #plt.plot(*zip(*ab_radii), marker='o', ls='None',
-  #    color=STYLE['abt_color'], alpha=0.75, label="A-B Radii")
-  #plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
-  #plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
   plt.subplot(122)
   plt.title('B-B Radii', fontsize=STYLE['titlesize'])
   plt.plot(*zip(*bb_radii), marker='o', ls='None',
@@ -276,14 +339,51 @@ def draw_radii(data, alignment, index_in=1.46, index_out=1.000277):
   plt.savefig("radii.pdf")
   plt.show()
 
-def draw_focii_vs_input_tangential(data):
+
+def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277):
+  """Plot the reflectance of the mirror as a function of beam
+  input position.
+  """
+  mirror_reflectance = np.array(
+    [[reflectance(i.beam_a, i.beam_a_position,
+          alignment.beam_a, alignment, lab_index, mirror_index),
+      reflectance(i.beam_b, i.beam_b_position,
+          alignment.beam_b, alignment, lab_index, mirror_index)
+     ] for i in data])
+
+  positions, reflectances = mirror_reflectance.T
+  plt.figure(figsize=(9, 5), dpi=150)
+  plt.subplot(111)
+  plt.title('Reflectance', fontsize=STYLE['titlesize'])
+  plt.errorbar(
+      [i.value for i in positions[0]],
+      [i.value for i in reflectances[0]],
+      [i.maximal_error() for i in reflectances[0]],
+      [i.maximal_error() for i in positions[0]],
+      marker='o', ls='None', color=STYLE['aat_color'],
+      label="Beam A Reflectance")
+  plt.errorbar(
+      [i.value for i in positions[1]],
+      [i.value for i in reflectances[1]],
+      [i.maximal_error() for i in reflectances[1]],
+      [i.maximal_error() for i in positions[1]],
+      marker='o', ls='None', color=STYLE['bbt_color'],
+      label="Beam B Reflectance")
+  plt.legend(loc='best', numpoints=1)
+  plt.ylabel("Reflectance", fontsize=STYLE['labelsize'])
+  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
+  plt.savefig("reflectance.pdf")
+  plt.show()
+
+
+def draw_focii_vs_input_tangential(tangential_focii_a, tangential_focii_b):
   """Take a list of data in the form
       [((beam_a_input, beam_a), (beam_b_input, beam_b))]
 
   and draw the tangential focii against the beam-mirror input positions.
   """
-  beam_0_focii = np.array(focii(data, 0, 0, 'T'))
-  beam_1_focii = np.array(focii(data, 1, 1, 'T'))
+  beam_0_focii = np.array(tangential_focii_a)
+  beam_1_focii = np.array(tangential_focii_b)
   b0in = [i.value for i in beam_0_focii[:, 0, 0, 0]]
   b0x, b0y, b0z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:,0,1]])
@@ -320,13 +420,13 @@ def draw_focii_vs_input_tangential(data):
   plt.savefig("focii-input_tangential.pdf")
   plt.show()
 
-def draw_focii_vs_input_sagittal(data):
+def draw_focii_vs_input_sagittal(sagittal_focii):
   """Take a list of data in the form
       [((beam_a_input, beam_a), (beam_b_input, beam_b))]
 
   and draw the tangential focii against the beam-mirror input positions.
   """
-  beam_focii = np.array(focii(data, 0, 1, 'S'))
+  beam_focii = np.array(sagittal_focii)
   b0in = [i.value for i in beam_focii[:, 0, 0, 0]]
   b0x, b0y, b0z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,0,1]])
@@ -337,9 +437,9 @@ def draw_focii_vs_input_sagittal(data):
   plt.figure(figsize=(18, 4), dpi=150)
   plt.subplot(1, 3, 1)
   plt.plot(b0in, b0x, marker='o', ls='None',
-      color=STYLE['abs_color'], alpha=0.75, label="Sagittal A-A")
+      color=STYLE['abs_color'], alpha=0.75, label="Sagittal A-B")
   plt.plot(b1in, b1x, marker='o', ls='None',
-      color=STYLE['bas_color'], alpha=0.75, label="Sagittal B-B")
+      color=STYLE['bas_color'], alpha=0.75, label="Sagittal B-A")
   plt.legend(loc='best', numpoints=1)
   plt.ylabel("Focus X coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
@@ -363,15 +463,15 @@ def draw_focii_vs_input_sagittal(data):
   plt.savefig("focii-input_sagittal.pdf")
   plt.show()
 
-def draw_focii_in_space_tangential(data):
+def draw_focii_in_space_tangential(tangential_focii_a, tangential_focii_b):
   """Take a list of data in the form
       [((beam_a_input, beam_a), (beam_b_input, beam_b))]
 
   and draw the tangential focii in 3D space projections in a mirror-centered
   frame.
   """
-  beam_0_focii = np.array(focii(data, 0, 0, 'T'))
-  beam_1_focii = np.array(focii(data, 1, 1, 'T'))
+  beam_0_focii = np.array(tangential_focii_a)
+  beam_1_focii = np.array(tangential_focii_b)
   b0x, b0y, b0z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:,0,1]])
   b1x, b1y, b1z = zip(
@@ -415,14 +515,14 @@ def draw_focii_in_space_tangential(data):
   plt.savefig("focii-space_tangential.pdf")
   plt.show()
 
-def draw_focii_in_space_sagittal(data):
+def draw_focii_in_space_sagittal(sagittal_focii):
   """Take a list of data in the form
       [((beam_a_input, beam_a), (beam_b_input, beam_b))]
 
   and draw the sagittal focii in 3D space projections in a mirror-centered
   frame.
   """
-  beam_focii = np.array(focii(data, 0, 1, 'S'))
+  beam_focii = np.array(sagittal_focii)
   b0x, b0y, b0z = zip(
       *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,0,1]])
   b1x, b1y, b1z = zip(

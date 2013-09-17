@@ -6,6 +6,7 @@ A module for tracking and parameterizing a beam segment in 3D space.
 from numpy import array, dot
 from numpy.linalg import lstsq, norm
 from itop.math import Vector
+import copy
 
 class Beam(object):
   """For constaining the movement of a robotic stage group + camera to keep a
@@ -32,6 +33,7 @@ class Beam(object):
     self.direction = None
     self.intercept = None
     self.samples = []
+    self.power = None
     self._samples_in_fit = 0
     self.distortions = None
     self.z_direction = z_direction
@@ -50,13 +52,13 @@ class Beam(object):
     self.update()
 
   def __repr__(self):
-    return repr(self.direction)
+    return "beam({})".format(self.first_sample().array().tolist())
 
   def translate(self, displacement):
     """Returns the beam translated by the given displacement vector.
 
     """
-    output = Beam(self.z_direction)
+    output = copy.deepcopy(self)
     output.samples = [i + displacement for i in self.samples]
     output.update(force=True)
     return output
@@ -65,7 +67,7 @@ class Beam(object):
     """Returns the beam beam transformed by the given transformation matrix.
 
     """
-    output = Beam(self.z_direction)
+    output = copy.deepcopy(self)
     samples = [Vector(dot(matrix, i)) for i in self.samples]
     output.samples = samples
     output.update(force=True)
@@ -73,11 +75,17 @@ class Beam(object):
 
   def last_sample(self):
     """Returns the last collected sample."""
-    return self.samples[-1]
+    try:
+      return self.samples[-1]
+    except IndexError:
+      return None
 
   def first_sample(self):
     """Returns the first collected sample."""
-    return self.samples[0]
+    try:
+      return self.samples[0]
+    except IndexError:
+      return None
 
   def _increasing_z_indexes(self):
     """Returns a list sample indices sorted by increasing z-coordinate."""

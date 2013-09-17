@@ -26,10 +26,10 @@ class StageController(object):
 
     """
     self.serial = serial.Serial(serial_device, 19200, timeout=1)
+    self.serial.flushOutput()
     print '\nInitializing stage driver on {}.'.format(serial_device)
     print 'Clearing response buffer.'
-    while self.read():
-      pass
+    self.serial.flushInput()
     print 'Checking errors: {}'.format(self.errors())
     self.axes = []
     for i in range(1, 7):
