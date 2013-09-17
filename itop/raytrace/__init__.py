@@ -7,7 +7,7 @@ from itop.math.linalg import normalize, rotation_matrix_arrays
 from itop.math.linalg import rotation_matrix_euler as rotation_matrix
 from itop.beam.profiler import Alignment as DataAlignment
 from itop.beam.beam import Beam as DataBeam
-from itop.beam.focus import DataPoint
+from itop.beam.datapoint import DataPoint
 
 class Ray(object):
   """A beam segment connecting two optical elements."""
@@ -24,7 +24,7 @@ class Ray(object):
     """Return the position of the ray at some parametric 'time' later."""
     return Ray(self.direction, self.position + time * self.direction)
 
-  def sample(self, z_position, warp=None):
+  def sample(self, z_position):
     """Return the beam position at the given z-coordinate."""
     if self.direction[2] != 0:
       z_plane = PlaneSurface([0, 0, 1], [0, 0, z_position])
@@ -66,7 +66,8 @@ class _Surface(object):
   @abc.abstractmethod
   def _rotate_about_origin(self, angle, axis):
     """Rotate the object about an axis at the origin by an angle."""
-    print 'Invoked abstract {}._rotate_about_origin({}, {})'.format(self, angle, axis)
+    print 'Invoked abstract {}._rotate_about_origin({}, {})'.format(
+        self, angle, axis)
     return
 
   @abc.abstractmethod
@@ -305,6 +306,9 @@ class Beam(object):
       return None
 
   def propagate(self, elements):
+    """Propagate a beam through the simulation over all interactions with
+    elements and boundaries.
+    """
     while True:
       try:
         tti, bound, next_element = self._next_hit(elements)
@@ -336,9 +340,9 @@ def simulate_alignment(
   beam_a = DataBeam()
   beam_b = DataBeam()
 
-  for z in (np.arange(125, -95, -220/samples).tolist() + [-95]):
-      beam_a.add_sample(ray_a.sample(z))
-      beam_b.add_sample(ray_b.sample(z))
+  for tracker_z in (np.arange(125, -95, -220/samples).tolist() + [-95]):
+    beam_a.add_sample(ray_a.sample(tracker_z))
+    beam_b.add_sample(ray_b.sample(tracker_z))
   alignment.beam_a = beam_a
   alignment.beam_b = beam_b
   alignment.displacement = beam_b.intercept - beam_a.intercept
@@ -391,15 +395,15 @@ def simulate_data(
   for mirror_stage_position in np.arange(start, stop, step):
     # For a given mirror position, the mirror stage is translated in the
     # opposite direction.
-      mirror.translate([step, 0, 0])
-      simulated_beam_a = Beam(**beam_a_parameters)
-      simulated_beam_a.propagate([mirror])
-      simulated_beam_b = Beam(**beam_b_parameters)
-      simulated_beam_b.propagate([mirror])
-      beam_a = DataBeam()
-      beam_b = DataBeam()
-      for z_coordinate in np.arange(-95, 125, 220/5).tolist() + [125]:
-          beam_a.add_sample(simulated_beam_a._ray.sample(z_coordinate))
-          beam_b.add_sample(simulated_beam_b._ray.sample(z_coordinate))
-      data.append(DataPoint(mirror_stage_position, beam_a, beam_b))
+    mirror.translate([step, 0, 0])
+    simulated_beam_a = Beam(**beam_a_parameters)
+    simulated_beam_a.propagate([mirror])
+    simulated_beam_b = Beam(**beam_b_parameters)
+    simulated_beam_b.propagate([mirror])
+    beam_a = DataBeam()
+    beam_b = DataBeam()
+    for z_coordinate in np.arange(-95, 125, 220/5).tolist() + [125]:
+      beam_a.add_sample(simulated_beam_a._ray.sample(z_coordinate))
+      beam_b.add_sample(simulated_beam_b._ray.sample(z_coordinate))
+    data.append(DataPoint(mirror_stage_position, beam_a, beam_b))
   return data

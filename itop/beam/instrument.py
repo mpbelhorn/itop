@@ -1,47 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-A module for tracking the focal point of a spherical mirror.
+A module for integrating iTOP mirror testing instrumentation into a single
+interface for collecting iTop Mirror data.
 
 """
 
 import time
-from itop.beam.profiler import Alignment
+from itop.beam.datapoint import DataPoint
+from itop.beam.alignment import Alignment
 from itop.utilities import save_object
 from itop.utilities import load_object
 
-class DataPoint(object):
-  """A representation of a pair of beams sampled from a given mirror
-  position.
-
-  """
-  def __init__(self, mirror_position, beam_a, beam_b):
-    """Constructor for DataPoint. Takes a mirror position and two fully
-    established Beam objects.
-
-    """
-    self.mirror_position = mirror_position
-    self.beam_a = beam_a
-    self.beam_b = beam_b
-
-  def __repr__(self):
-    return "Mirror stage at {}\n Beam A: {}\n Beam B: {}".format(
-        self.mirror_position, self.beam_a, self.beam_b)
-
-  def realign(self, alignment):
-    """Applies an alignment to the data point trajectories."""
-    pass
-
-  def focal_point(self):
-    """Returns the focal point of the beams."""
-    pass
-
-  def translate(self, displacement):
-    """Translates the beams' data points by the given displacement vector.
-
-    """
-    pass
 
 class InstrumentError(Exception):
+  """Exception and error handling for the instrument class."""
   pass
 
 class Instrument(object):
@@ -67,7 +39,7 @@ class Instrument(object):
           file_data = load_object(alignment)
           if file_data.alignment_date() is not None:
             self.alignment = file_data
-        except AttributeError, IOError:
+        except (AttributeError, IOError):
           # Input alignment file is not valid.
           pass
     if self.alignment is None:

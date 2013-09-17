@@ -66,6 +66,13 @@ def radius_from_normals_old(normal_1, normal_2, impact_1, impact_2):
   return sqrt((-quad_b - sqrt(quad_b**2 - 4 * quad_a * quad_c))/(2 * quad_a))
 
 def radius_from_normals(normal_1, normal_2, input_1, impact_1, impact_2):
+  """Return a tuple (separation, radius).
+
+  The beam separation is reported in the normal sector plane. The radius
+  reported is that of the sphere connecting the given normal vectors normal_1
+  and normal_2 at the beam impact position vectors impact_1 and impact_2
+  for the direction input_1 of the beam at normal_1.
+  """
   alpha = abs(sys_math.acos(normal_1.dot(normal_2)))
   plane = normalize(Vector(np.cross(normal_1, normal_2)))
   input_in_plane = normalize(input_1 - (input_1.dot(plane) * plane))

@@ -6,6 +6,7 @@ import serial
 from time import sleep
 
 class PhotodiodeError(Exception):
+  """Error and exception handling for the Photodiode class."""
   pass
 
 class Photodiode(object):
@@ -13,14 +14,15 @@ class Photodiode(object):
   def __init__(self, device):
     """Construct a photodiode object from the given serial device."""
     self.serial = serial.Serial(
-        device, baudrate=19200, stopbits=1, bytesize=8, parity=serial.PARITY_NONE)
+        device, baudrate=19200, stopbits=1, bytesize=8,
+        parity=serial.PARITY_NONE)
 
   def read(self):
     """Return the current output of the photodiode."""
     self.serial.flushInput()
     readout = ''
     while True:
-      readout= readout + self.serial.read(self.serial.inWaiting())
+      readout = readout + self.serial.read(self.serial.inWaiting())
       lines = readout.split()
       if len(lines) > 2:
         if lines[1][0] is not '*':

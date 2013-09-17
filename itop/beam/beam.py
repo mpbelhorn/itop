@@ -131,6 +131,10 @@ class Beam(object):
     else:
       return None
 
+  def azimuth(self):
+    """Return the azimuthal angle of the beam."""
+    return self.direction.project([0, 2]).normalize()[0]
+
   def update(self, force=False):
     """Updates the beam trajectory information given the samples taken."""
     if ((len(self.samples) > 1) and (force or

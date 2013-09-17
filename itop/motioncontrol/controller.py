@@ -397,8 +397,6 @@ class StageController(object):
     """
     self.send('HP', '', group_id)
     coordinates = [float(x.strip()) for x in self.read().split(',')]
-    # TODO this is likely slow.
-    # Consider making a group class.
     group_axes = self.group_create(group_id=group_id)
     errors = [[self.axes[axis -1].resolution for axis in group_axes]]
     return Vector(coordinates, errors)

@@ -54,8 +54,8 @@ def translate_beams(data_point, displacement):
           data_point.beam_b.translate(displacement))
 
 class AlignedData(object):
-  """Data that has been aligned to the mirror frame."""
-
+  """Data that has been aligned to the mirror frame.
+  """
   def __init__(self, mirror_position,
       beam_a, beam_a_position,
       beam_b, beam_b_position):
@@ -159,7 +159,7 @@ def radius(
   if output_beam_1 is output_beam_2:
     raise Exception('Radius Calculation requires two unique beams.')
   if face_normal is None:
-    face_normal = [0,0,1]
+    face_normal = [0, 0, 1]
   reflection_normal_1 = mirror_normal(
       output_beam_1.direction,
       input_beam_direction,
@@ -207,19 +207,19 @@ def reflectance(
   input_angle = sys_math.acos(
       (original_beam.transform(
           rotation_matrix(alignment.beam_a.direction)).direction
-      ).dot([0,0,1]))
+      ).dot([0, 0, 1]))
   exit_angle = sys_math.acos(
       -refract(
-          -reflected_beam.direction, [0,0,1], lab_index, mirror_index
-      ).dot([0,0,1]))
+          -reflected_beam.direction, [0, 0, 1], lab_index, mirror_index
+      ).dot([0, 0, 1]))
   transmittance_in = fresnel_coefficients(
       input_angle, lab_index, mirror_index)['T']
   transmittance_out = fresnel_coefficients(
       exit_angle, mirror_index, lab_index)['T']
-  reflectance = ((reflected_beam.power[0] / (
+  reflectivity = ((reflected_beam.power[0] / (
       original_beam.power[0] * transmittance_in * transmittance_out)
       ) * (original_beam.power[1] / reflected_beam.power[1]))
-  return (input_position[0], reflectance)
+  return (input_position[0], reflectivity)
 
 STYLE = {
     'aat_color': '#ee0000',
@@ -248,26 +248,32 @@ def draw_alignment(alignment):
   fig, axes_a = plt.subplots(1, 3, figsize=(18, 4))
   axes_b = np.array([axis.twinx() for axis in axes_a])
 
-  axes_a[0].errorbar(samples_a[:,2], samples_a[:,0],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['aat_color'], **opts)
-  axes_b[0].errorbar(samples_b[:,2], samples_b[:,0],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['bbt_color'], **opts)
+  axes_a[0].errorbar(samples_a[:, 2], samples_a[:, 0],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0],
+      color=STYLE['aat_color'], **opts)
+  axes_b[0].errorbar(samples_b[:, 2], samples_b[:, 0],
+      xerr=samples_b_err[1][2], yerr=samples_b_err[1][0],
+      color=STYLE['bbt_color'], **opts)
   axes_a[0].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_a[0].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_b[0].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
 
-  axes_a[1].errorbar(samples_a[:,2], samples_a[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['aat_color'], **opts)
-  axes_b[1].errorbar(samples_b[:,2], samples_b[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['bbt_color'], **opts)
+  axes_a[1].errorbar(samples_a[:, 2], samples_a[:, 1],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0],
+      color=STYLE['aat_color'], **opts)
+  axes_b[1].errorbar(samples_b[:, 2], samples_b[:, 1],
+      xerr=samples_b_err[1][2], yerr=samples_b_err[1][0],
+      color=STYLE['bbt_color'], **opts)
   axes_a[1].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_a[1].set_ylabel('Beam A y-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_b[1].set_ylabel('Beam B y-coordinate [mm]', fontsize=STYLE['labelsize'])
 
-  axes_a[2].errorbar(samples_a[:,0], samples_a[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['aat_color'], **opts)
-  axes_b[2].errorbar(samples_b[:,0], samples_b[:,1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0], color=STYLE['bbt_color'], **opts)
+  axes_a[2].errorbar(samples_a[:, 0], samples_a[:, 1],
+      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0],
+      color=STYLE['aat_color'], **opts)
+  axes_b[2].errorbar(samples_b[:, 0], samples_b[:, 1],
+      xerr=samples_b_err[1][2], yerr=samples_b_err[1][0],
+      color=STYLE['bbt_color'], **opts)
   axes_a[2].set_xlabel('x-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_a[2].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
   axes_b[2].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
@@ -284,17 +290,23 @@ def draw_samples(data):
   """
   plt.figure(figsize=(18, 4))
   for i in data:
-      samples_a = np.array([j.array() for j in i.beam_a.samples])
-      samples_b = np.array([j.array() for j in i.beam_b.samples])
-      plt.subplot(131)
-      plt.plot(samples_a[:,2], samples_a[:,0], color=STYLE['aat_color'], marker='o', alpha=0.5)
-      plt.plot(samples_b[:,2], samples_b[:,0], color=STYLE['bbt_color'], marker='o', alpha=0.5)
-      plt.subplot(132)
-      plt.plot(samples_a[:,2], samples_a[:,1], color=STYLE['aat_color'], marker='o', alpha=0.5)
-      plt.plot(samples_b[:,2], samples_b[:,1], color=STYLE['bbt_color'], marker='o', alpha=0.5)
-      plt.subplot(133)
-      plt.plot(samples_a[:,0], samples_a[:,1], color=STYLE['aat_color'], marker='o', alpha=0.5)
-      plt.plot(samples_b[:,0], samples_b[:,1], color=STYLE['bbt_color'], marker='o', alpha=0.5)
+    samples_a = np.array([j.array() for j in i.beam_a.samples])
+    samples_b = np.array([j.array() for j in i.beam_b.samples])
+    plt.subplot(131)
+    plt.plot(samples_a[:, 2], samples_a[:, 0], color=STYLE['aat_color'],
+        marker='o', alpha=0.5)
+    plt.plot(samples_b[:, 2], samples_b[:, 0], color=STYLE['bbt_color'],
+        marker='o', alpha=0.5)
+    plt.subplot(132)
+    plt.plot(samples_a[:, 2], samples_a[:, 1], color=STYLE['aat_color'],
+        marker='o', alpha=0.5)
+    plt.plot(samples_b[:, 2], samples_b[:, 1], color=STYLE['bbt_color'],
+        marker='o', alpha=0.5)
+    plt.subplot(133)
+    plt.plot(samples_a[:, 0], samples_a[:, 1], color=STYLE['aat_color'],
+        marker='o', alpha=0.5)
+    plt.plot(samples_b[:, 0], samples_b[:, 1], color=STYLE['bbt_color'],
+        marker='o', alpha=0.5)
   plt.subplot(131)
   plt.ylabel("x-coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("z-coordinate [mm]", fontsize=STYLE['labelsize'])
@@ -335,7 +347,8 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
   plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
-  plt.suptitle("Calculated Radius vs Beam Separation", y=1.05, fontsize=STYLE['titlesize'])
+  plt.suptitle("Calculated Radius vs Beam Separation", y=1.05,
+      fontsize=STYLE['titlesize'])
   plt.savefig("radii.pdf")
   plt.show()
 
@@ -386,10 +399,10 @@ def draw_focii_vs_input_tangential(tangential_focii_a, tangential_focii_b):
   beam_1_focii = np.array(tangential_focii_b)
   b0in = [i.value for i in beam_0_focii[:, 0, 0, 0]]
   b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:,0,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:, 0, 1]])
   b1in = [i.value for i in beam_1_focii[:, 0, 0, 0]]
   b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:,0,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:, 0, 1]])
 
   plt.figure(figsize=(18, 4), dpi=150)
   plt.subplot(1, 3, 1)
@@ -416,7 +429,8 @@ def draw_focii_vs_input_tangential(tangential_focii_a, tangential_focii_b):
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
-  plt.suptitle("Tangential Focus Coordinates vs Beam Input Position", y=1.05, fontsize=STYLE['titlesize'])
+  plt.suptitle("Tangential Focus Coordinates vs Beam Input Position", y=1.05,
+      fontsize=STYLE['titlesize'])
   plt.savefig("focii-input_tangential.pdf")
   plt.show()
 
@@ -429,10 +443,10 @@ def draw_focii_vs_input_sagittal(sagittal_focii):
   beam_focii = np.array(sagittal_focii)
   b0in = [i.value for i in beam_focii[:, 0, 0, 0]]
   b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,0,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 0, 1]])
   b1in = [i.value for i in beam_focii[:, 1, 0, 0]]
   b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,1,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 1, 1]])
 
   plt.figure(figsize=(18, 4), dpi=150)
   plt.subplot(1, 3, 1)
@@ -459,7 +473,8 @@ def draw_focii_vs_input_sagittal(sagittal_focii):
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
-  plt.suptitle("Sagittal Focus Coordinates vs Beam Input Position", y=1.05, fontsize=STYLE['titlesize'])
+  plt.suptitle("Sagittal Focus Coordinates vs Beam Input Position", y=1.05,
+      fontsize=STYLE['titlesize'])
   plt.savefig("focii-input_sagittal.pdf")
   plt.show()
 
@@ -473,9 +488,9 @@ def draw_focii_in_space_tangential(tangential_focii_a, tangential_focii_b):
   beam_0_focii = np.array(tangential_focii_a)
   beam_1_focii = np.array(tangential_focii_b)
   b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:,0,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:, 0, 1]])
   b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:,0,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:, 0, 1]])
 
   fig = plt.figure(figsize=(14, 9), dpi=150)
   zy_plot = plt.subplot(223)
@@ -511,7 +526,8 @@ def draw_focii_in_space_tangential(tangential_focii_a, tangential_focii_b):
 
   plt.tight_layout()
   fig.subplots_adjust(hspace=0, wspace=0)
-  plt.suptitle("Tangential Focal Points in Mirror Coordinate System", y=1.05, fontsize=STYLE['titlesize'])
+  plt.suptitle("Tangential Focal Points in Mirror Coordinate System", y=1.05,
+      fontsize=STYLE['titlesize'])
   plt.savefig("focii-space_tangential.pdf")
   plt.show()
 
@@ -524,9 +540,9 @@ def draw_focii_in_space_sagittal(sagittal_focii):
   """
   beam_focii = np.array(sagittal_focii)
   b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,0,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 0, 1]])
   b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:,1,1]])
+      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 1, 1]])
 
   fig = plt.figure(figsize=(14, 9), dpi=150)
   zy_plot = plt.subplot(223)
@@ -562,6 +578,7 @@ def draw_focii_in_space_sagittal(sagittal_focii):
 
   plt.tight_layout()
   fig.subplots_adjust(hspace=0, wspace=0)
-  plt.suptitle("Sagittal Focal Points in Mirror Coordinate System", y=1.05, fontsize=STYLE['titlesize'])
+  plt.suptitle("Sagittal Focal Points in Mirror Coordinate System", y=1.05,
+      fontsize=STYLE['titlesize'])
   plt.savefig("focii-space_sagittal.pdf")
   plt.show()
