@@ -34,15 +34,15 @@ class Alignment(object):
     tracker.rotation_stage.position(180, wait=True)
     tracker.facing_z_direction = 1
     shutter = tracker.driver.shutter_state
-    shutter(0, 0)
-    shutter(1, 1)
+    shutter(0, 1)
+    shutter(1, 0)
     self.beam_a = tracker.find_beam_trajectory(
         [tracker.axes[0].limits.upper,
-         tracker.axes[1].limits.lower + 5,
+         tracker.axes[1].limits.lower + 11,
          tracker.axes[2].limits.upper],
         -1, -1, z_samples=25)
-    shutter(1, 0)
-    shutter(0, 1)
+    shutter(0, 0)
+    shutter(1, 1)
     self.beam_b = tracker.find_beam_trajectory(
         self.beam_a.last_sample() + [-30, -5, 0],
         -1, 1, z_samples=25)
@@ -52,7 +52,7 @@ class Alignment(object):
     # Rotate camera to face mirror.
     tracker.rotation_stage.position(0, wait=True)
     tracker.facing_z_direction = -1
-    shutter(1, 1)
+    shutter(0, 1)
 
   def alignment_date(self):
     """Returns the date and time the current alignment data was taken.

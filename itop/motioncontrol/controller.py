@@ -479,7 +479,7 @@ class StageController(object):
       self.send('SB', hex(status).replace('x', '') + 'H')
 
   def shutter_state(self, shutter_id, desired_open):
-    """Sets the shutter with given id  (0 or 1) to the state given by
+    """Sets the shutter with given id (0 or 1) to the state given by
     shutter_open (true or false).
 
     """

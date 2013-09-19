@@ -8,6 +8,10 @@ from itop.beam import Beam
 from itop.math import Vector
 import math as sys_math
 
+class TrackerError(Exception):
+  """Error and exception handling for a beam tracker."""
+  pass
+
 class Tracker(object):
   """A class to represent an HD-LBP on a set of ESP stages.
 
@@ -204,10 +208,20 @@ class Tracker(object):
       rough_position = self.position() + centroid
       self.position(rough_position, wait=True)
       centroid = self.centroid()
+      for dim, coord in enumerate(rough_position):
+        if ((coord.value > self.axes[dim].limits.upper + 0.05) or
+            (coord.value < self.axes[dim].limits.lower - 0.05)):
+          raise TrackerError(
+             'Cannot measure beam outside stage limits.')
     # Perhaps replace following while loop with a finite number of iterations?
     while True:
       centroid = self.centroid(8)
       centered_position = centroid + self.position()
+      for dim, coord in enumerate(centered_position):
+        if ((coord.value > self.axes[dim].limits.upper + 0.01) or
+            (coord.value < self.axes[dim].limits.lower - 0.01)):
+          raise TrackerError(
+             'Cannot measure beam outside stage limits.')
       if centroid != Vector([0.0, 0.0, 0.0], 0.001):
         self.position(centered_position, wait=True)
       else:
