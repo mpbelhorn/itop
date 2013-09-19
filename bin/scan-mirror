@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import argparse
+import numpy as np
 from numpy import arange
 import datetime
 import itop
@@ -11,11 +12,11 @@ import sys
 import zlib
 
 parser = argparse.ArgumentParser(description='Scan a test mirror.')
-parser.add_argument('--inputs', dest='scan_range', nargs=2,
+parser.add_argument('--inputs', dest='input_range', nargs=2,
     metavar=('FIRST', 'LAST'), type=float, default=[-100, -202],
-    help='Specify beam input positions in mm with FIRST < LAST')
+    help='Specify beam input positions in mm.')
 parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
-    default=-5.0, help='Specify mirror sampling step size in mm')
+    default=5.0, help='Specify mirror sampling step size in mm')
 parser.add_argument('--output', metavar='PATH', type=str,
     help='Path to output gz data file')
 parser.add_argument('--home', action='store_true', default=False,
@@ -53,7 +54,8 @@ if args.alt:
 
 alignment_path = itop.data_path('alignment/latest.gz')
 if args.align:
-  alignment_data = itop.beam.Alignment()
+  calibration = itop.Calibration([14.7, -17.9, 1430])
+  alignment_data = itop.Alignment(calibration)
   tracker.driver.home()
   alignment_data.align(tracker, home=True)
   itop.utilities.save_object(alignment_data, alignment_path)
@@ -64,17 +66,22 @@ run_starting_time = datetime.datetime.now().isoformat()
 if args.output is None:
   args.output = itop.data_path('runs/{}-data.gz'.format(run_starting_time))
 
+mirror_range = instrument.alignment.mirror_limits(args.input_range)
+mirror_step = args.step_size
+if args.input_range[1] > args.input_range[0]:
+  mirror_step = -args.step_size
+
 print('Starting data run at {}.'.format(run_starting_time))
 print('===============')
-
-print(instrument.sample_position(args.scan_range[0],
-                                 start_point=args.start_point))
+print(instrument.sample_position(
+    mirror_range[0], start_point=args.start_point))
 instrument.save_data(args.output)
 
-for mirror_position in arange(
-    args.scan_range[0] + args.step_size,
-    args.scan_range[1] + args.step_size,
-    args.step_size):
-  print(instrument.sample_position(mirror_position, proximal=True))
+for input_position_x in np.append(
+    arange(
+        mirror_range[0] + mirror_step,
+        mirror_range[1], mirror_step),
+    mirror_range[1]):
+  print(instrument.sample_position(input_position_x, proximal=True))
   instrument.save_data(args.output)
 

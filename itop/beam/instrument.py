@@ -51,7 +51,8 @@ class Instrument(object):
     # Output data.
     self.data = [] # (mirror_position, beam_a, beam_b)
 
-  def sample_position(self, mirror_position, proximal=False, start_point=None):
+  def sample_position(self, mirror_position, proximal=False,
+      start_point=None, x_scan_direction=1):
     """Returns the reflected beam trajectories with the mirror at the given
     mirror stage position.
 
@@ -65,34 +66,67 @@ class Instrument(object):
         The scan start point is automatically determined assuming the beam
         trajectories are very near their last known trajectories.
 
+      x_scan_direction (1):
+        The direction to scan for the beam in x.
+
     """
+    shutter = self.tracker.driver.shutter_state
     self.mirror.position(mirror_position, wait=True)
-    if proximal:
-      try:
-        start_point = self.data[-1].beam_a.first_sample() + [-25, 0, 0]
-      except IndexError:
-        # No established trajectories.
-        pass
+    tracked_beams = []
+    beam_in_range = [not self.alignment.out_of_range(
+      beam_index, [mirror_position, 0, 0]) for beam_index in (0, 1)]
+    first_index = next(
+        (i for i, j in enumerate(beam_in_range) if j), None)
+    try:
+      if start_point is None:
+        last_beams = self.data[-1].beams
+        last_samples = [(index, (beam.last_sample() if beam else None))
+            for index, beam in enumerate(last_beams)]
+        last_samples.reverse()
+        start_index, start_point = next(
+            (i for i in last_samples if i[1]), (None, None))
+        dx = mirror_position - self.data[-1].mirror_position
+        if first_index == start_index:
+          x_scan_direction = -1 if dx < 0 else 1
+        elif start_point[2] > 0:
+          if first_index > start_index:
+            start_point = start_point - [25, 0, 0]
+            x_scan_direction = 1
+          else:
+            start_point = start_point + [25, 0, 0]
+            x_scan_direction = -1
+        else:
+          if first_index > start_index:
+            start_point = start_point + [25, 0, 0]
+            x_scan_direction = -1
+          else:
+            start_point = start_point - [25, 0, 0]
+            x_scan_direction = 1
+    except (IndexError, AttributeError):
+      pass
     if start_point is None:
       start_point = [self.tracker.axes[0].limits.lower,
                      self.tracker.axes[1].limits.lower,
                      self.tracker.axes[2].limits.lower]
-    # Block beam 'B' and find beam 'A' trajectory.
-    shutter = self.tracker.driver.shutter_state
-    shutter(0, 0)
-    shutter(1, 1)
-    time.sleep(0.25)
-    beam_a = self.tracker.find_beam_trajectory(start_point)
-    # Block beam 'A' and find beam 'B' trajectory.
-    shutter(1, 0)
-    shutter(0, 1)
-    time.sleep(0.25)
-    beam_b = self.tracker.find_beam_trajectory(
-        beam_a.last_sample() + [-20, 0, 0], scan_direction_z=-1)
-    shutter(1, 1)
-    data_point = DataPoint(self.mirror.position(), beam_a, beam_b)
-    self.data.append(data_point)
-    return data_point
+      x_scan_direction = 1
+    for beam_index in (0, 1):
+      if not self.alignment.out_of_range(beam_index, [mirror_position, 0, 0]):
+        for shutter_id in (0, 1):
+          shutter(shutter_id, 0)
+        shutter(beam_index, 1)
+        time.sleep(0.25)
+        tracked_beams.append(
+            self.tracker.find_beam_trajectory(
+                start_point,
+                x_scan_direction,
+                scan_direction_z=(1 if start_point[2] < 0 else -1)
+                ))
+        start_point = self.tracker.position().array()
+      else:
+        print('Skipping Beam {}'.format(beam_index))
+        tracked_beams.append(None)
+    self.data.append(DataPoint(self.mirror.position(), tracked_beams))
+    return self.data[-1]
 
   def save_data(self, path):
     """Saves the data in a serialized object format to a gzipped tarball at

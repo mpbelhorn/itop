@@ -30,7 +30,8 @@ from itop import analysis
 from itop.photodiode import Photodiode
 from itop.math import Value, Vector
 from itop.motioncontrol import StageController
-from itop.beam import Beam, Profiler, Tracker, DataPoint, Alignment, Instrument
+from itop.beam import (
+    Beam, Profiler, Tracker, DataPoint, Alignment, Instrument, Calibration)
 
 import os
 

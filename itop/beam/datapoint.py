@@ -11,18 +11,17 @@ class DataPoint(object):
   position.
 
   """
-  def __init__(self, mirror_position, beam_a, beam_b):
+  def __init__(self, mirror_position, beams):
     """Constructor for DataPoint. Takes a mirror position and two fully
     established Beam objects.
 
     """
     self.mirror_position = mirror_position
-    self.beam_a = beam_a
-    self.beam_b = beam_b
+    self.beams = beams
 
   def __repr__(self):
     return "Mirror stage at {}\n Beam A: {}\n Beam B: {}".format(
-        self.mirror_position, self.beam_a, self.beam_b)
+        self.mirror_position, self.beams[0], self.beams[1])
 
   def realign(self, alignment):
     """Applies an alignment to the data point trajectories."""

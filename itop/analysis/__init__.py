@@ -50,8 +50,7 @@ def translate_beams(data_point, displacement):
   """Return the pair of beams in a DataPoint translated by the given
   displacement vector.
   """
-  return (data_point.beam_a.translate(displacement),
-          data_point.beam_b.translate(displacement))
+  return [(beam.translate(displacement) if beam else None) for beam in data_point.beams]
 
 class AlignedData(object):
   """Data that has been aligned to the mirror frame.
@@ -101,7 +100,7 @@ def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
 
     beams = translate_beams(sample, tracker_from_mirror)
     inputs = input_positions(mirror_from_mcal, beam_separation, alignment)
-    beams = [beam.transform(matrix) for beam in beams]
+    beams = [(beam.transform(matrix) if beam else None) for beam in beams]
     inputs = [position.transform(matrix) for position in inputs]
     output.append(
         AlignedData(
@@ -290,23 +289,28 @@ def draw_samples(data):
   """
   plt.figure(figsize=(18, 4))
   for i in data:
-    samples_a = np.array([j.array() for j in i.beam_a.samples])
-    samples_b = np.array([j.array() for j in i.beam_b.samples])
-    plt.subplot(131)
-    plt.plot(samples_a[:, 2], samples_a[:, 0], color=STYLE['aat_color'],
-        marker='o', alpha=0.5)
-    plt.plot(samples_b[:, 2], samples_b[:, 0], color=STYLE['bbt_color'],
-        marker='o', alpha=0.5)
-    plt.subplot(132)
-    plt.plot(samples_a[:, 2], samples_a[:, 1], color=STYLE['aat_color'],
-        marker='o', alpha=0.5)
-    plt.plot(samples_b[:, 2], samples_b[:, 1], color=STYLE['bbt_color'],
-        marker='o', alpha=0.5)
-    plt.subplot(133)
-    plt.plot(samples_a[:, 0], samples_a[:, 1], color=STYLE['aat_color'],
-        marker='o', alpha=0.5)
-    plt.plot(samples_b[:, 0], samples_b[:, 1], color=STYLE['bbt_color'],
-        marker='o', alpha=0.5)
+    if i.beam_a is not None:
+      samples_a = np.array([j.array() for j in i.beam_a.samples])
+      plt.subplot(131)
+      plt.plot(samples_a[:, 2], samples_a[:, 0], color=STYLE['aat_color'],
+          marker='o', alpha=0.5)
+      plt.subplot(132)
+      plt.plot(samples_a[:, 2], samples_a[:, 1], color=STYLE['aat_color'],
+          marker='o', alpha=0.5)
+      plt.subplot(133)
+      plt.plot(samples_a[:, 0], samples_a[:, 1], color=STYLE['aat_color'],
+          marker='o', alpha=0.5)
+    if i.beam_b is not None:
+      samples_b = np.array([j.array() for j in i.beam_b.samples])
+      plt.subplot(131)
+      plt.plot(samples_b[:, 2], samples_b[:, 0], color=STYLE['bbt_color'],
+          marker='o', alpha=0.5)
+      plt.subplot(132)
+      plt.plot(samples_b[:, 2], samples_b[:, 1], color=STYLE['bbt_color'],
+          marker='o', alpha=0.5)
+      plt.subplot(133)
+      plt.plot(samples_b[:, 0], samples_b[:, 1], color=STYLE['bbt_color'],
+          marker='o', alpha=0.5)
   plt.subplot(131)
   plt.ylabel("x-coordinate [mm]", fontsize=STYLE['labelsize'])
   plt.xlabel("z-coordinate [mm]", fontsize=STYLE['labelsize'])
@@ -357,32 +361,38 @@ def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
-  mirror_reflectance = np.array(
-    [[reflectance(i.beam_a, i.beam_a_position,
-          alignment.beam_a, alignment, lab_index, mirror_index),
-      reflectance(i.beam_b, i.beam_b_position,
-          alignment.beam_b, alignment, lab_index, mirror_index)
-     ] for i in data])
+  a_ref = []
+  b_ref = []
+  for i in data:
+    if i.beam_a is not None:
+      a_ref.append(reflectance(i.beam_a, i.beam_a_position,
+          alignment.beam_a, alignment, lab_index, mirror_index))
+    if i.beam_b is not None:
+      b_ref.append(reflectance(i.beam_b, i.beam_b_position,
+          alignment.beam_b, alignment, lab_index, mirror_index))
 
-  positions, reflectances = mirror_reflectance.T
+  pos_a, ref_a = np.array(a_ref).T
+  pos_b, ref_b = np.array(b_ref).T
   plt.figure(figsize=(9, 5), dpi=150)
   plt.subplot(111)
   plt.title('Reflectance', fontsize=STYLE['titlesize'])
+  #plt.errorbar(
+  #    [i.value for i in pos_a],
+  #    [i.value for i in ref_a],
+  #    [i.maximal_error() for i in ref_a],
+  #    [i.maximal_error() for i in pos_a],
+  #    marker='o', ls='None', color=STYLE['aat_color'],
+  #    label="Beam A Reflectance")
   plt.errorbar(
-      [i.value for i in positions[0]],
-      [i.value for i in reflectances[0]],
-      [i.maximal_error() for i in reflectances[0]],
-      [i.maximal_error() for i in positions[0]],
+      [i.value for i in pos_b],
+      [i.value for i in ref_b],
+      [i.maximal_error() for i in ref_b],
+      [i.maximal_error() for i in pos_b],
       marker='o', ls='None', color=STYLE['aat_color'],
-      label="Beam A Reflectance")
-  plt.errorbar(
-      [i.value for i in positions[1]],
-      [i.value for i in reflectances[1]],
-      [i.maximal_error() for i in reflectances[1]],
-      [i.maximal_error() for i in positions[1]],
-      marker='o', ls='None', color=STYLE['bbt_color'],
-      label="Beam B Reflectance")
-  plt.legend(loc='best', numpoints=1)
+      #label="Beam B Reflectance"
+      )
+  #plt.legend(loc='best', numpoints=1)
+  plt.ylim([0.86,0.88])
   plt.ylabel("Reflectance", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.savefig("reflectance.pdf")
