@@ -50,7 +50,8 @@ def translate_beams(data_point, displacement):
   """Return the pair of beams in a DataPoint translated by the given
   displacement vector.
   """
-  return [(beam.translate(displacement) if beam else None) for beam in data_point.beams]
+  return [(beam.translate(displacement) if beam else None)
+      for beam in data_point.beams]
 
 class AlignedData(object):
   """Data that has been aligned to the mirror frame.
@@ -376,23 +377,23 @@ def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277):
   plt.figure(figsize=(9, 5), dpi=150)
   plt.subplot(111)
   plt.title('Reflectance', fontsize=STYLE['titlesize'])
-  #plt.errorbar(
-  #    [i.value for i in pos_a],
-  #    [i.value for i in ref_a],
-  #    [i.maximal_error() for i in ref_a],
-  #    [i.maximal_error() for i in pos_a],
-  #    marker='o', ls='None', color=STYLE['aat_color'],
-  #    label="Beam A Reflectance")
+  plt.errorbar(
+      [i.value for i in pos_a],
+      [i.value for i in ref_a],
+      [i.maximal_error() for i in ref_a],
+      [i.maximal_error() for i in pos_a],
+      marker='o', ls='None', color=STYLE['aat_color'],
+      label="Beam A Reflectance")
   plt.errorbar(
       [i.value for i in pos_b],
       [i.value for i in ref_b],
       [i.maximal_error() for i in ref_b],
       [i.maximal_error() for i in pos_b],
-      marker='o', ls='None', color=STYLE['aat_color'],
-      #label="Beam B Reflectance"
+      marker='o', ls='None', color=STYLE['bbt_color'],
+      label="Beam B Reflectance"
       )
-  #plt.legend(loc='best', numpoints=1)
-  plt.ylim([0.86,0.88])
+  plt.legend(loc='best', numpoints=1)
+  plt.ylim([0.86, 0.88])
   plt.ylabel("Reflectance", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.savefig("reflectance.pdf")
