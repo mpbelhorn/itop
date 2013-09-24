@@ -26,9 +26,10 @@ class Instrument(object):
   relative to the mirror.
 
   """
-  def __init__(self, tracker, mirror, alignment=None):
+  def __init__(self, tracker, mirror, alignment=None, number_of_beams=2):
     self.tracker = tracker
     self.mirror = mirror
+    self._beam_indices = range(number_of_beams)
     self.alignment = None
     if alignment is not None:
       try:
@@ -44,15 +45,15 @@ class Instrument(object):
           pass
     if self.alignment is None:
       self.alignment = Alignment()
-      self.tracker.driver.home()
+      self.tracker.devices['driver'].home()
       self.alignment.align(self.tracker, home=True)
       save_object(self.alignment, alignment)
 
     # Output data.
     self.data = [] # (mirror_position, beam_a, beam_b)
 
-  def sample_position(self, mirror_position, proximal=False,
-      start_point=None, x_scan_direction=1):
+  def sample_position(self, mirror_position, start_point=None,
+      x_scan_direction=1):
     """Returns the reflected beam trajectories with the mirror at the given
     mirror stage position.
 
@@ -62,69 +63,32 @@ class Instrument(object):
         [x, y, z]. By default, the start point is determined from the
         stage limits.
 
-      proximal (False):
-        The scan start point is automatically determined assuming the beam
-        trajectories are very near their last known trajectories.
-
       x_scan_direction (1):
         The direction to scan for the beam in x.
 
     """
-    shutter = self.tracker.driver.shutter_state
+    shutter = self.tracker.devices['driver'].shutter_state
     self.mirror.position(mirror_position, wait=True)
     tracked_beams = []
-    beam_in_range = [not self.alignment.out_of_range(
-      beam_index, [mirror_position, 0, 0]) for beam_index in (0, 1)]
-    first_index = next(
-        (i for i, j in enumerate(beam_in_range) if j), None)
-    try:
-      if start_point is None:
-        last_beams = self.data[-1].beams
-        last_samples = [(index, (beam.last_sample() if beam else None))
-            for index, beam in enumerate(last_beams)]
-        last_samples.reverse()
-        start_index, start_point = next(
-            (i for i in last_samples if i[1]), (None, None))
-        dx = mirror_position - self.data[-1].mirror_position
-        if first_index == start_index:
-          x_scan_direction = -1 if dx < 0 else 1
-        elif start_point[2] > 0:
-          if first_index > start_index:
-            start_point = start_point - [25, 0, 0]
-            x_scan_direction = 1
-          else:
-            start_point = start_point + [25, 0, 0]
-            x_scan_direction = -1
-        else:
-          if first_index > start_index:
-            start_point = start_point + [25, 0, 0]
-            x_scan_direction = -1
-          else:
-            start_point = start_point - [25, 0, 0]
-            x_scan_direction = 1
-    except (IndexError, AttributeError):
-      pass
     if start_point is None:
-      start_point = [self.tracker.axes[0].limits.lower,
-                     self.tracker.axes[1].limits.lower,
-                     self.tracker.axes[2].limits.lower]
-      x_scan_direction = 1
-    for beam_index in (0, 1):
-      if not self.alignment.out_of_range(beam_index, [mirror_position, 0, 0]):
-        for shutter_id in (0, 1):
-          shutter(shutter_id, 0)
-        shutter(beam_index, 1)
-        time.sleep(0.25)
-        tracked_beams.append(
-            self.tracker.find_beam_trajectory(
-                start_point,
-                x_scan_direction,
-                scan_direction_z=(1 if start_point[2] < 0 else -1)
-                ))
-        start_point = self.tracker.position().array()
-      else:
+      start_point, x_scan_direction = self._find_start_point(mirror_position)
+    for beam_index, in_range in enumerate(
+        tuple(self._beams_in_range(mirror_position))):
+      if not in_range:
         print('Skipping Beam {}'.format(beam_index))
         tracked_beams.append(None)
+        continue
+      for shutter_id in self._beam_indices:
+        shutter(shutter_id, 0)
+      shutter(beam_index, 1)
+      time.sleep(0.25)
+      tracked_beams.append(
+          self.tracker.find_beam_trajectory(
+              start_point,
+              x_scan_direction,
+              scan_direction_z=(1 if start_point[2] < 0 else -1)
+              ))
+      start_point = self.tracker.position().array()
     self.data.append(DataPoint(self.mirror.position(), tracked_beams))
     return self.data[-1]
 
@@ -138,3 +102,65 @@ class Instrument(object):
     output.insert(0, self.alignment)
     save_object(output, path)
 
+  def _find_start_point(self, mirror_position):
+    """Return the best starting point and scan direction for the beam
+    intercept scan."""
+    start_point = None
+    scan_direction = 1
+    first_index = self._lowest_beam_in_range(mirror_position)
+    if first_index is None:
+      raise InstrumentError(
+          'No beam reflected (mirror position = {})'.format(mirror_position))
+    last_index, start_point = self._last_beam_sample()
+    if start_point is not None and last_index is not None:
+      if first_index == last_index:
+        if (mirror_position - self.data[-1].mirror_position) < 0:
+          scan_direction = -1
+      elif start_point[2] > 0:
+        if first_index > last_index:
+          start_point = start_point - [25, 0, 0]
+        else:
+          start_point = start_point + [25, 0, 0]
+          scan_direction = -1
+      else:
+        if first_index > last_index:
+          start_point = start_point + [25, 0, 0]
+          scan_direction = -1
+        else:
+          start_point = start_point - [25, 0, 0]
+    else:
+      start_point = [self.tracker.axes[0].limits.lower,
+                     self.tracker.axes[1].limits.lower,
+                     self.tracker.axes[2].limits.lower]
+    return (start_point, scan_direction)
+
+  def _beams_in_range(self, mirror_position):
+    """Return a generator of booleans indicating that the ith indexed beam is
+    in range at the given mirror position."""
+    for index in self._beam_indices:
+      yield (not self.alignment.out_of_range(index, [mirror_position, 0, 0]))
+
+  def _lowest_beam_in_range(self, mirror_position):
+    """Return the lowest beam index that is in range or None if no beams are
+    in range."""
+    return next(
+        (i for i, j in enumerate(self._beams_in_range(mirror_position)) if j),
+        None)
+
+  def _last_beam_samples(self):
+    """Return a generator of the last beam sample for each beam. None is used
+    if a beam was not visible in the last sampling.
+    """
+    try:
+      for index, beam in enumerate(self.data[-1].beams):
+        yield (index, beam.last_sample() if beam else None)
+    except (IndexError, AttributeError):
+      # Last data point has no beams.
+      yield (None, None)
+
+  def _last_beam_sample(self):
+    """Return the (index, position) of the last beam sample in data. If no
+    beam has been sampled, return (None, None)."""
+    return next(
+        (i for i in reversed(tuple(self._last_beam_samples())) if i[1]),
+        (None, None))

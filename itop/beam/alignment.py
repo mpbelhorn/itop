@@ -35,12 +35,12 @@ class Alignment(object):
     print 'Measuring tracker alignment. This will take some time.'
     self.beam_a = Beam(-1)
     self.beam_b = Beam(-1)
-    tracker.rotation_stage.power_on()
+    tracker.devices['r_stage'].power_on()
     if home:
-      tracker.rotation_stage.go_to_home(wait=True)
-    tracker.rotation_stage.position(180, wait=True)
+      tracker.devices['r_stage'].go_to_home(wait=True)
+    tracker.devices['r_stage'].position(180, wait=True)
     tracker.facing_z_direction = 1
-    shutter = tracker.driver.shutter_state
+    shutter = tracker.devices['driver'].shutter_state
     shutter(0, 1)
     shutter(1, 0)
     self.beam_a = tracker.find_beam_trajectory(
@@ -57,7 +57,7 @@ class Alignment(object):
     self.date = datetime.datetime.now().isoformat()
 
     # Rotate camera to face mirror.
-    tracker.rotation_stage.position(0, wait=True)
+    tracker.devices['r_stage'].position(0, wait=True)
     tracker.facing_z_direction = -1
     shutter(0, 1)
 

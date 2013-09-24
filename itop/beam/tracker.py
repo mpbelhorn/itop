@@ -57,14 +57,16 @@ class Tracker(object):
       'facing_z_direction' (-1): Direction camera is facing in z. Must be ±1.
 
     """
-    self.driver = driver
-    self.rotation_stage = rotation_stage
-    self.profiler = profiler
-    self.beam_monitor = beam_monitor
+    self.devices = {
+        'driver':driver,
+        'r_stage':rotation_stage,
+        'profiler':profiler,
+        'beam_monitor':beam_monitor,
+        }
     xyz_axes = kwargs.pop('xyz_axes', [1, 2, 3])
-    self.axes = (self.driver.axes[xyz_axes[0] - 1],
-                 self.driver.axes[xyz_axes[1] - 1],
-                 self.driver.axes[xyz_axes[2] - 1])
+    self.axes = (driver.axes[xyz_axes[0] - 1],
+                 driver.axes[xyz_axes[1] - 1],
+                 driver.axes[xyz_axes[2] - 1])
     self.group_state = 1 # 1=axes independent, 2=xz grouped, 3=xyz grouped
     self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
 
@@ -95,14 +97,14 @@ class Tracker(object):
     axis_ids = [axis.axis_id[0] for axis in self.axes]
     if state == 3:
       kwargs = lta_configuration
-      self.driver.group_create(axis_ids, **kwargs)
+      self.devices['driver'].group_create(axis_ids, **kwargs)
       self.group_state = 3
     elif state == 2:
       kwargs = ils_configuration
-      self.driver.group_create(axis_ids[0::2], **kwargs)
+      self.devices['driver'].group_create(axis_ids[0::2], **kwargs)
       self.group_state = 2
     else:
-      self.driver.group_delete(self.group_id)
+      self.devices['driver'].group_delete(self.group_id)
       self.axes[0].velocity(ils_configuration['velocity'])
       self.axes[0].acceleration(ils_configuration['acceleration'])
       self.axes[0].deceleration(ils_configuration['deceleration'])
@@ -122,22 +124,22 @@ class Tracker(object):
     def xyz_grouped(coords):
       """Action to take if all 3 stages are grouped."""
       if coords is None:
-        return self.driver.group_position(self.group_id)
+        return self.devices['driver'].group_position(self.group_id)
       else:
-        self.driver.group_move_line(self.group_id, coords, wait=wait)
+        self.devices['driver'].group_move_line(self.group_id, coords, wait=wait)
 
     def xz_grouped(coords):
       """Action to take if only x-z stages are grouped."""
       if coords is None:
-        position = self.driver.group_position(self.group_id)
+        position = self.devices['driver'].group_position(self.group_id)
         position = position.project([0, None, 1])
         position[1] = self.axes[1].position()
         return position
       else:
-        self.driver.group_move_line(self.group_id, coords[0::2])
+        self.devices['driver'].group_move_line(self.group_id, coords[0::2])
         self.axes[1].position(coords[1])
         if wait:
-          self.driver.pause_for_stages()
+          self.devices['driver'].pause_for_stages()
 
     def ungrouped(coords):
       """Action to take if no stages are grouped."""
@@ -150,7 +152,7 @@ class Tracker(object):
         self.axes[1].position(coords[1])
         self.axes[2].position(coords[2])
         if wait:
-          self.driver.pause_for_stages()
+          self.devices['driver'].pause_for_stages()
 
     cases = {
         1: ungrouped,
@@ -161,17 +163,17 @@ class Tracker(object):
     return cases[self.group_state](xyz_coordinates)
 
 
-  def centroid(self, samples=1):
-    """If the beam is visible, returns the centroid xyz coordinates [mm] in the
+  def _centroid(self, samples=1):
+    """Return the (x, y, z) coordinates of the centroid in the profiler
     profiler coordinate system. The z coordinate is always 0, but included so
-    the centroid position can be directly added to the stage coordinate system.
+    the centroid position can be directly added to stage coordinate positions.
 
     If the beam is not in view, None is returned.
 
     """
     profiles = []
     for _ in range(samples):
-      profile = self.profiler.profile()
+      profile = self.devices['profiler'].profile()
       if profile is None:
         return None
       profiles.append(profile)
@@ -186,7 +188,7 @@ class Tracker(object):
     coordinate system. Otherwise returns None
 
     """
-    centroid = self.centroid(samples)
+    centroid = self._centroid(samples)
     if centroid is None:
       return None
     else:
@@ -200,14 +202,14 @@ class Tracker(object):
     visible, None is returned.
 
     """
-    centroid = self.centroid()
+    centroid = self._centroid()
     if centroid is None:
       return None
     # Do quick sampling to get centroid close to center.
     while centroid != Vector([0.0, 0.0, 0.0], 0.050):
       rough_position = self.position() + centroid
       self.position(rough_position, wait=True)
-      centroid = self.centroid()
+      centroid = self._centroid()
       for dim, coord in enumerate(rough_position):
         if ((coord.value > self.axes[dim].limits.upper + 0.05) or
             (coord.value < self.axes[dim].limits.lower - 0.05)):
@@ -215,7 +217,7 @@ class Tracker(object):
              'Cannot measure beam outside stage limits.')
     # Perhaps replace following while loop with a finite number of iterations?
     while True:
-      centroid = self.centroid(8)
+      centroid = self._centroid(8)
       centered_position = centroid + self.position()
       for dim, coord in enumerate(centered_position):
         if ((coord.value > self.axes[dim].limits.upper + 0.01) or
@@ -371,9 +373,12 @@ class Tracker(object):
         # Cross this bridge when we get there.
         pass
     beam_angle = sys_math.degrees(sys_math.asin(beam.azimuth().value))
-    stage_angle = self.rotation_stage.position()
-    self.rotation_stage.position(stage_angle - beam_angle, wait=True)
+    stage_angle = self.devices['r_stage'].position()
+    self.devices['r_stage'].position(stage_angle - beam_angle, wait=True)
     self.center_beam()
-    beam.power = (self.profiler.average_power(), self.beam_monitor.read())
-    self.rotation_stage.position(stage_angle, wait=True)
+    beam.power = (
+        self.devices['profiler'].average_power(),
+        self.devices['monitor'].read())
+    self.devices['r_stage'].position(stage_angle, wait=True)
     return beam
+
