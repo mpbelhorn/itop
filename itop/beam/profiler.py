@@ -18,7 +18,7 @@ class Profiler(object):
 
   """
 
-  def __init__(self, device, threshold_power=1.000):
+  def __init__(self, device, nominal_power=16.00):
     """Establish serial communication with an HD-LBP.
 
     """
@@ -32,7 +32,22 @@ class Profiler(object):
                  'width_1', 'width_2', 'width_3',
                  'height_1', 'height_2', 'height_3',
                  'power']
-    self.power = threshold_power
+    self.power_levels = self.set_power_levels(nominal_power)
+
+  def set_power_levels(self, nominal_power):
+    """Set the beam power levels given the nominal beam power.
+
+    Two levels are set:
+      2.0% nominal beam power - Used to find front face reflections.
+      50.0% nominal beam power - Used to find main reflections.
+
+    """
+    self.power_levels = [
+        0.02 * nominal_power,
+        0.50 * nominal_power,
+        ]
+    return self.power_levels
+
 
   def read(self):
     """Read the latest recorded data.
@@ -78,13 +93,29 @@ class Profiler(object):
           raise ProfilerError(
               1, 'No response from profiler. Is it on and transmitting?')
 
-  def profile(self):
-    """Returns the beam profile if the beam is in view."""
+  def profile(self, level=None):
+    """Returns the beam profile if the beam is in view.
+
+    Optional arguments:
+      level=(n:-1): Only return the profile if the visible beam power is in
+          the half-open interval [level(n), level(n+1)), where level(n) is
+          the nth entry of Profiler.power. If no level is given, the highest
+          level power is used.
+    """
     profile = self.read()
-    if profile['power'] >= self.power:
-      return profile
+    power = profile['power']
+    levels = self.power_levels
+    if level is None or level > len(levels) - 2:
+      if levels[-1] <= power:
+        return profile
     else:
-      return None
+      try:
+        if (levels[level] <= power < levels[level + 1]):
+          return profile
+      except IndexError:
+        if (levels[0] <= power < levels[1]):
+          return profile
+    return None
 
   def distortion(self):
     """Returns a list of the ratios r(%) = h(%)/w(%) where h(%) and w(%) are the
