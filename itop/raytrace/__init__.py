@@ -28,7 +28,7 @@ class Ray(object):
     """Return the beam position at the given z-coordinate."""
     if self.direction[2] != 0:
       z_plane = PlaneSurface([0, 0, 1], [0, 0, z_position])
-      if (z_plane._position - self.position).dot(self.direction) > 0:
+      if (z_plane.position() - self.position).dot(self.direction) > 0:
         ray = self
       else:
         ray = Ray(-self.direction, self.position)
@@ -56,6 +56,10 @@ class _Surface(object):
 
   def __repr__(self):
     return 'boundary({})'.format(self._name)
+
+  def is_reflective(self):
+    """Return True if the surface is reflective. Otherwise, return False."""
+    return self._reflective
 
   @abc.abstractmethod
   def translate(self, displacement):
@@ -161,6 +165,11 @@ class PlaneSurface(_Surface):
     """Return the normal vector."""
     return self._normal
 
+  def position(self):
+    """Return the position vector to the point on the surface closest to
+    the origin."""
+    return self._position
+
   def contains(self, position):
     """Return true if the position is below the surface w.r.t. the normal."""
     return ((position - self._position).dot(self.normal(position)) < 0)
@@ -230,7 +239,7 @@ class _OpticalElement(object):
     """Return the time-till-boundary and boundary of the next intersection."""
     hit_candidates = [(i.time_to_bound(ray), i) for i in self._bounds]
     try:
-      # FIXME - A hard cut on 'times' smaller than 10^-9 is made to exclude
+      # WARNING - A hard cut on 'times' smaller than 10^-9 is made to exclude
       # a beam reinteracting with the same barrier. This cuts out any legitimate
       # interactions closer than 1nm of the beam position.
       return (sorted([(time, surface) for time, surface in hit_candidates
@@ -305,6 +314,10 @@ class Beam(object):
     except IndexError:
       return None
 
+  def ray(self):
+    """Return the beam segment ray."""
+    return self._ray
+
   def propagate(self, elements):
     """Propagate a beam through the simulation over all interactions with
     elements and boundaries.
@@ -317,7 +330,7 @@ class Beam(object):
         return
       self._ray = self._ray.propagate(tti)
       self._history.append((self._history[-1][0] + tti, self._ray))
-      if not bound._reflective and self._ray.direction.dot(
+      if not bound.is_reflective() and self._ray.direction.dot(
           bound.normal(self._ray.position)) > 0:
         next_element = Air()
       self._ray = bound.propagate(
@@ -403,7 +416,7 @@ def simulate_data(
     beam_a = DataBeam()
     beam_b = DataBeam()
     for z_coordinate in np.arange(-95, 125, 220/5).tolist() + [125]:
-      beam_a.add_sample(simulated_beam_a._ray.sample(z_coordinate))
-      beam_b.add_sample(simulated_beam_b._ray.sample(z_coordinate))
+      beam_a.add_sample(simulated_beam_a.ray().sample(z_coordinate))
+      beam_b.add_sample(simulated_beam_b.ray().sample(z_coordinate))
     data.append(DataPoint(mirror_stage_position, beam_a, beam_b))
   return data
