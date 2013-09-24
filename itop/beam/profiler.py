@@ -43,8 +43,8 @@ class Profiler(object):
 
     """
     self.power_levels = [
-        0.02 * nominal_power,
         0.50 * nominal_power,
+        0.02 * nominal_power,
         ]
     return self.power_levels
 
@@ -97,23 +97,25 @@ class Profiler(object):
     """Returns the beam profile if the beam is in view.
 
     Optional arguments:
-      level=(n:-1): Only return the profile if the visible beam power is in
-          the half-open interval [level(n), level(n+1)), where level(n) is
+      level=(n:None): Only return the profile if the visible beam power is in
+          the half-open interval [level(n), level(n-1)), where level(n) is
           the nth entry of Profiler.power. If no level is given, the highest
-          level power is used.
+          level power (lowest index) is used. If the level is out of range,
+          the profile is returned if the visible beam power is greater than
+          the lowest power P > level(n_max).
     """
     profile = self.read()
     power = profile['power']
     levels = self.power_levels
-    if level is None or level > len(levels) - 2:
-      if levels[-1] <= power:
+    if not level:
+      if levels[0] <= power:
         return profile
     else:
       try:
-        if (levels[level] <= power < levels[level + 1]):
+        if (levels[level] <= power < levels[level - 1]):
           return profile
       except IndexError:
-        if (levels[0] <= power < levels[1]):
+        if levels[-1] <= power:
           return profile
     return None
 
