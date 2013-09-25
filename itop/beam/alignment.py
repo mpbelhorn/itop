@@ -85,6 +85,12 @@ class Alignment(object):
       inputs.append(primary_input + displacement)
     return inputs
 
+  def parallelism(self):
+    """Return a list of angles of each beam with respect to the primary beam."""
+    primary_direction = self.beams[0].direction
+    return [abs(b.direction - b.direction.dot(primary_direction) * b.direction)
+            for b in self.beams]
+
   def mirror_positions(self, input_position):
     """Return a list of the mirror positions for each beam to be at the given
     input position.
