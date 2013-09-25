@@ -7,8 +7,8 @@ import ConfigParser
 import ast
 import os
 
-from itop.beam import Beam
 from itop.math import Vector
+from itop.motioncontrol.controller import expose_single_beam
 from itop.utilities import clamp
 import datetime
 
@@ -48,7 +48,8 @@ class Alignment(object):
                    tracker.axes[2].limits.upper]
     z_direction = -1
     for beam_index in range(NUMBER_OF_BEAMS):
-      self._single_beam(beam_index, tracker)
+      expose_single_beam(
+          tracker.devices['driver'], beam_index, NUMBER_OF_BEAMS)
       self.beams.append(
           tracker.find_beam_trajectory(
             start_point, -1, z_direction, z_samples=25))
@@ -61,11 +62,6 @@ class Alignment(object):
     tracker.devices['r_stage'].position(0, wait=True)
     tracker.facing_z_direction = -1
 
-  def _single_beam(self, beam_index, tracker):
-    """Close all shutters and open only shutter on given beam."""
-    for shutter in range(NUMBER_OF_BEAMS):
-      tracker.devices['driver'].shutter_state(
-          shutter, 0 if shutter != beam_index else 1)
 
   def alignment_date(self):
     """Returns the date and time the current alignment data was taken.

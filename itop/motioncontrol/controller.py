@@ -492,3 +492,10 @@ class StageController(object):
       self.gpio_state(1<<shutter_id)
     time.sleep(0.1)
     self.gpio_state(0)
+
+
+def expose_single_beam(driver, beam_index, number_of_beams):
+  """Close all shutters and open only shutter on given beam."""
+  for shutter in range(number_of_beams):
+    driver.shutter_state(shutter, 0 if shutter != beam_index else 1)
+
