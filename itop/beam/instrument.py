@@ -26,7 +26,7 @@ class Instrument(object):
   relative to the mirror.
 
   """
-  def __init__(self, tracker, mirror, alignment=None, number_of_beams=2):
+  def __init__(self, tracker, mirror, alignment, number_of_beams=2):
     self.tracker = tracker
     self.mirror = mirror
     self._beam_indices = range(number_of_beams)

@@ -12,7 +12,7 @@ from itop.math import Vector
 from itop.utilities import clamp
 import datetime
 
-
+NUMBER_OF_BEAMS = 2
 
 class Alignment(object):
   """A class to establish the alignment between a tracker and the beams.
@@ -21,12 +21,11 @@ class Alignment(object):
 
   INTERFERENCE_CUTOFF = 40.0 # mm off the optical axis.
 
-  def __init__(self, calibration):
+  def __init__(self, calibration_file=None):
     """Constructor for alignment."""
-    self.beam_a = None
-    self.beam_b = None
-    self.displacement = None  # r_b(x,y,0) - r_a(x,y,0) in tracker frame.
-    self.calibration = calibration
+    self.beams = []
+    self.displacements = []  # r_n(x,y,0) - r_0(x,y,0) in tracker frame.
+    self.calibration = Calibration(calibration_file)
     self.date = None
 
   def align(self, tracker, home=False):
@@ -37,33 +36,36 @@ class Alignment(object):
 
     """
     print 'Measuring tracker alignment. This will take some time.'
-    self.beam_a = Beam(-1)
-    self.beam_b = Beam(-1)
+    self.beams = []
+    self.displacements = []
     tracker.devices['r_stage'].power_on()
     if home:
       tracker.devices['r_stage'].go_to_home(wait=True)
     tracker.devices['r_stage'].position(180, wait=True)
     tracker.facing_z_direction = 1
-    shutter = tracker.devices['driver'].shutter_state
-    shutter(0, 1)
-    shutter(1, 0)
-    self.beam_a = tracker.find_beam_trajectory(
-        [tracker.axes[0].limits.upper,
-         tracker.axes[1].limits.lower + 11,
-         tracker.axes[2].limits.upper],
-        -1, -1, z_samples=25)
-    shutter(0, 0)
-    shutter(1, 1)
-    self.beam_b = tracker.find_beam_trajectory(
-        self.beam_a.last_sample() + [-30, -5, 0],
-        -1, 1, z_samples=25)
-    self.displacement = self.beam_b.intercept - self.beam_a.intercept
-    self.date = datetime.datetime.now().isoformat()
+    start_point = [tracker.axes[0].limits.upper,
+                   tracker.axes[1].limits.lower + 11,
+                   tracker.axes[2].limits.upper]
+    z_direction = -1
+    for beam_index in range(NUMBER_OF_BEAMS):
+      self._single_beam(beam_index, tracker)
+      self.beams.append(
+          tracker.find_beam_trajectory(
+            start_point, -1, z_direction, z_samples=25))
+      start_point = self.beams[beam_index].last_sample() + [-30, -5, 0]
+      z_direction = -1 * z_direction
+      self.displacements.append(
+          self.beams[beam_index].intercept - self.beams[0].intercept)
 
-    # Rotate camera to face mirror.
+    self.date = datetime.datetime.now().isoformat()
     tracker.devices['r_stage'].position(0, wait=True)
     tracker.facing_z_direction = -1
-    shutter(0, 1)
+
+  def _single_beam(self, beam_index, tracker):
+    """Close all shutters and open only shutter on given beam."""
+    for shutter in range(NUMBER_OF_BEAMS):
+      tracker.devices['driver'].shutter_state(
+          shutter, 0 if shutter != beam_index else 1)
 
   def alignment_date(self):
     """Returns the date and time the current alignment data was taken.
@@ -75,15 +77,16 @@ class Alignment(object):
       return self.date
 
   def base_input_positions(self):
-    """Return a list of the input positions for each beam when the mirror is at
-    position (0,0,0).
+    """Return a list of the nominal input positions for each beam when
+    the mirror is at position (0,0,0).
+
+    True input positions will be different due to any beam aparallelism
+    and z-distance to the mirror.
     """
-    inputs = [self.calibration.primary_input()]
-    for beam, separation in zip((self.beam_b,), (self.displacement,)):
-      nominal_input = inputs[0] + separation
-      inputs.append(
-          nominal_input - (
-            nominal_input.dot(-beam.direction) * (-beam.direction)))
+    inputs = []
+    primary_input = self.calibration.primary_input()
+    for beam, separation in zip(self.beams, self.displacements):
+      inputs.append(primary_input + separation)
     return inputs
 
   def mirror_positions(self, input_position):
@@ -157,7 +160,7 @@ class Calibration(object):
   of the vector; and 'ex', 'ey', and 'ez' are the measurement uncertainties.
 
   """
-  CONSTANTS = {
+  DISPLACEMENT_CONSTANTS = {
       'calibration_mirror':   Vector([-120.000, 0.000,    0.000], 0.0005),
       'calibration_tracker':  Vector([-125.000, 0.000,   95.000], 0.0005),
       'registration_mirror':  Vector([ 225.000, 0.000,    0.000], 0.001),
@@ -166,13 +169,18 @@ class Calibration(object):
       'reference_delta':      Vector([   0.000, 0.000, 1447.000], 0.8),
       }
 
-  VARIABLES = {
+  DISPLACEMENT_VARIABLES = {
       'reference_mirror':Vector([33.220, 0.000, 10.832], 0.01),
       }
 
   EXTENTS = {
     'mirror':[(-225, 225), (-20, 0), (-100, 0)]
     }
+
+  GENERAL = {
+      'date':'none',
+      'number of beams':2,
+      }
 
   def __init__(self, configuration=None):
     """
@@ -184,8 +192,11 @@ class Calibration(object):
     if configuration is not None:
       self.load(configuration)
     else:
-      self.data.update(Calibration.CONSTANTS)
-      self.data.update(Calibration.VARIABLES)
+      print('WARNING: Using default calibration data!')
+      self.data.update(Calibration.DISPLACEMENT_CONSTANTS)
+      self.data.update(Calibration.DISPLACEMENT_VARIABLES)
+      self.data.update(Calibration.GENERAL)
+      self.data['date'] = datetime.datetime.now().isoformat()
 
   def __repr__(self):
     return 'Calibration({})'.format(
@@ -194,7 +205,13 @@ class Calibration(object):
   def displacement(self):
     """Return the vector displacement of the tracker origin from the mirror
     optical axis at the mirror stage system origin."""
-    return sum((i for k, i in self.data.iteritems() if k in self.data))
+    output = Vector([0, 0, 0])
+    for key, item in self.data.iteritems():
+      if any(key in section for section in (
+          Calibration.DISPLACEMENT_CONSTANTS,
+          Calibration.DISPLACEMENT_VARIABLES)):
+        output = output + item
+    return output
 
   def primary_input(self):
     """Return the input position of the primary beam when the mirror stage
@@ -206,13 +223,18 @@ class Calibration(object):
     """Save the calibration data to the given path."""
     config = ConfigParser.RawConfigParser()
     config.add_section('Constants')
-
     config.add_section('Variables')
-    for key in Calibration.VARIABLES:
+    config.add_section('General')
+    self.data['date'] = datetime.datetime.now().isoformat()
+
+    for key in Calibration.DISPLACEMENT_VARIABLES:
       _save_vector(config, 'Variables', key, self.data[key])
 
-    for key in Calibration.CONSTANTS:
+    for key in Calibration.DISPLACEMENT_CONSTANTS:
       _save_vector(config, 'Constants', key, self.data[key])
+
+    for key in Calibration.GENERAL:
+      config.set('General', key, self.data[key])
 
     with open(path, 'wb') as configfile:
       config.write(configfile)
@@ -224,11 +246,14 @@ class Calibration(object):
     config.read(path)
     self._path = path
 
-    for key in Calibration.VARIABLES:
+    for key in Calibration.DISPLACEMENT_VARIABLES:
       self.data[key] = _load_vector(config, 'Variables', key)
 
-    for key in Calibration.CONSTANTS:
+    for key in Calibration.DISPLACEMENT_CONSTANTS:
       self.data[key] = _load_vector(config, 'Constants', key)
+
+    self.data['date'] = config.get('General', 'date')
+    self.data['number of beams'] = config.getint('General', 'number of beams')
 
 
 def _load_vector(config, section, key):
