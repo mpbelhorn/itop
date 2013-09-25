@@ -81,8 +81,8 @@ class Alignment(object):
     """
     inputs = []
     primary_input = self.calibration.primary_input()
-    for beam, separation in zip(self.beams, self.displacements):
-      inputs.append(primary_input + separation)
+    for displacement in self.displacements:
+      inputs.append(primary_input + displacement)
     return inputs
 
   def mirror_positions(self, input_position):
