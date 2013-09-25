@@ -61,7 +61,7 @@ class Tracker(object):
         'driver':driver,
         'r_stage':rotation_stage,
         'profiler':profiler,
-        'beam_monitor':beam_monitor,
+        'monitor':beam_monitor,
         }
     xyz_axes = kwargs.pop('xyz_axes', [1, 2, 3])
     self.axes = (driver.axes[xyz_axes[0] - 1],
@@ -69,6 +69,7 @@ class Tracker(object):
                  driver.axes[xyz_axes[2] - 1])
     self.group_state = 1 # 1=axes independent, 2=xz grouped, 3=xyz grouped
     self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
+    self.power_index = None
 
     # Optional instance variables.
     self.group_id = kwargs.pop('group_id', 1)
@@ -173,7 +174,7 @@ class Tracker(object):
     """
     profiles = []
     for _ in range(samples):
-      profile = self.devices['profiler'].profile()
+      profile = self.devices['profiler'].profile(level=self.power_index)
       if profile is None:
         return None
       profiles.append(profile)
@@ -260,13 +261,13 @@ class Tracker(object):
       if beam_position[2] != start_point[2]:
         # Capture trajectory and move to correct z position.
         beam = Beam()
-        beam.add_sample(self.center_beam)
+        beam.add_sample(self.center_beam())
         delta_z_sign = ((start_point[2] - beam_position[2]) /
             abs(start_point[2] - beam_position[2]))
         self.change_grouping(1, fast=True)
         self.position(beam_position +
             delta_z_sign * array([0, 0, 10]), wait=True)
-        beam.add_sample(self.center_beam)
+        beam.add_sample(self.center_beam())
         beam_position = self.position(
             beam.position(start_point[2]), wait=True)
     else:
@@ -279,7 +280,7 @@ class Tracker(object):
         # Scan for beam crossing.
         x_axis.position(self.axes[0].limits.direction(scan_direction_x))
         beam_position = self._scan_until_beam_visible(x_axis)
-        if number_of_scans * 6 > self.axes[1].limits.length():
+        if number_of_scans * 4.0 > self.axes[1].limits.length():
           print "Beam cannot be found. Check beam height and power."
           return None
         number_of_scans += 1
@@ -288,7 +289,10 @@ class Tracker(object):
           if self.axes[1].position() == self.axes[1].limits.upper:
             self.axes[1].position(0, wait=True)
           else:
-            self.axes[1].position(self.axes[1].position() + 6, wait=True)
+            self.axes[1].position(
+                self.axes[1].position() +
+                (self.axes[1].limits.length() / 4.0), wait=True)
+
 
     # Move back to beam position.
     self.change_grouping(1, fast=True)
