@@ -77,11 +77,11 @@ print(instrument.sample_position(
     mirror_range[0], start_point=args.start_point))
 instrument.save_data(args.output)
 
-for input_position_x in np.append(
+for mirror_position_x in np.append(
     arange(
         mirror_range[0] + mirror_step,
         mirror_range[1], mirror_step),
     mirror_range[1]):
-  print(instrument.sample_position(input_position_x, proximal=True))
+  print(instrument.sample_position(mirror_position_x))
   instrument.save_data(args.output)
 
