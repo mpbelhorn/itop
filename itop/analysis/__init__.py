@@ -235,48 +235,32 @@ STYLE = {
 
 def draw_alignment(alignment):
   """Plot alignment diagnostics."""
-  samples_a = np.array(
-      [j.array() for j in alignment.beam_a.samples])
-  samples_b = np.array(
-      [j.array() for j in alignment.beam_b.samples])
-  samples_a_err = np.array(
-      [i.errors() for i in alignment.beam_a.samples]).T.tolist()
-  samples_b_err = np.array(
-      [i.errors() for i in alignment.beam_b.samples]).T.tolist()
+  number_of_beams = alignment.calibration.data['number of beams']
+  samples = {}
+  errors = {}
+  for beam_index in range(number_of_beams):
+    arrayed_data = map(
+        np.array, zip(*[(i.array(), i.errors())
+                        for i in alignment.beams[beam_index].samples]))
+    samples[beam_index] = arrayed_data[0] - np.mean(arrayed_data[0], 0)
+    errors[beam_index] = abs(arrayed_data[1])
+
   opts = {'marker':'o', 'ls':'None', 'alpha':0.5}
+  fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+  print axes
 
-  fig, axes_a = plt.subplots(1, 3, figsize=(18, 4))
-  axes_b = np.array([axis.twinx() for axis in axes_a])
+  for y, x in ((0, 2), (1, 2)):
+    for beam in range(1, number_of_beams):
+      axes[y].errorbar(samples[beam][:, x],
+          ((samples[beam][:, y]) + (samples[0][:, y])),
+          xerr=errors[beam][:, x].T.tolist(),
+          yerr=errors[beam][:, y].T.tolist(),
+          **opts)
 
-  axes_a[0].errorbar(samples_a[:, 2], samples_a[:, 0],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0],
-      color=STYLE['aat_color'], **opts)
-  axes_b[0].errorbar(samples_b[:, 2], samples_b[:, 0],
-      xerr=samples_b_err[1][2], yerr=samples_b_err[1][0],
-      color=STYLE['bbt_color'], **opts)
-  axes_a[0].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes_a[0].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes_b[0].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
-
-  axes_a[1].errorbar(samples_a[:, 2], samples_a[:, 1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0],
-      color=STYLE['aat_color'], **opts)
-  axes_b[1].errorbar(samples_b[:, 2], samples_b[:, 1],
-      xerr=samples_b_err[1][2], yerr=samples_b_err[1][0],
-      color=STYLE['bbt_color'], **opts)
-  axes_a[1].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes_a[1].set_ylabel('Beam A y-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes_b[1].set_ylabel('Beam B y-coordinate [mm]', fontsize=STYLE['labelsize'])
-
-  axes_a[2].errorbar(samples_a[:, 0], samples_a[:, 1],
-      xerr=samples_a_err[1][2], yerr=samples_a_err[1][0],
-      color=STYLE['aat_color'], **opts)
-  axes_b[2].errorbar(samples_b[:, 0], samples_b[:, 1],
-      xerr=samples_b_err[1][2], yerr=samples_b_err[1][0],
-      color=STYLE['bbt_color'], **opts)
-  axes_a[2].set_xlabel('x-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes_a[2].set_ylabel('Beam A x-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes_b[2].set_ylabel('Beam B x-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes[0].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes[0].set_ylabel('x1 - x0 - <x1> + <x0> [mm]', fontsize=STYLE['labelsize'])
+  axes[1].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
+  axes[1].set_ylabel('y1 - y0 - <y1> + <y0> [mm]', fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
   fig.suptitle('Alignment Diagnostics', y=1.05, fontsize=STYLE['titlesize'])
