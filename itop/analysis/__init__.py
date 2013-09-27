@@ -247,8 +247,6 @@ def draw_alignment(alignment):
 
   opts = {'marker':'o', 'ls':'None', 'alpha':0.5}
   fig, axes = plt.subplots(1, 2, figsize=(13, 4))
-  print axes
-
   for y, x in ((0, 2), (1, 2)):
     for beam in range(1, number_of_beams):
       axes[y].errorbar(samples[beam][:, x],

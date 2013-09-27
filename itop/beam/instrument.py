@@ -50,7 +50,7 @@ class Instrument(object):
       save_object(self.alignment, alignment)
 
     # Output data.
-    self.data = [] # (mirror_position, beam_a, beam_b)
+    self.data = []
 
   def sample_position(self, mirror_position, start_point=None,
       x_scan_direction=1):

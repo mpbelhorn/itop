@@ -20,8 +20,8 @@ class DataPoint(object):
     self.beams = beams
 
   def __repr__(self):
-    return "Mirror stage at {}\n Beam A: {}\n Beam B: {}".format(
-        self.mirror_position, self.beams[0], self.beams[1])
+    return "DataPoint({} @ {})".format(
+        len(self.beams), self.mirror_position)
 
   def realign(self, alignment):
     """Applies an alignment to the data point trajectories."""
