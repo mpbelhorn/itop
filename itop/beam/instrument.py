@@ -68,7 +68,6 @@ class Instrument(object):
         The direction to scan for the beam in x.
 
     """
-    shutter = self.tracker.devices['driver'].shutter_state
     self.mirror.position(mirror_position, wait=True)
     tracked_beams = []
     if start_point is None:

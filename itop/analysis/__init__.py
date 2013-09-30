@@ -41,19 +41,21 @@ def focii(data, alignment):
       else:
         tan_focii['{}{}'.format(i, j)] = []
 
-  for d1i, d1 in enumerate(data):
-    d1_inputs = alignment.input_positions([d1.mirror_position, 0, 0])
-    for d2i, d2 in enumerate(data[d1i:]):
-      d2_inputs = alignment.input_positions([d2.mirror_position, 0, 0])
-      d2i = d2i + d1i
-      for b1i, b1 in enumerate(d1.beams):
-        for b2i, b2 in enumerate(d2.beams):
-          if b1i == b2i and d2i > d1i:
-            tan_focii['{}{}'.format(b1i, b2i)].append(
-                ([d1_inputs[b1i], d2_inputs[b2i]], focus(b1, b2, plane='T')))
-          elif b2i > b1i:
-            sag_focii['{}{}'.format(b1i, b2i)].append(
-                ([d1_inputs[b1i], d2_inputs[b2i]], focus(b1, b2, plane='S')))
+  for item_1, data_1 in enumerate(data):
+    d1_inputs = alignment.input_positions([data_1.mirror_position, 0, 0])
+    for item_2, data_2 in enumerate(data[item_1:]):
+      d2_inputs = alignment.input_positions([data_2.mirror_position, 0, 0])
+      item_2 = item_2 + item_1
+      for beam_1_id, beam_1 in enumerate(data_1.beams):
+        for beam_2_id, beam_2 in enumerate(data_2.beams):
+          if beam_1_id == beam_2_id and item_2 > item_1:
+            tan_focii['{}{}'.format(beam_1_id, beam_2_id)].append(
+                ([d1_inputs[beam_1_id], d2_inputs[beam_2_id]],
+                 focus(beam_1, beam_2, plane='T')))
+          elif beam_2_id > beam_1_id:
+            sag_focii['{}{}'.format(beam_1_id, beam_2_id)].append(
+                ([d1_inputs[beam_1_id], d2_inputs[beam_2_id]],
+                 focus(beam_1, beam_2, plane='S')))
   return {'tangent': tan_focii, 'sagittal': sag_focii}
 
 def radius(
@@ -103,15 +105,15 @@ def radii(data, alignment, mirror_index, lab_index=1.000277):
   input_directions = [-i.transform(matrix).direction for i in alignment.beams]
   beam_indexes = range(len(data[0].beams))
   mirror_radii = [[] for i in beam_indexes]
-  for d1i, d1 in enumerate(data[:-1]):
-    d1_inputs = alignment.input_positions([d1.mirror_position, 0, 0])
-    for d2 in data[d1i + 1:]:
-      d2_inputs = alignment.input_positions([d2.mirror_position, 0, 0])
-      for bi in beam_indexes:
-        mirror_radii[bi].append(
-            radius(d1.beams[bi], d1_inputs[bi],
-                   d2.beams[bi], d2_inputs[bi],
-                   input_directions[bi], mirror_index, lab_index))
+  for item_1, data_1 in enumerate(data[:-1]):
+    input_1 = alignment.input_positions([data_1.mirror_position, 0, 0])
+    for data_2 in data[item_1 + 1:]:
+      input_2 = alignment.input_positions([data_2.mirror_position, 0, 0])
+      for beam_id in beam_indexes:
+        mirror_radii[beam_id].append(
+            radius(data_1.beams[beam_id], input_1[beam_id],
+                   data_2.beams[beam_id], input_2[beam_id],
+                   input_directions[beam_id], mirror_index, lab_index))
   return mirror_radii
 
 def reflectance(
@@ -161,27 +163,26 @@ def draw_alignment(alignment):
   number_of_beams = alignment.calibration.data['number of beams']
   samples = {}
   errors = {}
-  for beam_index in range(number_of_beams):
-    arrayed_data = map(
-        np.array, zip(*[(i.array(), i.errors())
-                        for i in alignment.beams[beam_index].samples]))
-    samples[beam_index] = arrayed_data[0] - np.mean(arrayed_data[0], 0)
-    errors[beam_index] = abs(arrayed_data[1])
+  for index in range(number_of_beams):
+    _samples, _errors = zip(
+        *[(i.array(), i.errors()) for i in alignment.beams[index].samples])
+    samples[index] = np.array(_samples) - np.mean(_samples, 0)
+    errors[index] = abs(np.array(_errors))
 
   opts = {'marker':'o', 'ls':'None', 'alpha':0.5}
   fig, axes = plt.subplots(1, 2, figsize=(13, 4))
-  for y, x in ((0, 2), (1, 2)):
+  for y_axis, x_axis in ((0, 2), (1, 2)):
     for beam in range(1, number_of_beams):
-      axes[y].errorbar(samples[beam][:, x],
-          ((samples[beam][:, y]) + (samples[0][:, y])),
-          xerr=errors[beam][:, x].T.tolist(),
-          yerr=errors[beam][:, y].T.tolist(),
+      axes[y_axis].errorbar(samples[beam][:, x_axis],
+          ((samples[beam][:, y_axis]) + (samples[0][:, y_axis])),
+          xerr=errors[beam][:, x_axis].T.tolist(),
+          yerr=errors[beam][:, y_axis].T.tolist(),
           **opts)
-      axes[y].set_xlabel('{}-coordinate [mm]'.format('xyz'[x]),
+      axes[y_axis].set_xlabel('{}-coordinate [mm]'.format('xyz'[x_axis]),
           fontsize=STYLE['labelsize'])
-      axes[y].set_ylabel(
+      axes[y_axis].set_ylabel(
           'delta {dim}{beam} - delta {dim}0 [mm]'.format(
-              dim='xyz'[y], beam=beam),
+              dim='xyz'[y_axis], beam=beam),
           fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
@@ -193,17 +194,17 @@ def draw_samples(data):
   """Draw the beam sample points in the frame of the tracker.
   Data must be a list of itop.DataPoints.
   """
-  fig, axes = plt.subplots(1, 3, figsize=(18, 4))
+  axes = plt.subplots(1, 3, figsize=(18, 4))[1]
   for data_point in data:
     for index, beam in enumerate(data_point.beams):
       if beam is not None:
-        for i, x, y in ((0, 2, 0), (1, 2, 1), (2, 0, 1)):
+        for plot, x_axis, y_axis in ((0, 2, 0), (1, 2, 1), (2, 0, 1)):
           samples = np.array([j.array() for j in beam.samples])
-          axes[i].plot(samples[:, x], samples[:, y],
+          axes[plot].plot(samples[:, x_axis], samples[:, y_axis],
               color=BEAM_COLORS[index], marker='o', alpha=0.5)
-          axes[i].set_xlabel('{}-coordinate [mm]'.format('xyz'[x]),
+          axes[plot].set_xlabel('{}-coordinate [mm]'.format('xyz'[x_axis]),
               fontsize=STYLE['labelsize'])
-          axes[i].set_ylabel('{}-coordinate [mm]'.format('xyz'[y]),
+          axes[plot].set_ylabel('{}-coordinate [mm]'.format('xyz'[y_axis]),
               fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
@@ -221,13 +222,14 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
   method.
   """
   n_beams = len(data[0].beams)
-  fig, axes = plt.subplots(1, n_beams, figsize=(6.0 * n_beams, 4))
-  for bi, r_list in enumerate(radii(data, alignment, mirror_index, lab_index)):
-    axes[bi].set_title('Beam {}'.format(bi), fontsize=STYLE['titlesize'])
-    axes[bi].plot(*zip(*r_list), marker='o', ls='None',
-      color=BEAM_COLORS[bi], alpha=0.75)
-    axes[bi].set_ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
-    axes[bi].set_xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
+  axes = plt.subplots(1, n_beams, figsize=(6.0 * n_beams, 4))[1]
+  for beam, r_list in enumerate(
+        radii(data, alignment, mirror_index, lab_index)):
+    axes[beam].set_title('Beam {}'.format(beam), fontsize=STYLE['titlesize'])
+    axes[beam].plot(*zip(*r_list), marker='o', ls='None',
+      color=BEAM_COLORS[beam], alpha=0.75)
+    axes[beam].set_ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
+    axes[beam].set_xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
   plt.suptitle("Calculated Radius vs Beam Separation", y=1.05,
@@ -239,14 +241,28 @@ def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
-  b0 = alignment.beams[0]
+
   plt.figure(figsize=(9, 5), dpi=150)
-  for d in data:
-    inputs = alignment.input_directions([d.mirror_position, 0, 0])[i]
-    for i, b in enumerate(d.beams):
-      ref = reflectance(b, b0, alignment, mirror_index, lab_index)
-      plt.plot(inputs[i], ref, marker='o',
-          ls='None', color=BEAM_COLORS[i], label='Beam {}'.format(i))
+  reflectivities = {}
+  for index in range(len(alignment.beams)):
+    reflectivities[index] = {'i':[], 'r':[], 'e':[]}
+  for sample in data:
+    input_positions = alignment.input_positions(
+        [sample.mirror_position, 0, 0])
+    for beam_index, reflected_beam in enumerate(sample.beams):
+      r_value, r_error = reflectance(
+          reflected_beam, alignment.beams[beam_index],
+          alignment, mirror_index, lab_index)
+      reflectivities[beam_index]['i'].append(input_positions[beam_index][0])
+      reflectivities[beam_index]['r'].append(r_value)
+      reflectivities[beam_index]['e'].append(max(r_error))
+  for index in reflectivities.keys():
+    plt.errorbar(
+        reflectivities[index]['i'],
+        reflectivities[index]['r'],
+        reflectivities[index]['e'],
+        marker='o', ls='None', color=BEAM_COLORS[index],
+        label='Beam {}'.format(index))
   plt.title('Reflectance', fontsize=STYLE['titlesize'])
   plt.legend(loc='best', numpoints=1)
   plt.ylabel("Reflectance", fontsize=STYLE['labelsize'])
@@ -264,14 +280,14 @@ def draw_focii(data, alignment):
 
 def _draw_focii_input(focii_data, polarization):
   """Draw the focal points vs input position."""
-  fig, axes = plt.subplots(1, 3, figsize=(18, 4))
+  axes = plt.subplots(1, 3, figsize=(18, 4))[1]
   colors = [['red','orange'], ['blue','green']]
   for pair in sorted(focii_data.keys()):
-    for focus in focii_data[pair]:
+    for sample in focii_data[pair]:
       for dimension in range(3):
         for point, beam in enumerate(pair):
           axes[dimension].plot(
-              focus[0][0][0], focus[1][point][dimension],
+              sample[0][0][0], sample[1][point][dimension],
               marker='o', alpha=0.5, color=colors[int(beam)][point])
 
   for dimension, axis in enumerate(axes):
@@ -293,17 +309,17 @@ def _draw_focii_space(focii_data, polarization):
   axes.append(plt.subplot(2, 2, 1, sharex=axes[0]))
   axes.append(plt.subplot(2, 2, 4, sharey=axes[0]))
   for pair in sorted(focii_data.keys()):
-    for focus in focii_data[pair]:
+    for sample in focii_data[pair]:
       for view, xy_axes in enumerate([(2, 1), (2, 0), (0, 1)]):
         for point, beam in enumerate(pair):
           axes[view].plot(
-              focus[1][point][xy_axes[0]], focus[1][point][xy_axes[1]],
+              sample[1][point][xy_axes[0]], sample[1][point][xy_axes[1]],
               marker='o', alpha=0.5, color=colors[int(beam)][point])
 
   for label in axes[1].axes.get_xticklabels():
-      label.set_visible(False)
+    label.set_visible(False)
   for label in axes[2].axes.get_yticklabels():
-      label.set_visible(False)
+    label.set_visible(False)
 
   axes[0].xaxis.set_major_locator(MaxNLocator(14, prune='both'))
   axes[0].yaxis.set_major_locator(MaxNLocator(9, prune='both'))
