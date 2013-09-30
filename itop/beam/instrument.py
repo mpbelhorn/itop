@@ -6,6 +6,7 @@ interface for collecting iTop Mirror data.
 """
 
 import time
+from itop.motioncontrol.controller import expose_single_beam
 from itop.beam.datapoint import DataPoint
 from itop.beam.alignment import Alignment
 from itop.utilities import save_object
@@ -78,9 +79,9 @@ class Instrument(object):
         print('Skipping Beam {}'.format(beam_index))
         tracked_beams.append(None)
         continue
-      for shutter_id in self._beam_indices:
-        shutter(shutter_id, 0)
-      shutter(beam_index, 1)
+      expose_single_beam(self.tracker.devices['driver'],
+          beam_index,
+          self.alignment.calibration.data['number of beams'])
       time.sleep(0.25)
       tracked_beams.append(
           self.tracker.find_beam_trajectory(
