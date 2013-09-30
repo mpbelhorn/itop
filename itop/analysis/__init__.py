@@ -17,126 +17,44 @@ from itop.math.optics import radius_from_normals as optical_radius
 from itop.math.optics import reconstruct_mirror_normal as mirror_normal
 
 
-def distortions(data):
-  """Returns a pair ([d_a], [d_b]) where [d_x] is a list of the
-  beam distortion of beam_x."""
-  print data[0]
+def focii(data, alignment):
+  """Return a nested dictionary containing each beam-pair crossing point
+  in the data.
 
-def input_positions(
-    mirror_center_from_calibration, beam_separation, alignment):
-  """Computes the beam input position as a vector that lies in the input face
-  of the mirror.
+  The output dictionary has two keys: 'tangent' and 'sagittal' for the
+  two crossing points. Each of those values is another dictionary with
+  keys of the form 'nN' where n and N are the indexes of the beams used
+  to compute the focii. The tangential dictionaries are lists of crossing
+  points for beams with the same index. Likewise, the sagittal dictionaries
+  are lists made up of only beams with differing indexes.
 
-  The displacement of the mirror center from the calibration point should
-  include mirror height. The beam separation should be given as pb - pa in the
-  lab YX plane at the calibration point.
-
-  The vector is expressed in a coordinate system that is parallel to the table
-  system but with an origin that is fixed to the mirror-frame origin.
-
+  Each element in a crossing point list is of the form
+    '([beam_n_input, beam_N_input], [beam_n_focus, beam_N_focus])'
   """
-  nominal_in_a = -mirror_center_from_calibration
-  nominal_in_b = nominal_in_a + beam_separation
 
-  beam_a_true_input = (nominal_in_a -
-      nominal_in_a.dot(-alignment.beam_a.direction) *
-      Vector(-alignment.beam_a.direction))
-  beam_b_true_input = (nominal_in_b -
-      nominal_in_b.dot(-alignment.beam_b.direction) *
-      Vector(-alignment.beam_b.direction))
-  return (beam_a_true_input, beam_b_true_input)
+  tan_focii = {}
+  sag_focii = {}
+  for i in range(len(data[0].beams)):
+    for j in range(i, len(data[0].beams)):
+      if j > i:
+        sag_focii['{}{}'.format(i, j)] = []
+      else:
+        tan_focii['{}{}'.format(i, j)] = []
 
-def translate_beams(data_point, displacement):
-  """Return the pair of beams in a DataPoint translated by the given
-  displacement vector.
-  """
-  return [(beam.translate(displacement) if beam else None)
-      for beam in data_point.beams]
-
-class AlignedData(object):
-  """Data that has been aligned to the mirror frame.
-  """
-  def __init__(self, mirror_position,
-      beam_a, beam_a_position,
-      beam_b, beam_b_position):
-    """Constructor for aligned data."""
-    self.mirror_position = mirror_position
-    self.beam_a = beam_a
-    self.beam_b = beam_b
-    self.beam_a_position = beam_a_position
-    self.beam_b_position = beam_b_position
-
-def align_data_in_mirror_frame(data, alignment, mirror_height, calibration):
-  """Return the data transformed into the mirror-centered frame.
-
-  The following displacements are compensated for:
-    1.) The x,y,z displacement between the tracker calibration point (tcal)
-        and the mirror stage calibration point (mcal).
-    2.) The relative displacement of the tracker origin and the mirror
-        center for a given mirror stage position.
-    3.) The true beam input position assuming the tracker and mirror
-        stages are perfectly parallel and the mirror is rotated
-        w.r.t. the lab frame according to the alignment data.
-
-  The calibration should be an itop.Vector with the correct signs and
-  uncertainties for the displacement
-
-      Vector(tcal) - Vector(mcal)
-
-  in the tracker/lab frame.
-  """
-  tcal_from_tracker = Vector(
-      [125.0, 0.0, -125.0], [[0.0005, 0.0075, 0.0005]])
-  tracker_from_mcal = Vector(calibration) - tcal_from_tracker
-
-  beam_separation = Vector(
-      alignment.beam_b.position(-calibration[2] - tcal_from_tracker[2]) -
-      alignment.beam_a.position(-calibration[2] - tcal_from_tracker[2]))
-
-  matrix = rotation_matrix(-alignment.beam_a.direction)
-  output = []
-  for sample in data:
-    mirror_from_mcal = Vector([sample.mirror_position, mirror_height, 0])
-    tracker_from_mirror = tracker_from_mcal - mirror_from_mcal
-
-    beams = translate_beams(sample, tracker_from_mirror)
-    inputs = input_positions(mirror_from_mcal, beam_separation, alignment)
-    beams = [(beam.transform(matrix) if beam else None) for beam in beams]
-    inputs = [position.transform(matrix) for position in inputs]
-    output.append(
-        AlignedData(
-          sample.mirror_position,
-          beams[0], inputs[0],
-          beams[1], inputs[1]))
-  return output
-
-def focii(data):
-  """Take a list of data in the form
-      [((beam_a_input, beam_a), (beam_b_input, beam_b))]
-  and return a list of the focal points for beam_1 with beam_2 in the
-  'T'angential or 'S'agittal plane. The beam_n are indexes 0 for beam_a or
-  1 for beam_b. The output list is in the format:
-    ((beam_1_input, beam_1_focus), (beam_2_input, beam_2_focus))
-  """
-  tangential_focii_a = []
-  tangential_focii_b = []
-  sagittal_focii = []
-  for data_1_n, data_1 in enumerate(data):
-    for data_2_n, data_2 in enumerate(data):
-      if data_1_n > data_2_n:
-        focus_t_a = focus(data_1.beam_a, data_2.beam_a, plane='T')
-        focus_t_b = focus(data_1.beam_b, data_2.beam_b, plane='T')
-        tangential_focii_a.append(
-            ((data_1.beam_a_position, focus_t_a[0]),
-             (data_2.beam_a_position, focus_t_a[1])))
-        tangential_focii_b.append(
-            ((data_1.beam_b_position, focus_t_b[0]),
-             (data_2.beam_b_position, focus_t_b[1])))
-      focus_s = focus(data_1.beam_a, data_2.beam_b, plane='S')
-      sagittal_focii.append(
-          ((data_1.beam_a_position, focus_s[0]),
-           (data_2.beam_b_position, focus_s[1])))
-  return (tangential_focii_a, tangential_focii_b, sagittal_focii)
+  for d1i, d1 in enumerate(data):
+    d1_inputs = alignment.input_positions([d1.mirror_position, 0, 0])
+    for d2i, d2 in enumerate(data[d1i:]):
+      d2_inputs = alignment.input_positions([d2.mirror_position, 0, 0])
+      d2i = d2i + d1i
+      for b1i, b1 in enumerate(d1.beams):
+        for b2i, b2 in enumerate(d2.beams):
+          if b1i == b2i and d2i > d1i:
+            tan_focii['{}{}'.format(b1i, b2i)].append(
+                ([d1_inputs[b1i], d2_inputs[b2i]], focus(b1, b2, plane='T')))
+          elif b2i > b1i:
+            sag_focii['{}{}'.format(b1i, b2i)].append(
+                ([d1_inputs[b1i], d2_inputs[b2i]], focus(b1, b2, plane='S')))
+  return {'tangent': tan_focii, 'sagittal': sag_focii}
 
 def radius(
     output_beam_1, input_position_1,
@@ -181,32 +99,30 @@ def radii(data, alignment, mirror_index, lab_index=1.000277):
   is the radius. Any additional keyword arguments are passed on to the
   mirror normal reconstruction.
   """
-  beam_a_direction = -alignment.beam_a.transform(
-      rotation_matrix(alignment.beam_a.direction)).direction
-  beam_b_direction = -alignment.beam_b.transform(
-      rotation_matrix(alignment.beam_a.direction)).direction
-  mirror_radii = np.array([(radius(
-        data_1.beam_a, data_1.beam_a_position,
-        data_2.beam_a, data_2.beam_a_position,
-        beam_a_direction, mirror_index, lab_index),
-    radius(
-        data_1.beam_b, data_1.beam_b_position,
-        data_2.beam_b, data_2.beam_b_position,
-        beam_b_direction, mirror_index, lab_index)
-    ) for data_1_n, data_1 in enumerate(data)
-        for data_2_n, data_2 in enumerate(data)
-          if data_2_n > data_1_n])
-  return (mirror_radii[:, 0], mirror_radii[:, 1])
+  matrix = rotation_matrix(alignment.beams[0].direction)
+  input_directions = [-i.transform(matrix).direction for i in alignment.beams]
+  beam_indexes = range(len(data[0].beams))
+  mirror_radii = [[] for i in beam_indexes]
+  for d1i, d1 in enumerate(data[:-1]):
+    d1_inputs = alignment.input_positions([d1.mirror_position, 0, 0])
+    for d2 in data[d1i + 1:]:
+      d2_inputs = alignment.input_positions([d2.mirror_position, 0, 0])
+      for bi in beam_indexes:
+        mirror_radii[bi].append(
+            radius(d1.beams[bi], d1_inputs[bi],
+                   d2.beams[bi], d2_inputs[bi],
+                   input_directions[bi], mirror_index, lab_index))
+  return mirror_radii
 
 def reflectance(
-    reflected_beam, input_position, original_beam, alignment,
+    reflected_beam, original_beam, alignment,
     mirror_index, lab_index=1.000277):
   """Return the reflectance of the mirror at the given input position
   given the reflected beam, the original beam, and the refractive
   indexes."""
   input_angle = sys_math.acos(
       (original_beam.transform(
-          rotation_matrix(alignment.beam_a.direction)).direction
+          rotation_matrix(alignment.beams[0].direction)).direction
       ).dot([0, 0, 1]))
   exit_angle = sys_math.acos(
       -refract(
@@ -219,7 +135,7 @@ def reflectance(
   reflectivity = ((reflected_beam.power[0] / (
       original_beam.power[0] * transmittance_in * transmittance_out)
       ) * (original_beam.power[1] / reflected_beam.power[1]))
-  return (input_position[0], reflectivity)
+  return reflectivity
 
 STYLE = {
     'aat_color': '#ee0000',
@@ -232,6 +148,13 @@ STYLE = {
     'bbs_color': '#0099ee',
     'labelsize': 14,
     'titlesize': 14}
+
+BEAM_COLORS = {
+    0: '#ee0000',
+    1: '#ee6600',
+    2: '#ee9900',
+    4: '#eecc00',
+    }
 
 def draw_alignment(alignment):
   """Plot alignment diagnostics."""
@@ -254,11 +177,12 @@ def draw_alignment(alignment):
           xerr=errors[beam][:, x].T.tolist(),
           yerr=errors[beam][:, y].T.tolist(),
           **opts)
-
-  axes[0].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes[0].set_ylabel('x1 - x0 - <x1> + <x0> [mm]', fontsize=STYLE['labelsize'])
-  axes[1].set_xlabel('z-coordinate [mm]', fontsize=STYLE['labelsize'])
-  axes[1].set_ylabel('y1 - y0 - <y1> + <y0> [mm]', fontsize=STYLE['labelsize'])
+      axes[y].set_xlabel('{}-coordinate [mm]'.format('xyz'[x]),
+          fontsize=STYLE['labelsize'])
+      axes[y].set_ylabel(
+          'delta {dim}{beam} - delta {dim}0 [mm]'.format(
+              dim='xyz'[y], beam=beam),
+          fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
   fig.suptitle('Alignment Diagnostics', y=1.05, fontsize=STYLE['titlesize'])
@@ -267,42 +191,20 @@ def draw_alignment(alignment):
 
 def draw_samples(data):
   """Draw the beam sample points in the frame of the tracker.
-  Data points must be in the form of
-      ((beam_a_input, beam_a), (beam_b_input, beam_b))).
+  Data must be a list of itop.DataPoints.
   """
-  plt.figure(figsize=(18, 4))
-  for i in data:
-    if i.beam_a is not None:
-      samples_a = np.array([j.array() for j in i.beam_a.samples])
-      plt.subplot(131)
-      plt.plot(samples_a[:, 2], samples_a[:, 0], color=STYLE['aat_color'],
-          marker='o', alpha=0.5)
-      plt.subplot(132)
-      plt.plot(samples_a[:, 2], samples_a[:, 1], color=STYLE['aat_color'],
-          marker='o', alpha=0.5)
-      plt.subplot(133)
-      plt.plot(samples_a[:, 0], samples_a[:, 1], color=STYLE['aat_color'],
-          marker='o', alpha=0.5)
-    if i.beam_b is not None:
-      samples_b = np.array([j.array() for j in i.beam_b.samples])
-      plt.subplot(131)
-      plt.plot(samples_b[:, 2], samples_b[:, 0], color=STYLE['bbt_color'],
-          marker='o', alpha=0.5)
-      plt.subplot(132)
-      plt.plot(samples_b[:, 2], samples_b[:, 1], color=STYLE['bbt_color'],
-          marker='o', alpha=0.5)
-      plt.subplot(133)
-      plt.plot(samples_b[:, 0], samples_b[:, 1], color=STYLE['bbt_color'],
-          marker='o', alpha=0.5)
-  plt.subplot(131)
-  plt.ylabel("x-coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("z-coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.subplot(132)
-  plt.ylabel("y-coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("z-coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.subplot(133)
-  plt.ylabel("y-coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("x-coordinate [mm]", fontsize=STYLE['labelsize'])
+  fig, axes = plt.subplots(1, 3, figsize=(18, 4))
+  for data_point in data:
+    for index, beam in enumerate(data_point.beams):
+      if beam is not None:
+        for i, x, y in ((0, 2, 0), (1, 2, 1), (2, 0, 1)):
+          samples = np.array([j.array() for j in beam.samples])
+          axes[i].plot(samples[:, x], samples[:, y],
+              color=BEAM_COLORS[index], marker='o', alpha=0.5)
+          axes[i].set_xlabel('{}-coordinate [mm]'.format('xyz'[x]),
+              fontsize=STYLE['labelsize'])
+          axes[i].set_ylabel('{}-coordinate [mm]'.format('xyz'[y]),
+              fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
   plt.suptitle("Beam Samples", y=1.05, fontsize=STYLE['titlesize'])
@@ -318,20 +220,14 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
   Any keyword arguments are passed on to the mirror normal reconstruction
   method.
   """
-  aa_radii, bb_radii = radii(data, alignment, mirror_index, lab_index)
-  plt.figure(figsize=(10, 4), dpi=150)
-  plt.subplot(121)
-  plt.title('A-A Radii', fontsize=STYLE['titlesize'])
-  plt.plot(*zip(*aa_radii), marker='o', ls='None',
-      color=STYLE['aat_color'], alpha=0.75, label="A-A Radii")
-  plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
-  plt.subplot(122)
-  plt.title('B-B Radii', fontsize=STYLE['titlesize'])
-  plt.plot(*zip(*bb_radii), marker='o', ls='None',
-      color=STYLE['bbt_color'], alpha=0.75, label="B-B Radii")
-  plt.ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
+  n_beams = len(data[0].beams)
+  fig, axes = plt.subplots(1, n_beams, figsize=(6.0 * n_beams, 4))
+  for bi, r_list in enumerate(radii(data, alignment, mirror_index, lab_index)):
+    axes[bi].set_title('Beam {}'.format(bi), fontsize=STYLE['titlesize'])
+    axes[bi].plot(*zip(*r_list), marker='o', ls='None',
+      color=BEAM_COLORS[bi], alpha=0.75)
+    axes[bi].set_ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
+    axes[bi].set_xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
 
   plt.tight_layout()
   plt.suptitle("Calculated Radius vs Beam Separation", y=1.05,
@@ -339,239 +235,89 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
   plt.savefig("radii.pdf")
   plt.show()
 
-
 def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
-  a_ref = []
-  b_ref = []
-  for i in data:
-    if i.beam_a is not None:
-      a_ref.append(reflectance(i.beam_a, i.beam_a_position,
-          alignment.beam_a, alignment, lab_index, mirror_index))
-    if i.beam_b is not None:
-      b_ref.append(reflectance(i.beam_b, i.beam_b_position,
-          alignment.beam_b, alignment, lab_index, mirror_index))
-
-  pos_a, ref_a = np.array(a_ref).T
-  pos_b, ref_b = np.array(b_ref).T
+  b0 = alignment.beams[0]
   plt.figure(figsize=(9, 5), dpi=150)
-  plt.subplot(111)
+  for d in data:
+    inputs = alignment.input_directions([d.mirror_position, 0, 0])[i]
+    for i, b in enumerate(d.beams):
+      ref = reflectance(b, b0, alignment, mirror_index, lab_index)
+      plt.plot(inputs[i], ref, marker='o',
+          ls='None', color=BEAM_COLORS[i], label='Beam {}'.format(i))
   plt.title('Reflectance', fontsize=STYLE['titlesize'])
-  plt.errorbar(
-      [i.value for i in pos_a],
-      [i.value for i in ref_a],
-      [i.maximal_error() for i in ref_a],
-      [i.maximal_error() for i in pos_a],
-      marker='o', ls='None', color=STYLE['aat_color'],
-      label="Beam A Reflectance")
-  plt.errorbar(
-      [i.value for i in pos_b],
-      [i.value for i in ref_b],
-      [i.maximal_error() for i in ref_b],
-      [i.maximal_error() for i in pos_b],
-      marker='o', ls='None', color=STYLE['bbt_color'],
-      label="Beam B Reflectance"
-      )
   plt.legend(loc='best', numpoints=1)
-  plt.ylim([0.86, 0.88])
   plt.ylabel("Reflectance", fontsize=STYLE['labelsize'])
   plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
   plt.savefig("reflectance.pdf")
   plt.show()
 
+def draw_focii(data, alignment):
+  """Draw the beam crossing positions in the given set of mirror-aligned
+  data."""
+  cross_points = focii(data, alignment)
+  for polarization in ('tangent', 'sagittal'):
+    _draw_focii_input(cross_points[polarization], polarization)
+    _draw_focii_space(cross_points[polarization], polarization)
 
-def draw_focii_vs_input_tangential(tangential_focii_a, tangential_focii_b):
-  """Take a list of data in the form
-      [((beam_a_input, beam_a), (beam_b_input, beam_b))]
+def _draw_focii_input(focii_data, polarization):
+  """Draw the focal points vs input position."""
+  fig, axes = plt.subplots(1, 3, figsize=(18, 4))
+  colors = [['red','orange'], ['blue','green']]
+  for pair in sorted(focii_data.keys()):
+    for focus in focii_data[pair]:
+      for dimension in range(3):
+        for point, beam in enumerate(pair):
+          axes[dimension].plot(
+              focus[0][0][0], focus[1][point][dimension],
+              marker='o', alpha=0.5, color=colors[int(beam)][point])
 
-  and draw the tangential focii against the beam-mirror input positions.
-  """
-  beam_0_focii = np.array(tangential_focii_a)
-  beam_1_focii = np.array(tangential_focii_b)
-  b0in = [i.value for i in beam_0_focii[:, 0, 0, 0]]
-  b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:, 0, 1]])
-  b1in = [i.value for i in beam_1_focii[:, 0, 0, 0]]
-  b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:, 0, 1]])
-
-  plt.figure(figsize=(18, 4), dpi=150)
-  plt.subplot(1, 3, 1)
-  plt.plot(b0in, b0x, marker='o', ls='None',
-      color=STYLE['aat_color'], alpha=0.75, label="Tangential A-A")
-  plt.plot(b1in, b1x, marker='o', ls='None',
-      color=STYLE['bbt_color'], alpha=0.75, label="Tangential B-B")
-  plt.legend(loc='best', numpoints=1)
-  plt.ylabel("Focus X coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
-  plt.subplot(1, 3, 2)
-  plt.plot(b0in, b0y, marker='o', ls='None',
-      color=STYLE['aat_color'], alpha=0.75)
-  plt.plot(b1in, b1y, marker='o', ls='None',
-      color=STYLE['bbt_color'], alpha=0.75)
-  plt.ylabel("Focus Y coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
-  plt.subplot(1, 3, 3)
-  plt.plot(b0in, b0z, marker='o', ls='None',
-      color=STYLE['aat_color'], alpha=0.75)
-  plt.plot(b1in, b1z, marker='o', ls='None',
-      color=STYLE['bbt_color'], alpha=0.75)
-  plt.ylabel("Focus Z coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
-
+  for dimension, axis in enumerate(axes):
+    axis.set_xlabel('Input Position [mm]', fontsize=STYLE['labelsize'])
+    axis.set_ylabel('{}-coordinate [mm]'.format('xyz'[dimension]),
+        fontsize=STYLE['labelsize'])
   plt.tight_layout()
-  plt.suptitle("Tangential Focus Coordinates vs Beam Input Position", y=1.05,
-      fontsize=STYLE['titlesize'])
-  plt.savefig("focii-input_tangential.pdf")
+  plt.suptitle(
+      "{} Focii vs Input Position".format(polarization.capitalize()),
+      y=1.05, fontsize=STYLE['titlesize'])
+  plt.savefig("focii_input_{}.pdf".format(polarization.lower()))
   plt.show()
 
-def draw_focii_vs_input_sagittal(sagittal_focii):
-  """Take a list of data in the form
-      [((beam_a_input, beam_a), (beam_b_input, beam_b))]
+def _draw_focii_space(focii_data, polarization):
+  """Draw the focal points in 3D space."""
+  fig = plt.figure(figsize=(14, 9))
+  colors = [['red','orange'], ['blue','green']]
+  axes = [plt.subplot(2, 2, 3)]
+  axes.append(plt.subplot(2, 2, 1, sharex=axes[0]))
+  axes.append(plt.subplot(2, 2, 4, sharey=axes[0]))
+  for pair in sorted(focii_data.keys()):
+    for focus in focii_data[pair]:
+      for view, xy_axes in enumerate([(2, 1), (2, 0), (0, 1)]):
+        for point, beam in enumerate(pair):
+          axes[view].plot(
+              focus[1][point][xy_axes[0]], focus[1][point][xy_axes[1]],
+              marker='o', alpha=0.5, color=colors[int(beam)][point])
 
-  and draw the tangential focii against the beam-mirror input positions.
-  """
-  beam_focii = np.array(sagittal_focii)
-  b0in = [i.value for i in beam_focii[:, 0, 0, 0]]
-  b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 0, 1]])
-  b1in = [i.value for i in beam_focii[:, 1, 0, 0]]
-  b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 1, 1]])
+  for label in axes[1].axes.get_xticklabels():
+      label.set_visible(False)
+  for label in axes[2].axes.get_yticklabels():
+      label.set_visible(False)
 
-  plt.figure(figsize=(18, 4), dpi=150)
-  plt.subplot(1, 3, 1)
-  plt.plot(b0in, b0x, marker='o', ls='None',
-      color=STYLE['abs_color'], alpha=0.75, label="Sagittal A-B")
-  plt.plot(b1in, b1x, marker='o', ls='None',
-      color=STYLE['bas_color'], alpha=0.75, label="Sagittal B-A")
-  plt.legend(loc='best', numpoints=1)
-  plt.ylabel("Focus X coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
-  plt.subplot(1, 3, 2)
-  plt.plot(b0in, b0y, marker='o', ls='None',
-      color=STYLE['abs_color'], alpha=0.75)
-  plt.plot(b1in, b1y, marker='o', ls='None',
-      color=STYLE['bas_color'], alpha=0.75)
-  plt.ylabel("Focus Y coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
-  plt.subplot(1, 3, 3)
-  plt.plot(b0in, b0z, marker='o', ls='None',
-      color=STYLE['abs_color'], alpha=0.75)
-  plt.plot(b1in, b1z, marker='o', ls='None',
-      color=STYLE['bas_color'], alpha=0.75)
-  plt.ylabel("Focus Z coordinate [mm]", fontsize=STYLE['labelsize'])
-  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
-
-  plt.tight_layout()
-  plt.suptitle("Sagittal Focus Coordinates vs Beam Input Position", y=1.05,
-      fontsize=STYLE['titlesize'])
-  plt.savefig("focii-input_sagittal.pdf")
-  plt.show()
-
-def draw_focii_in_space_tangential(tangential_focii_a, tangential_focii_b):
-  """Take a list of data in the form
-      [((beam_a_input, beam_a), (beam_b_input, beam_b))]
-
-  and draw the tangential focii in 3D space projections in a mirror-centered
-  frame.
-  """
-  beam_0_focii = np.array(tangential_focii_a)
-  beam_1_focii = np.array(tangential_focii_b)
-  b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_0_focii[:, 0, 1]])
-  b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_1_focii[:, 0, 1]])
-
-  fig = plt.figure(figsize=(14, 9), dpi=150)
-  zy_plot = plt.subplot(223)
-  plt.plot(b0z, b0y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['aat_color'], label='Tangential A-A')
-  plt.plot(b1z, b1y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['bbt_color'], label='Tangential B-B')
-  plt.legend(loc='best', numpoints=1)
-  zx_plot = plt.subplot(221, sharex=zy_plot)
-  plt.plot(b0z, b0x, marker='o', ls='None',
-      alpha=0.7, color=STYLE['aat_color'])
-  plt.plot(b1z, b1x, marker='o', ls='None',
-      alpha=0.7, color=STYLE['bbt_color'])
-  xy_plot = plt.subplot(224, sharey=zy_plot)
-  plt.plot(b0x, b0y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['aat_color'])
-  plt.plot(b1x, b1y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['bbt_color'])
-  for xlabel_i in zx_plot.axes.get_xticklabels():
-    xlabel_i.set_visible(False)
-  for ylabel_i in xy_plot.axes.get_yticklabels():
-    ylabel_i.set_visible(False)
-  zy_plot.set_xlabel('z Coordinate [mm]', fontsize=STYLE['labelsize'])
-  zy_plot.xaxis.set_major_locator(MaxNLocator(14, prune='both'))
-  zy_plot.set_ylabel('y Coordinate [mm]', fontsize=STYLE['labelsize'])
-  zy_plot.yaxis.set_major_locator(MaxNLocator(9, prune='both'))
-  xy_plot.set_title('xy-Plane', fontsize=STYLE['titlesize'])
-  xy_plot.set_xlabel('x Coordinate [mm]', fontsize=STYLE['labelsize'])
-  xy_plot.xaxis.set_major_locator(MaxNLocator(9, prune='both'))
-  zx_plot.set_title('zx-Plane', fontsize=STYLE['titlesize'])
-  zx_plot.set_ylabel('x Coordinate [mm]', fontsize=STYLE['labelsize'])
-  zx_plot.yaxis.set_major_locator(MaxNLocator(9, prune='both'))
+  axes[0].xaxis.set_major_locator(MaxNLocator(14, prune='both'))
+  axes[0].yaxis.set_major_locator(MaxNLocator(9, prune='both'))
+  axes[1].xaxis.set_major_locator(MaxNLocator(9, prune='both'))
+  axes[2].yaxis.set_major_locator(MaxNLocator(9, prune='both'))
+  axes[0].set_xlabel('z coordinate [mm]')
+  axes[0].set_ylabel('y coordinate [mm]')
+  axes[1].set_ylabel('x coordinate [mm]')
+  axes[2].set_xlabel('x coordinate [mm]')
 
   plt.tight_layout()
   fig.subplots_adjust(hspace=0, wspace=0)
-  plt.suptitle("Tangential Focal Points in Mirror Coordinate System", y=1.05,
+  plt.suptitle('{} Focal Points'.format(polarization.capitalize()), y=1.05,
       fontsize=STYLE['titlesize'])
-  plt.savefig("focii-space_tangential.pdf")
+  plt.savefig('focii_space_{}.pdf'.format(polarization.lower()))
   plt.show()
 
-def draw_focii_in_space_sagittal(sagittal_focii):
-  """Take a list of data in the form
-      [((beam_a_input, beam_a), (beam_b_input, beam_b))]
-
-  and draw the sagittal focii in 3D space projections in a mirror-centered
-  frame.
-  """
-  beam_focii = np.array(sagittal_focii)
-  b0x, b0y, b0z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 0, 1]])
-  b1x, b1y, b1z = zip(
-      *[(i[0].value, i[1].value, i[2].value) for i in beam_focii[:, 1, 1]])
-
-  fig = plt.figure(figsize=(14, 9), dpi=150)
-  zy_plot = plt.subplot(223)
-  plt.plot(b0z, b0y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['abs_color'], label='Sagittal A-B')
-  plt.plot(b1z, b1y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['bas_color'], label='Sagittal B-A')
-  plt.legend(loc='best', numpoints=1)
-  zx_plot = plt.subplot(221, sharex=zy_plot)
-  plt.plot(b0z, b0x, marker='o', ls='None',
-      alpha=0.7, color=STYLE['abs_color'])
-  plt.plot(b1z, b1x, marker='o', ls='None',
-      alpha=0.7, color=STYLE['bas_color'])
-  xy_plot = plt.subplot(224, sharey=zy_plot)
-  plt.plot(b0x, b0y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['abs_color'])
-  plt.plot(b1x, b1y, marker='o', ls='None',
-      alpha=0.7, color=STYLE['bas_color'])
-  for xlabel_i in zx_plot.axes.get_xticklabels():
-    xlabel_i.set_visible(False)
-  for ylabel_i in xy_plot.axes.get_yticklabels():
-    ylabel_i.set_visible(False)
-  zy_plot.set_xlabel('z Coordinate [mm]', fontsize=STYLE['labelsize'])
-  zy_plot.xaxis.set_major_locator(MaxNLocator(14, prune='both'))
-  zy_plot.set_ylabel('y Coordinate [mm]', fontsize=STYLE['labelsize'])
-  zy_plot.yaxis.set_major_locator(MaxNLocator(9, prune='both'))
-  xy_plot.set_title('xy-Plane', fontsize=STYLE['titlesize'])
-  xy_plot.set_xlabel('x Coordinate [mm]', fontsize=STYLE['labelsize'])
-  xy_plot.xaxis.set_major_locator(MaxNLocator(9, prune='both'))
-  zx_plot.set_title('zx-Plane', fontsize=STYLE['titlesize'])
-  zx_plot.set_ylabel('x Coordinate [mm]', fontsize=STYLE['labelsize'])
-  zx_plot.yaxis.set_major_locator(MaxNLocator(9, prune='both'))
-
-  plt.tight_layout()
-  fig.subplots_adjust(hspace=0, wspace=0)
-  plt.suptitle("Sagittal Focal Points in Mirror Coordinate System", y=1.05,
-      fontsize=STYLE['titlesize'])
-  plt.savefig("focii-space_sagittal.pdf")
-  plt.show()
