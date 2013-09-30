@@ -4,6 +4,7 @@ A module for representing the data collected by the iTOP testing
 instrumentation.
 
 """
+from itop.math.linalg import rotation_matrix
 
 
 class DataPoint(object):
@@ -25,15 +26,13 @@ class DataPoint(object):
 
   def realign(self, alignment):
     """Applies an alignment to the data point trajectories."""
-    pass
-
-  def focal_point(self):
-    """Returns the focal point of the beams."""
-    pass
-
-  def translate(self, displacement):
-    """Translates the beams' data points by the given displacement vector.
-
-    """
-    pass
+    offset = alignment.calibration.displacement() - [self.mirror_position, 0, 0]
+    matrix = rotation_matrix(-alignment.beams[0].direction)
+    new_beams = []
+    for beam in self.beams:
+      if beam is None:
+        new_beams.append(None)
+      else:
+        new_beams.append((beam.translate(offset)).transform(matrix))
+    return DataPoint(self.mirror_position, new_beams)
 
