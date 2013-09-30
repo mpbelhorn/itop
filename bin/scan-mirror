@@ -54,9 +54,9 @@ if args.alt:
 
 alignment_path = itop.data_path('alignment/latest.gz')
 if args.align:
-  calibration = itop.Calibration([14.7, -17.9, 1430])
+  calibration = itop.data_path('alignment/latest.cfg')
   alignment_data = itop.Alignment(calibration)
-  tracker.driver.home()
+  tracker.devices['driver'].home()
   alignment_data.align(tracker, home=True)
   itop.utilities.save_object(alignment_data, alignment_path)
 
