@@ -116,20 +116,29 @@ def radii(data, alignment, mirror_index, lab_index=1.000277):
                    input_directions[beam_id], mirror_index, lab_index))
   return mirror_radii
 
+def _reflectance(
+    power_in, power_out, theta_in, theta_out, index_in, index_out):
+  trans_in = fresnel_coefficients(theta_in, index_out, index_in)['T']
+  trans_out = fresnel_coefficients(theta_out, index_in, index_out)['T']
+  return power_out / (power_in * trans_in * trans_out)
+
+
 def reflectance(
     reflected_beam, original_beam, alignment,
-    mirror_index, lab_index=1.000277):
+    mirror_index, lab_index=1.000277, mirror_normal=None):
   """Return the reflectance of the mirror at the given input position
   given the reflected beam, the original beam, and the refractive
   indexes."""
+  if mirror_normal is None:
+    mirror_normal = [0, 0, 1]
   input_angle = sys_math.acos(
       (original_beam.transform(
           rotation_matrix(alignment.beams[0].direction)).direction
-      ).dot([0, 0, 1]))
+      ).dot(mirror_normal))
   exit_angle = sys_math.acos(
       -refract(
-          -reflected_beam.direction, [0, 0, 1], lab_index, mirror_index
-      ).dot([0, 0, 1]))
+          -reflected_beam.direction, mirror_normal, lab_index, mirror_index
+      ).dot(mirror_normal))
   transmittance_in = fresnel_coefficients(
       input_angle, lab_index, mirror_index)['T']
   transmittance_out = fresnel_coefficients(
@@ -237,7 +246,7 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
   plt.savefig("radii.pdf")
   plt.show()
 
-def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277):
+def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277, mirror_normal=None):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
@@ -252,7 +261,7 @@ def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277):
     for beam_index, reflected_beam in enumerate(sample.beams):
       r_value, r_error = reflectance(
           reflected_beam, alignment.beams[beam_index],
-          alignment, mirror_index, lab_index)
+          alignment, mirror_index, lab_index, mirror_normal)
       reflectivities[beam_index]['i'].append(input_positions[beam_index][0])
       reflectivities[beam_index]['r'].append(r_value)
       reflectivities[beam_index]['e'].append(max(r_error))
