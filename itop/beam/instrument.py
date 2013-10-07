@@ -27,10 +27,10 @@ class Instrument(object):
   relative to the mirror.
 
   """
-  def __init__(self, tracker, mirror, alignment, number_of_beams=2):
+  def __init__(self, tracker, mirror, alignment, tilted=False):
     self.tracker = tracker
     self.mirror = mirror
-    self._beam_indices = range(number_of_beams)
+    self.tilted = tilted
     self.alignment = None
     if alignment is not None:
       try:
@@ -47,7 +47,8 @@ class Instrument(object):
     if self.alignment is None:
       self.alignment = Alignment()
       self.tracker.devices['driver'].home()
-      self.alignment.align(self.tracker, home=True)
+      self.alignment.align(self.tracker, home=True, tilted=tilted,
+          mirror=mirror)
       save_object(self.alignment, alignment)
 
     # Output data.
@@ -80,7 +81,7 @@ class Instrument(object):
         continue
       expose_single_beam(self.tracker.devices['driver'],
           beam_index,
-          self.alignment.calibration.data['number of beams'])
+          self.alignment.beam_count())
       time.sleep(0.25)
       tracked_beams.append(
           self.tracker.find_beam_trajectory(
@@ -137,8 +138,12 @@ class Instrument(object):
   def _beams_in_range(self, mirror_position):
     """Return a generator of booleans indicating that the ith indexed beam is
     in range at the given mirror position."""
-    for index in self._beam_indices:
-      yield (not self.alignment.out_of_range(index, [mirror_position, 0, 0]))
+    if not self.tilted:
+      for index in self.alignment.beam_indexes():
+        yield (not self.alignment.out_of_range(index, [mirror_position, 0, 0]))
+    else:
+      for index in self.alignment.beam_indexes():
+        yield (True)
 
   def _lowest_beam_in_range(self, mirror_position):
     """Return the lowest beam index that is in range or None if no beams are

@@ -7,12 +7,13 @@ import ConfigParser
 import ast
 import os
 
+import math as sysmath
 from itop.math import Vector
+import itop.math.optics as optics
 from itop.motioncontrol.controller import expose_single_beam
 from itop.utilities import clamp
 import datetime
 
-NUMBER_OF_BEAMS = 2
 
 class Alignment(object):
   """A class to establish the alignment between a tracker and the beams.
@@ -26,9 +27,11 @@ class Alignment(object):
     self.beams = []
     self.displacements = []  # r_n(x,y,0) - r_0(x,y,0) in tracker frame.
     self.calibration = Calibration(calibration_file)
+    self.mirror_normal = Vector([0, 0, 1])
+    self.front_reflections = None
     self.date = None
 
-  def align(self, tracker, home=False):
+  def align(self, tracker, home=False, tilted=False, mirror=None):
     """Establishes the alignment between the given tracker and the beams.
 
     Takes an optional keyword argument
@@ -47,9 +50,9 @@ class Alignment(object):
                    tracker.axes[1].limits.lower + 11,
                    tracker.axes[2].limits.upper]
     z_direction = -1
-    for beam_index in range(NUMBER_OF_BEAMS):
+    for beam_index in self.beam_indexes():
       expose_single_beam(
-          tracker.devices['driver'], beam_index, NUMBER_OF_BEAMS)
+          tracker.devices['driver'], beam_index, self.beam_count())
       self.beams.append(
           tracker.find_beam_trajectory(
             start_point, -1, z_direction, z_samples=25))
@@ -57,11 +60,51 @@ class Alignment(object):
       z_direction = -1 * z_direction
       self.displacements.append(
           self.beams[beam_index].intercept - self.beams[0].intercept)
-
-    self.date = datetime.datetime.now().isoformat()
     tracker.devices['r_stage'].position(0, wait=True)
     tracker.facing_z_direction = -1
+    if tilted:
+      self._measure_tilt(tracker, mirror)
+    self.date = datetime.datetime.now().isoformat()
 
+  def _measure_tilt(self, tracker, mirror):
+    """Establish the input face normal of a tilted mirror."""
+    if mirror is None:
+      raise Exception('Mirror argument must be provided.')
+    else:
+      print 'Measuring mirror tilt.'
+    # FIXME: The mirror should reliably place where the CCD cannot
+    #     see the main reflection.
+    mirror.position(-150, wait=True)
+    tracker.power_index = 1
+    self.front_reflections = []
+    start_point = [tracker.axes[0].limits.upper,
+                   tracker.axes[1].limits.lower + 13,
+                   tracker.axes[2].limits.lower]
+    z_direction = 1
+    for beam_index in self.beam_indexes():
+      expose_single_beam(
+          tracker.devices['driver'], beam_index, self.beam_count())
+      self.front_reflections.append(
+          tracker.find_beam_trajectory(
+              start_point, -1, z_direction, z_samples=25))
+      start_point = (
+          self.front_reflections[beam_index].last_sample() + [0, -5.5, 0])
+      z_direction = -1 * z_direction
+    normals = [
+        optics.reflection_normal(
+            self.front_reflections[i].direction, -self.beams[i].direction)
+        for i in self.beam_indexes()]
+    self.mirror_normal = (reduce(lambda x, y: x + y, normals)).normalize()
+    tracker.power_index = None
+
+
+  def beam_indexes(self):
+    """Return a list of the beam indexes."""
+    return range(self.beam_count())
+
+  def beam_count(self):
+    """Return the number of beams."""
+    return self.calibration.data['beam_count']
 
   def alignment_date(self):
     """Returns the date and time the current alignment data was taken.
@@ -87,9 +130,8 @@ class Alignment(object):
 
   def parallelism(self):
     """Return a list of angles of each beam with respect to the primary beam."""
-    primary_direction = self.beams[0].direction
-    return [abs(b.direction - b.direction.dot(primary_direction) * b.direction)
-            for b in self.beams]
+    return [1.0] + [sysmath.acos(b.direction.dot(self.beams[0].direction))
+        for b in self.beams[1:]]
 
   def mirror_positions(self, input_position):
     """Return a list of the mirror positions for each beam to be at the given
@@ -181,7 +223,7 @@ class Calibration(object):
 
   GENERAL = {
       'date':'none',
-      'number of beams':2,
+      'beam_count':2,
       }
 
   def __init__(self, configuration=None):
@@ -255,7 +297,7 @@ class Calibration(object):
       self.data[key] = _load_vector(config, 'Constants', key)
 
     self.data['date'] = config.get('General', 'date')
-    self.data['number of beams'] = config.getint('General', 'number of beams')
+    self.data['beam_count'] = config.getint('General', 'beam_count')
 
 
 def _load_vector(config, section, key):

@@ -25,6 +25,8 @@ parser.add_argument('--align', action='store_true', default=False,
     help='Re-compute the tracker alignment to the beams.')
 parser.add_argument('--alt', action='store_true', default=False,
     help='Run scan on alternate mirror.')
+parser.add_argument('--tilted', action='store_true', default=False,
+    help='Override out-of-range beam checks for a tilted mirror.')
 parser.add_argument('--start', dest='start_point', nargs=3,
     metavar=('X', 'Y', 'Z'), type=float,
     help='Start first scan at position [X,Y,Z].')
@@ -53,23 +55,28 @@ if args.alt:
   mirror_stage.home_position(-99.7)
 
 alignment_path = itop.data_path('alignment/latest.gz')
-if args.align:
+if args.align or args.tilted:
   calibration = itop.data_path('alignment/latest.cfg')
   alignment_data = itop.Alignment(calibration)
   tracker.devices['driver'].home()
-  alignment_data.align(tracker, home=True)
+  alignment_data.align(tracker, home=True, tilted=args.tilted,
+      mirror=mirror_stage)
   itop.utilities.save_object(alignment_data, alignment_path)
 
-instrument = itop.Instrument(tracker, mirror_stage, alignment_path)
+instrument = itop.Instrument(tracker, mirror_stage, alignment_path,
+    tilted=args.tilted)
 run_starting_time = datetime.datetime.now().isoformat()
 
 if args.output is None:
   args.output = itop.data_path('runs/{}-data.gz'.format(run_starting_time))
 
-mirror_range = instrument.alignment.mirror_limits(args.input_range)
-mirror_step = args.step_size
-if args.input_range[1] > args.input_range[0]:
-  mirror_step = -args.step_size
+if not args.tilted:
+  mirror_range = instrument.alignment.mirror_limits(args.input_range)
+else:
+  mirror_range = [-i for i in args.input_range]
+mirror_step = abs(args.step_size)
+if mirror_range[1] < mirror_range[0]:
+  mirror_step = -abs(args.step_size)
 
 print('Starting data run at {}.'.format(run_starting_time))
 print('===============')

@@ -38,13 +38,13 @@ class Profiler(object):
     """Set the beam power levels given the nominal beam power.
 
     Two levels are set:
-      2.0% nominal beam power - Used to find front face reflections.
+      1.5% nominal beam power - Used to find front face reflections.
       50.0% nominal beam power - Used to find main reflections.
 
     """
     self.power_levels = [
-        0.50 * nominal_power,
-        0.02 * nominal_power,
+        0.500 * nominal_power,
+        0.015 * nominal_power,
         ]
     return self.power_levels
 

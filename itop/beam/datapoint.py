@@ -22,7 +22,7 @@ class DataPoint(object):
 
   def __repr__(self):
     return "DataPoint({} @ {})".format(
-        len(self.beams), self.mirror_position)
+        len(filter(None, self.beams)), self.mirror_position)
 
   def realign(self, alignment):
     """Applies an alignment to the data point trajectories."""

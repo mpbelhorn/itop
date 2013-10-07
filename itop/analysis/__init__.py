@@ -47,7 +47,11 @@ def focii(data, alignment):
       d2_inputs = alignment.input_positions([data_2.mirror_position, 0, 0])
       item_2 = item_2 + item_1
       for beam_1_id, beam_1 in enumerate(data_1.beams):
+        if beam_1 is None:
+          continue
         for beam_2_id, beam_2 in enumerate(data_2.beams):
+          if beam_2 is None:
+            continue
           if beam_1_id == beam_2_id and item_2 > item_1:
             tan_focii['{}{}'.format(beam_1_id, beam_2_id)].append(
                 ([d1_inputs[beam_1_id], d2_inputs[beam_2_id]],
@@ -110,10 +114,12 @@ def radii(data, alignment, mirror_index, lab_index=1.000277):
     for data_2 in data[item_1 + 1:]:
       input_2 = alignment.input_positions([data_2.mirror_position, 0, 0])
       for beam_id in beam_indexes:
-        mirror_radii[beam_id].append(
-            radius(data_1.beams[beam_id], input_1[beam_id],
-                   data_2.beams[beam_id], input_2[beam_id],
-                   input_directions[beam_id], mirror_index, lab_index))
+        if all([d.beams[beam_id] is not None for d in (data_1, data_2)]):
+          mirror_radii[beam_id].append(
+              radius(data_1.beams[beam_id], input_1[beam_id],
+                     data_2.beams[beam_id], input_2[beam_id],
+                     input_directions[beam_id], mirror_index,
+                     lab_index, alignment.mirror_normal))
   return mirror_radii
 
 def _reflectance(
@@ -122,6 +128,14 @@ def _reflectance(
   trans_out = fresnel_coefficients(theta_out, index_in, index_out)['T']
   return power_out / (power_in * trans_in * trans_out)
 
+def _normalize_power(power):
+  return power[0] / power[1]
+
+def _incidence_angle_beam(beam, normal):
+  return sys_math.acos((beam.direction).dot(normal))
+
+def _incidence_angle_ray(ray, normal):
+  return sys_math.acos(ray.dot(normal))
 
 def reflectance(
     reflected_beam, original_beam, alignment,
@@ -130,23 +144,17 @@ def reflectance(
   given the reflected beam, the original beam, and the refractive
   indexes."""
   if mirror_normal is None:
-    mirror_normal = [0, 0, 1]
-  input_angle = sys_math.acos(
-      (original_beam.transform(
-          rotation_matrix(alignment.beams[0].direction)).direction
-      ).dot(mirror_normal))
-  exit_angle = sys_math.acos(
-      -refract(
-          -reflected_beam.direction, mirror_normal, lab_index, mirror_index
-      ).dot(mirror_normal))
-  transmittance_in = fresnel_coefficients(
-      input_angle, lab_index, mirror_index)['T']
-  transmittance_out = fresnel_coefficients(
-      exit_angle, mirror_index, lab_index)['T']
-  reflectivity = ((reflected_beam.power[0] / (
-      original_beam.power[0] * transmittance_in * transmittance_out)
-      ) * (original_beam.power[1] / reflected_beam.power[1]))
-  return reflectivity
+    mirror_normal = alignment.mirror_normal
+  input_angle = _incidence_angle_beam(original_beam, mirror_normal)
+  output_angle = _incidence_angle_ray(
+      reflected_beam.refract(mirror_normal, lab_index, mirror_index),
+      mirror_normal)
+  power_in = _normalize_power(original_beam.power)
+  power_out = _normalize_power(reflected_beam.power)
+  return _reflectance(
+      power_in, power_out,
+      input_angle, output_angle,
+      lab_index, mirror_index)
 
 STYLE = {
     'aat_color': '#ee0000',
@@ -169,10 +177,9 @@ BEAM_COLORS = {
 
 def draw_alignment(alignment):
   """Plot alignment diagnostics."""
-  number_of_beams = alignment.calibration.data['number of beams']
   samples = {}
   errors = {}
-  for index in range(number_of_beams):
+  for index in alignment.beam_indexes():
     _samples, _errors = zip(
         *[(i.array(), i.errors()) for i in alignment.beams[index].samples])
     samples[index] = np.array(_samples) - np.mean(_samples, 0)
@@ -181,7 +188,7 @@ def draw_alignment(alignment):
   opts = {'marker':'o', 'ls':'None', 'alpha':0.5}
   fig, axes = plt.subplots(1, 2, figsize=(13, 4))
   for y_axis, x_axis in ((0, 2), (1, 2)):
-    for beam in range(1, number_of_beams):
+    for beam in range(1, alignment.beam_count()):
       axes[y_axis].errorbar(samples[beam][:, x_axis],
           ((samples[beam][:, y_axis]) + (samples[0][:, y_axis])),
           xerr=errors[beam][:, x_axis].T.tolist(),
@@ -253,14 +260,19 @@ def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277, mirror_n
 
   plt.figure(figsize=(9, 5), dpi=150)
   reflectivities = {}
+  calibrated_input_beams = [
+      beam.transform(rotation_matrix(alignment.beams[0].direction))
+      for beam in alignment.beams]
   for index in range(len(alignment.beams)):
     reflectivities[index] = {'i':[], 'r':[], 'e':[]}
   for sample in data:
     input_positions = alignment.input_positions(
         [sample.mirror_position, 0, 0])
     for beam_index, reflected_beam in enumerate(sample.beams):
+      if reflected_beam is None:
+        continue
       r_value, r_error = reflectance(
-          reflected_beam, alignment.beams[beam_index],
+          reflected_beam, calibrated_input_beams[beam_index],
           alignment, mirror_index, lab_index, mirror_normal)
       reflectivities[beam_index]['i'].append(input_positions[beam_index][0])
       reflectivities[beam_index]['r'].append(r_value)
@@ -291,13 +303,27 @@ def _draw_focii_input(focii_data, polarization):
   """Draw the focal points vs input position."""
   axes = plt.subplots(1, 3, figsize=(18, 4))[1]
   colors = [['red','orange'], ['blue','green']]
+  plot_data = {}
   for pair in sorted(focii_data.keys()):
+    plot_data[pair] = {
+        'inputs':[],
+        0: {i:[] for i in range(3)},
+        1: {i:[] for i in range(3)},
+        }
     for sample in focii_data[pair]:
-      for dimension in range(3):
-        for point, beam in enumerate(pair):
-          axes[dimension].plot(
-              sample[0][0][0], sample[1][point][dimension],
-              marker='o', alpha=0.5, color=colors[int(beam)][point])
+      plot_data[pair]['inputs'].append(sample[0][0][0])
+      for beam in range(2):
+        for dimension in range(3):
+          plot_data[pair][beam][dimension].append(sample[1][beam][dimension])
+
+  for pair in sorted(plot_data.keys()):
+    for dimension in range(3):
+      for beam in reversed(range(2)):
+        axes[dimension].plot(
+          plot_data[pair]['inputs'],
+          plot_data[pair][beam][dimension],
+          marker='o', alpha=0.5, ls='None',
+          color=colors[int(pair[0])][beam])
 
   for dimension, axis in enumerate(axes):
     axis.set_xlabel('Input Position [mm]', fontsize=STYLE['labelsize'])
@@ -317,13 +343,24 @@ def _draw_focii_space(focii_data, polarization):
   axes = [plt.subplot(2, 2, 3)]
   axes.append(plt.subplot(2, 2, 1, sharex=axes[0]))
   axes.append(plt.subplot(2, 2, 4, sharey=axes[0]))
+  plot_data = {}
   for pair in sorted(focii_data.keys()):
+    plot_data[pair] = {
+        beam: {dimension: [] for dimension in range(3)}
+        for beam in range(2)}
     for sample in focii_data[pair]:
-      for view, xy_axes in enumerate([(2, 1), (2, 0), (0, 1)]):
-        for point, beam in enumerate(pair):
-          axes[view].plot(
-              sample[1][point][xy_axes[0]], sample[1][point][xy_axes[1]],
-              marker='o', alpha=0.5, color=colors[int(beam)][point])
+      for beam in range(2):
+        for dim in range(3):
+          plot_data[pair][beam][dim].append(sample[1][beam][dim])
+
+  for pair in sorted(plot_data.keys()):
+    for view, xy_axes in enumerate([(2, 1), (2, 0), (0, 1)]):
+      for point, beam in enumerate(pair):
+        axes[view].plot(
+            plot_data[pair][point][xy_axes[0]],
+            plot_data[pair][point][xy_axes[1]],
+            marker='o', alpha=0.5, ls='None',
+            color=colors[int(beam)][point])
 
   for label in axes[1].axes.get_xticklabels():
     label.set_visible(False)

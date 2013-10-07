@@ -280,7 +280,7 @@ class Tracker(object):
         # Scan for beam crossing.
         x_axis.position(self.axes[0].limits.direction(scan_direction_x))
         beam_position = self._scan_until_beam_visible(x_axis)
-        if number_of_scans * 4.0 > self.axes[1].limits.length():
+        if number_of_scans * 3.0 > self.axes[1].limits.length():
           print "Beam cannot be found. Check beam height and power."
           return None
         number_of_scans += 1
@@ -289,9 +289,7 @@ class Tracker(object):
           if self.axes[1].position() == self.axes[1].limits.upper:
             self.axes[1].position(0, wait=True)
           else:
-            self.axes[1].position(
-                self.axes[1].position() +
-                (self.axes[1].limits.length() / 4.0), wait=True)
+            self.axes[1].position(self.axes[1].position() + 3.0, wait=True)
 
 
     # Move back to beam position.

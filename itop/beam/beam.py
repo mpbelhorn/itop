@@ -3,6 +3,7 @@ A module for tracking and parameterizing a beam segment in 3D space.
 
 """
 
+import itop.math.optics as optics
 from numpy import array, dot
 from numpy.linalg import lstsq, norm
 from itop.math import Vector
@@ -172,3 +173,7 @@ class Beam(object):
     else:
       return None
 
+  def refract(self, normal, index_0, index_1):
+    """Return the beam direction refracted through a boundary with given
+    normal vector and indexes of refraction."""
+    return optics.refract(self.direction, normal, index_0, index_1)
