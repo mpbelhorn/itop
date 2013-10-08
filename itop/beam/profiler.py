@@ -132,10 +132,10 @@ class Profiler(object):
             profile['height_2']/profile['width_2'],
             profile['height_3']/profile['width_3'])
 
-  def average_power(self, samples=10):
+  def average_power(self, samples=10, level=None):
     """Return the average power of a number of samples with standard error."""
     try:
-      data = [self.profile()['power'] for _ in range(samples)]
+      data = [self.profile(level=level)['power'] for _ in range(samples)]
     except TypeError:
       return None
     return Value(mean(data), std(data))
