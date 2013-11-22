@@ -15,6 +15,10 @@ from itop.utilities import clamp
 import datetime
 
 
+class AlignmentError(Exception):
+  """Error handling and exceptions for the alignment class."""
+  pass
+
 class Alignment(object):
   """A class to establish the alignment between a tracker and the beams.
 
@@ -38,6 +42,10 @@ class Alignment(object):
     home (False): Recalibrates the rotation stage to it's home switch.
 
     """
+    if tilted and mirror is None:
+      raise AlignmentError(
+          'Mirror axis must given as keyword argument to measure tilt.')
+
     print 'Measuring tracker alignment. This will take some time.'
     self.beams = []
     self.displacements = []
@@ -47,7 +55,7 @@ class Alignment(object):
     tracker.devices['r_stage'].position(180, wait=True)
     tracker.facing_z_direction = 1
     start_point = [tracker.axes[0].limits.upper,
-                   tracker.axes[1].limits.lower + 11,
+                   tracker.axes[1].limits.lower + 9,
                    tracker.axes[2].limits.upper]
     z_direction = -1
     for beam_index in self.beam_indexes():
@@ -69,7 +77,7 @@ class Alignment(object):
   def _measure_tilt(self, tracker, mirror):
     """Establish the input face normal of a tilted mirror."""
     if mirror is None:
-      raise Exception('Mirror argument must be provided.')
+      raise AlignmentError('Mirror argument must be provided.')
     else:
       print 'Measuring mirror tilt.'
     # FIXME: The mirror should reliably place where the CCD cannot
