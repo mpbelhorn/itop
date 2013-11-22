@@ -5,7 +5,7 @@ from math import sqrt
 from numpy import array, dot
 from itop.math.linalg import normalize, rotation_matrix_arrays
 from itop.math.linalg import rotation_matrix_euler as rotation_matrix
-from itop.beam.profiler import Alignment as DataAlignment
+from itop.beam.alignment import Alignment as DataAlignment
 from itop.beam.beam import Beam as DataBeam
 from itop.beam.datapoint import DataPoint
 
@@ -340,10 +340,10 @@ class Beam(object):
 
 def simulate_alignment(
     beam_a_direction, beam_b_direction, beam_a_intercept, separation,
-    samples=25):
+    samples=25, calibration_file=None):
   """Return the beam construction parameters and an itop.Alignment of the
   simulated beams."""
-  alignment = DataAlignment()
+  alignment = DataAlignment(calibration_file)
   ray_a = Ray(beam_a_direction, beam_a_intercept)
   ray_a = Ray(beam_a_direction, ray_a.sample(150))
 
@@ -356,9 +356,10 @@ def simulate_alignment(
   for tracker_z in (np.arange(125, -95, -220/samples).tolist() + [-95]):
     beam_a.add_sample(ray_a.sample(tracker_z))
     beam_b.add_sample(ray_b.sample(tracker_z))
-  alignment.beam_a = beam_a
-  alignment.beam_b = beam_b
-  alignment.displacement = beam_b.intercept - beam_a.intercept
+  alignment.beams = [beam_a, beam_b]
+  alignment.displacements = [
+      alignment.beams[index].intercept - alignment.beams[0].intercept
+      for index in range(2)]
   return alignment
 
 
@@ -418,5 +419,5 @@ def simulate_data(
     for z_coordinate in np.arange(-95, 125, 220/5).tolist() + [125]:
       beam_a.add_sample(simulated_beam_a.ray().sample(z_coordinate))
       beam_b.add_sample(simulated_beam_b.ray().sample(z_coordinate))
-    data.append(DataPoint(mirror_stage_position, beam_a, beam_b))
+    data.append(DataPoint(mirror_stage_position, [beam_a, beam_b]))
   return data
