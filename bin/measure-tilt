@@ -1,0 +1,81 @@
+#!/bin/python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+import argparse
+import numpy as np
+from numpy import arange
+import datetime
+import itop
+import os
+import cPickle as pickle
+import sys
+import zlib
+
+parser = argparse.ArgumentParser(description='Measure the mirror tilt.')
+parser.add_argument('--start', dest='start_point', nargs=3,
+    metavar=('X', 'Y', 'Z'), type=float,
+    help='Start first scan at position [X,Y,Z].')
+parser.add_argument('--align', action='store_true', default=False,
+    help='Re-compute the tracker alignment to the beams.')
+parser.add_argument('--home', action='store_true', default=False,
+    help='Home the stages before taking data')
+parser.add_argument('--output', metavar='PATH', type=str,
+    help='Path to output gz data file')
+
+args = parser.parse_args()
+
+profiler = itop.Profiler('/dev/ttyUSB0')
+esp_300 = itop.StageController('/dev/ttyUSB1',
+    limits=[250.0, [-45.0, 190.0], 125.0])
+esp_301 = itop.StageController('/dev/ttyUSB2',
+    limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
+beam_monitor = itop.Photodiode('/dev/itop_lds1000')
+
+mirror_stage= esp_300.axes[0]
+profiler_rotation_stage = esp_300.axes[1]
+
+tracker = itop.Tracker(esp_301, profiler_rotation_stage,
+    profiler, beam_monitor, home=args.home, check=True)
+
+mirror_stage.power_on()
+if args.home:
+  mirror_stage.go_to_home(wait=True)
+mirror_stage.position(60, wait=True)
+
+alignment_path = itop.data_path('alignment/latest.gz')
+alignment_data = itop.utilities.load_object(alignment_path)
+if args.align:
+  calibration = itop.data_path('alignment/latest.cfg')
+  alignment_data = itop.Alignment(calibration)
+  tracker.devices['driver'].home()
+  alignment_data.align(tracker, home=True)
+  itop.utilities.save_object(alignment_data, alignment_path)
+
+tracker.power_index = 1
+beams = []
+run_starting_time = datetime.datetime.now().isoformat()
+
+print('\n==============================')
+print('Establishing mirror tilt angle\n')
+print('{}'.format(run_starting_time))
+
+esp_301.shutter_state(0, 1)
+esp_301.shutter_state(1, 0)
+beams.append(tracker.find_beam_trajectory(args.start_point, z_samples=25))
+esp_301.shutter_state(1, 0)
+esp_301.shutter_state(0, 1)
+beams.append(tracker.find_beam_trajectory(
+  beams[0].last_sample() + [0, -5, 0],
+  scan_direction_x=-1,
+  scan_direction_z=-1,
+  z_samples=25))
+
+output = {
+  'alignment': alignment_data,
+  'beams': beams,
+  }
+
+if args.output is None:
+  args.output = itop.data_path('alignment/{}-tilt_data.gz'.format(run_starting_time))
+itop.utilities.save_object(output, args.output)
+
