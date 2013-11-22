@@ -33,10 +33,10 @@ parser.add_argument('--start', dest='start_point', nargs=3,
 
 args = parser.parse_args()
 
-profiler = itop.Profiler('/dev/ttyUSB0')
-esp_300 = itop.StageController('/dev/ttyUSB1',
+profiler = itop.Profiler('/dev/itop_profiler')
+esp_300 = itop.StageController('/dev/itop_esp-300',
     limits=[250.0, [-45.0, 190.0], 125.0])
-esp_301 = itop.StageController('/dev/ttyUSB2',
+esp_301 = itop.StageController('/dev/itop_esp-301',
     limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
 beam_monitor = itop.Photodiode('/dev/itop_lds1000')
 
@@ -78,17 +78,23 @@ mirror_step = abs(args.step_size)
 if mirror_range[1] < mirror_range[0]:
   mirror_step = -abs(args.step_size)
 
-print('Starting data run at {}.'.format(run_starting_time))
-print('===============')
-print(instrument.sample_position(
-    mirror_range[0], start_point=args.start_point))
-instrument.save_data(args.output)
-
-for mirror_position_x in np.append(
-    arange(
-        mirror_range[0] + mirror_step,
-        mirror_range[1], mirror_step),
-    mirror_range[1]):
-  print(instrument.sample_position(mirror_position_x))
+try:
+  print('Starting data run at {}.'.format(run_starting_time))
+  print('===============')
+  print(instrument.sample_position(
+      mirror_range[0], start_point=args.start_point))
   instrument.save_data(args.output)
+
+  for mirror_position_x in np.append(
+      arange(
+          mirror_range[0] + mirror_step,
+          mirror_range[1], mirror_step),
+      mirror_range[1]):
+    print(instrument.sample_position(mirror_position_x))
+    instrument.save_data(args.output)
+except itop.beam.tracker.TrackerError:
+  print('Reached end of stage travel. Exiting.')
+  instrument.save_data(args.output)
+finally:
+  sys.exit(1)
 
