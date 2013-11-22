@@ -228,7 +228,7 @@ def draw_samples(data):
   plt.savefig("samples.pdf")
   plt.show()
 
-def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
+def draw_radii(data, alignment, mirror_index, lab_index=1.000277, cut_off=None):
   """Plot the radius of the mirror as a function of beam separation distance
   in x. The radius is computed from each of the beam pairs in the given data.
   Data points must be in the form of
@@ -242,6 +242,10 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277):
   for beam, r_list in enumerate(
         radii(data, alignment, mirror_index, lab_index)):
     axes[beam].set_title('Beam {}'.format(beam), fontsize=STYLE['titlesize'])
+    if cut_off is not None:
+      r_list = [(i[0], i[1]) for i in r_list if i[0] >= cut_off]
+    print 'beam {} r={} +/- {}'.format(beam, np.mean(np.array(r_list)[:,1]),
+        np.std(np.array(r_list)[:,1]))
     axes[beam].plot(*zip(*r_list), marker='o', ls='None',
       color=BEAM_COLORS[beam], alpha=0.75)
     axes[beam].set_ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
