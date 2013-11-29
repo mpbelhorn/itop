@@ -55,7 +55,7 @@ class Alignment(object):
     tracker.devices['r_stage'].position(180, wait=True)
     tracker.facing_z_direction = 1
     start_point = [tracker.axes[0].limits.upper,
-                   tracker.axes[1].limits.lower + 9,
+                   tracker.axes[1].limits.upper - 5,
                    tracker.axes[2].limits.upper]
     z_direction = -1
     for beam_index in self.beam_indexes():
@@ -64,7 +64,7 @@ class Alignment(object):
       self.beams.append(
           tracker.find_beam_trajectory(
             start_point, -1, z_direction, z_samples=25))
-      start_point = self.beams[beam_index].last_sample() + [-30, -5, 0]
+      start_point = self.beams[beam_index].last_sample() + [-30, 0, 0]
       z_direction = -1 * z_direction
       self.displacements.append(
           self.beams[beam_index].intercept - self.beams[0].intercept)
