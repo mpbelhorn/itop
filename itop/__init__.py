@@ -58,7 +58,7 @@ def initialize_instruments():
       limits=[250.0, [-45.0, 190.0], 125.0])
   esp_301 = StageController('/dev/itop_esp-301',
       limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
-  beam_monitor = Photodiode('/dev/itop_lds1000')
+  beam_monitor = Photodiode('/dev/itop_pd0')
   rotator = esp_300.axes[1]
   tracker = Tracker(esp_301, rotator, profiler, beam_monitor)
   mirror = esp_300.axes[0]
