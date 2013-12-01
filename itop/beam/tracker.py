@@ -304,13 +304,13 @@ class Tracker(object):
       self.change_grouping(1, fast=False)
       self.position(
           self.position() + [
-            self.facing_z_direction * scan_direction_x * 10.0, 0, 0],
+            self.facing_z_direction * scan_direction_x * 18.0, 0, 0],
           wait=False)
       beam_position = self._scan_until_beam_visible(x_axis)
       if beam_position is None:
         self.position(
             self.position() + [
-              self.facing_z_direction * scan_direction_x * -20.0, 0, 0],
+              self.facing_z_direction * scan_direction_x * -36.0, 0, 0],
             wait=False)
         beam_position = self._scan_until_beam_visible(x_axis)
       beam_position = self.center_beam()

@@ -89,6 +89,8 @@ class Instrument(object):
               x_scan_direction,
               scan_direction_z=(1 if start_point[2] < 0 else -1)
               ))
+      if tracked_beams[-1] is None:
+        print('Failed to find beam {}.'.format(beam_index))
       start_point = self.tracker.position().array()
     self.data.append(DataPoint(self.mirror.position(), tracked_beams))
     return self.data[-1]
@@ -119,16 +121,16 @@ class Instrument(object):
           scan_direction = -1
       elif start_point[2] > 0:
         if first_index > last_index:
-          start_point = start_point - [25, 0, 0]
+          start_point = start_point - [35, 0, 0]
         else:
-          start_point = start_point + [25, 0, 0]
+          start_point = start_point + [35, 0, 0]
           scan_direction = -1
       else:
         if first_index > last_index:
-          start_point = start_point + [25, 0, 0]
+          start_point = start_point + [35, 0, 0]
           scan_direction = -1
         else:
-          start_point = start_point - [25, 0, 0]
+          start_point = start_point - [35, 0, 0]
     else:
       start_point = [self.tracker.axes[0].limits.lower,
                      self.tracker.axes[1].limits.lower,
@@ -151,7 +153,6 @@ class Instrument(object):
     return next(
         (i for i, j in enumerate(self._beams_in_range(mirror_position)) if j),
         None)
-
   def _last_beam_samples(self):
     """Return a generator of the last beam sample for each beam. None is used
     if a beam was not visible in the last sampling.
