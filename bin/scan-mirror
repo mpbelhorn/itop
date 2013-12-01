@@ -70,13 +70,19 @@ run_starting_time = datetime.datetime.now().isoformat()
 if args.output is None:
   args.output = itop.data_path('runs/{}-data.gz'.format(run_starting_time))
 
-if not args.tilted:
-  mirror_range = instrument.alignment.mirror_limits(args.input_range)
-else:
-  mirror_range = [-i for i in args.input_range]
+#if not args.tilted:
+#  mirror_range = instrument.alignment.mirror_limits(args.input_range)
+#else:
+mirror_range = [-i for i in args.input_range]
 mirror_step = abs(args.step_size)
 if mirror_range[1] < mirror_range[0]:
   mirror_step = -abs(args.step_size)
+
+print(mirror_range)
+print(np.append(arange(
+          mirror_range[0] + mirror_step,
+          mirror_range[1], mirror_step),
+      mirror_range[1]))
 
 try:
   print('Starting data run at {}.'.format(run_starting_time))
@@ -93,8 +99,9 @@ try:
     print(instrument.sample_position(mirror_position_x))
     instrument.save_data(args.output)
 except itop.beam.tracker.TrackerError:
-  print('Reached end of stage travel. Exiting.')
+  print('Reached end of stage travel.')
   instrument.save_data(args.output)
 finally:
+  print('Exiting.')
   sys.exit(1)
 
