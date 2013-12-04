@@ -404,7 +404,7 @@ def simulate_data(
   mirror = ItopMirror(**mirror_parameters)
   # Move the mirror to the mirror calibration point in the tracker
   # frame (tracker_cal - mirror_cal)
-  mirror.translate(array([125, 0, -125]) - array(calibration))
+  mirror.translate(array(calibration))
   mirror.translate([start - step, mirror_height, 0])
   for mirror_stage_position in np.arange(start, stop, step):
     # For a given mirror position, the mirror stage is translated in the
