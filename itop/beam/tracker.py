@@ -117,7 +117,7 @@ class Tracker(object):
       self.axes[2].deceleration(ils_configuration['deceleration'])
       self.group_state = 1
 
-  def rotate(angle, wait=False):
+  def rotate(self, angle, wait=False):
     """Rotate the profiler to the given angle and set any z-environment
     flags.
 
