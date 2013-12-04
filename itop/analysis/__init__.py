@@ -52,11 +52,14 @@ def focii(data, alignment):
         for beam_2_id, beam_2 in enumerate(data_2.beams):
           if beam_2 is None:
             continue
-          if beam_1_id == beam_2_id and item_2 > item_1:
+          if ((beam_1_id == beam_2_id) and
+              (item_2 > item_1) and
+              (abs(d1_inputs[beam_1_id][1] - d2_inputs[beam_2_id][1]) < 1.0)):
             tan_focii['{}{}'.format(beam_1_id, beam_2_id)].append(
                 ([d1_inputs[beam_1_id], d2_inputs[beam_2_id]],
                  focus(beam_1, beam_2, plane='T')))
-          elif beam_2_id > beam_1_id:
+          elif ((beam_2_id > beam_1_id) and
+                (abs(d1_inputs[beam_1_id][1] - d2_inputs[beam_2_id][1]) > 2.0)):
             sag_focii['{}{}'.format(beam_1_id, beam_2_id)].append(
                 ([d1_inputs[beam_1_id], d2_inputs[beam_2_id]],
                  focus(beam_1, beam_2, plane='S')))
