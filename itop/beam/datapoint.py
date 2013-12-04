@@ -26,7 +26,7 @@ class DataPoint(object):
 
   def realign(self, alignment):
     """Applies an alignment to the data point trajectories."""
-    offset = alignment.calibration.displacement() - [self.mirror_position, 0, 0]
+    offset = alignment.calibration.displacement() - self.mirror_position
     matrix = rotation_matrix(-alignment.beams[0].direction)
     new_beams = []
     for beam in self.beams:

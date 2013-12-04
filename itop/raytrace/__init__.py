@@ -419,5 +419,8 @@ def simulate_data(
     for z_coordinate in np.arange(-95, 125, 220/5).tolist() + [125]:
       beam_a.add_sample(simulated_beam_a.ray().sample(z_coordinate))
       beam_b.add_sample(simulated_beam_b.ray().sample(z_coordinate))
-    data.append(DataPoint(mirror_stage_position, [beam_a, beam_b]))
+    data.append(
+        DataPoint(
+            [mirror_stage_position, mirror_height, 0],
+            [beam_a, beam_b]))
   return data

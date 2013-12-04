@@ -63,7 +63,7 @@ def initialize_instruments():
   tracker = Tracker(esp_301, rotator, profiler, beam_monitor)
   mirror = esp_300.axes[0]
   instrument = Instrument(
-      tracker, mirror, os.path.join(_ROOT, 'data/alignment/test.gz'))
+      tracker, mirror, os.path.join(_ROOT, 'data/alignment/test.gz'), 0.0)
   return (
       profiler,
       esp_300,

@@ -42,9 +42,9 @@ def focii(data, alignment):
         tan_focii['{}{}'.format(i, j)] = []
 
   for item_1, data_1 in enumerate(data):
-    d1_inputs = alignment.input_positions([data_1.mirror_position, 0, 0])
+    d1_inputs = alignment.input_positions(data_1.mirror_position)
     for item_2, data_2 in enumerate(data[item_1:]):
-      d2_inputs = alignment.input_positions([data_2.mirror_position, 0, 0])
+      d2_inputs = alignment.input_positions(data_2.mirror_position)
       item_2 = item_2 + item_1
       for beam_1_id, beam_1 in enumerate(data_1.beams):
         if beam_1 is None:
@@ -110,9 +110,9 @@ def radii(data, alignment, mirror_index, lab_index=1.000277):
   beam_indexes = range(len(data[0].beams))
   mirror_radii = [[] for i in beam_indexes]
   for item_1, data_1 in enumerate(data[:-1]):
-    input_1 = alignment.input_positions([data_1.mirror_position, 0, 0])
+    input_1 = alignment.input_positions(data_1.mirror_position)
     for data_2 in data[item_1 + 1:]:
-      input_2 = alignment.input_positions([data_2.mirror_position, 0, 0])
+      input_2 = alignment.input_positions(data_2.mirror_position)
       for beam_id in beam_indexes:
         if all([d.beams[beam_id] is not None for d in (data_1, data_2)]):
           mirror_radii[beam_id].append(
@@ -271,7 +271,7 @@ def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277, mirror_n
     reflectivities[index] = {'i':[], 'r':[], 'e':[]}
   for sample in data:
     input_positions = alignment.input_positions(
-        [sample.mirror_position, 0, 0])
+        sample.mirror_position)
     for beam_index, reflected_beam in enumerate(sample.beams):
       if reflected_beam is None:
         continue

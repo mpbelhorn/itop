@@ -17,6 +17,8 @@ parser.add_argument('--inputs', dest='input_range', nargs=2,
     help='Specify beam input positions in mm.')
 parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
     default=5.0, help='Specify mirror sampling step size in mm')
+parser.add_argument('--height', metavar='HEIGHT', dest='input_y', type=float,
+    default=0.0, help='Specify beam 0 input height (Jack DI) in mm')
 parser.add_argument('--output', metavar='PATH', type=str,
     help='Path to output gz data file')
 parser.add_argument('--home', action='store_true', default=False,
@@ -64,7 +66,7 @@ if args.align or args.tilted:
   itop.utilities.save_object(alignment_data, alignment_path)
 
 instrument = itop.Instrument(tracker, mirror_stage, alignment_path,
-    tilted=args.tilted)
+    args.input_y, tilted=args.tilted)
 run_starting_time = datetime.datetime.now().isoformat()
 
 if args.output is None:
