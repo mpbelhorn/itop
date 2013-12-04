@@ -52,8 +52,7 @@ class Alignment(object):
     tracker.devices['r_stage'].power_on()
     if home:
       tracker.devices['r_stage'].go_to_home(wait=True)
-    tracker.devices['r_stage'].position(180, wait=True)
-    tracker.facing_z_direction = 1
+    tracker.rotate(180, wait=True)
     start_point = [tracker.axes[0].limits.upper,
                    tracker.axes[1].limits.upper - 5,
                    tracker.axes[2].limits.upper]
@@ -68,8 +67,7 @@ class Alignment(object):
       z_direction = -1 * z_direction
       self.displacements.append(
           self.beams[beam_index].intercept - self.beams[0].intercept)
-    tracker.devices['r_stage'].position(0, wait=True)
-    tracker.facing_z_direction = -1
+    tracker.rotate(0, wait=True)
     if tilted:
       self._measure_tilt(tracker, mirror)
     self.date = datetime.datetime.now().isoformat()

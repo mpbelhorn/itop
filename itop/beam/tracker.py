@@ -117,6 +117,16 @@ class Tracker(object):
       self.axes[2].deceleration(ils_configuration['deceleration'])
       self.group_state = 1
 
+  def rotate(angle, wait=False):
+    """Rotate the profiler to the given angle and set any z-environment
+    flags.
+
+    """
+    self.devices['r_stage'].position(angle, wait)
+    facing_z_direction = sys_math.copysign(
+            1.0, sys_math.cos(sys_math.radians(angle)))
+
+
   def position(self, xyz_coordinates=None, wait=False):
     """Returns the stage position of the stage. If passed a set of coordinates,
     also moves stage to that position.
@@ -376,11 +386,11 @@ class Tracker(object):
         pass
     beam_angle = sys_math.degrees(sys_math.asin(beam.azimuth().value))
     stage_angle = self.devices['r_stage'].position()
-    self.devices['r_stage'].position(stage_angle - beam_angle, wait=True)
+    self.rotate(stage_angle - beam_angle, wait=True)
     self.center_beam()
     beam.power = (
         self.devices['profiler'].average_power(),
         self.devices['monitor'].read())
-    self.devices['r_stage'].position(stage_angle, wait=True)
+    self.rotate(stage_angle, wait=True)
     return beam
 
