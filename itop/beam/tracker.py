@@ -124,7 +124,7 @@ class Tracker(object):
     """
     self.devices['r_stage'].position(angle, wait)
     self.facing_z_direction = sys_math.copysign(
-            1.0, sys_math.cos(sys_math.radians(angle)))
+            1.0, -sys_math.cos(sys_math.radians(angle)))
 
 
   def position(self, xyz_coordinates=None, wait=False):
