@@ -76,7 +76,7 @@ class StageConfiguration(object):
     self.stage.home_position(self.parameters['home_position'])
 
 
-class Limits:
+class Limits(object):
   """A class to represent the limits of motion of a stage.
 
   """
