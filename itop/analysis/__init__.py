@@ -127,17 +127,25 @@ def radii(data, alignment, mirror_index, lab_index=1.000277):
 
 def _reflectance(
     power_in, power_out, theta_in, theta_out, index_in, index_out):
+  """Return reflectence corrected for refraction into and out off the mirror
+  substrate.
+  """
   trans_in = fresnel_coefficients(theta_in, index_out, index_in)['T']
   trans_out = fresnel_coefficients(theta_out, index_in, index_out)['T']
   return power_out / (power_in * trans_in * trans_out)
 
 def _normalize_power(power):
+  """Return the ratio of CCD to Photodiode power measurements."""
   return power[0] / power[1]
 
 def _incidence_angle_beam(beam, normal):
+  """Return the incidence angle of given itop.beam.beam object with the given
+  surface normal."""
   return sys_math.acos((beam.direction).dot(normal))
 
 def _incidence_angle_ray(ray, normal):
+  """Return the incidence angle of given itop.raytrace.ray object with the
+  given surface normal."""
   return sys_math.acos(ray.dot(normal))
 
 def reflectance(
