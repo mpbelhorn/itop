@@ -128,11 +128,28 @@ class Alignment(object):
     True input positions will be different due to any beam aparallelism
     and z-distance to the mirror.
     """
-    inputs = []
-    primary_input = self.calibration.primary_input()
-    for displacement in self.displacements:
-      inputs.append(primary_input + displacement)
-    return inputs
+    # TODO - Scale B_n (n > 0) for parallelism.
+    # NOTE - Intercept is rounded to femtometer precision to clip z
+    #        coordinate to machine 0.
+    return [
+        (b.intercept - self._beam_height()).round(12) for b in self.beams]
+
+  def calibration_mirror_stage(self):
+    """Return the mirror stage position that places B0 in surface S3.
+    """
+    return (self.beams[0].intercept[0].value -
+            Calibration.EXTENTS['mirror'][0][1])
+
+  def _beam_height(self):
+    """Return the height of beam 0 in the tracker frame as a 3D list.
+    """
+    return [0, self.beams[0].intercept[1], 0]
+
+  def tracker_origin(self):
+    """Return the position of the tracker origin in the mirror frame
+    when the mirror is in its home position.
+    """
+    return self.calibration.displacement() - Vector(self._beam_height())
 
   def parallelism(self):
     """Return a list of angles of each beam with respect to the primary beam."""
@@ -211,16 +228,12 @@ class Calibration(object):
 
   """
   DISPLACEMENT_CONSTANTS = {
-      'calibration_mirror':   Vector([-120.000, 0.000,    0.000], 0.0005),
-      'calibration_tracker':  Vector([-125.000, 0.000,   95.000], 0.0005),
-      'registration_mirror':  Vector([ 225.000, 0.000,    0.000], 0.001),
-      'registration_tracker': Vector([ -32.004, 0.000,    6.600], 0.01),
-      'reference_tracker':    Vector([  -4.026, 0.000,  -10.250], 0.01),
-      'reference_delta':      Vector([   0.000, 0.000, 1447.000], 0.8),
+      'z_targets': Vector([0.000, 0.000, 1000.000], 0.0005),
       }
 
   DISPLACEMENT_VARIABLES = {
-      'reference_mirror':Vector([33.220, 0.000, 10.832], 0.01),
+      'z_tracker': Vector([0.000, 0.000, 250.000], 0.0005),
+      'z_mirror':  Vector([0.000, 0.000, 250.000], 0.0005),
       }
 
   EXTENTS = {
@@ -255,19 +268,9 @@ class Calibration(object):
   def displacement(self):
     """Return the vector displacement of the tracker origin from the mirror
     optical axis at the mirror stage system origin."""
-    output = Vector([0, 0, 0])
-    for key, item in self.data.iteritems():
-      if any(key in section for section in (
-          Calibration.DISPLACEMENT_CONSTANTS,
-          Calibration.DISPLACEMENT_VARIABLES)):
-        output = output + item
-    return output
-
-  def primary_input(self):
-    """Return the input position of the primary beam when the mirror stage
-    is at position (0, 0).
-    """
-    return self.data['calibration_mirror'] + self.data['registration_mirror']
+    return (self.data['z_mirror'] +
+            self.data['z_targets'] +
+            self.data['z_tracker'])
 
   def save(self, path):
     """Save the calibration data to the given path."""
