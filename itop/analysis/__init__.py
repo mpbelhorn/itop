@@ -150,16 +150,16 @@ def _incidence_angle_ray(ray, normal):
 
 def reflectance(
     reflected_beam, original_beam, alignment,
-    mirror_index, lab_index=1.000277, mirror_normal=None):
+    mirror_index, lab_index=1.000277, normal_vector=None):
   """Return the reflectance of the mirror at the given input position
   given the reflected beam, the original beam, and the refractive
   indexes."""
-  if mirror_normal is None:
-    mirror_normal = alignment.mirror_normal
-  input_angle = _incidence_angle_beam(original_beam, mirror_normal)
+  if normal_vector is None:
+    normal_vector = alignment.mirror_normal
+  input_angle = _incidence_angle_beam(original_beam, normal_vector)
   output_angle = _incidence_angle_ray(
-      reflected_beam.refract(mirror_normal, lab_index, mirror_index),
-      mirror_normal)
+      reflected_beam.refract(normal_vector, lab_index, mirror_index),
+      normal_vector)
   power_in = _normalize_power(original_beam.power)
   power_out = _normalize_power(reflected_beam.power)
   return _reflectance(
@@ -255,8 +255,8 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277, cut_off=None):
     axes[beam].set_title('Beam {}'.format(beam), fontsize=STYLE['titlesize'])
     if cut_off is not None:
       r_list = [(i[0], i[1]) for i in r_list if i[0] >= cut_off]
-    print 'beam {} r={} +/- {}'.format(beam, np.mean(np.array(r_list)[:,1]),
-        np.std(np.array(r_list)[:,1]))
+    print 'beam {} r={} +/- {}'.format(beam, np.mean(np.array(r_list)[:, 1]),
+        np.std(np.array(r_list)[:, 1]))
     axes[beam].plot(*zip(*r_list), marker='o', ls='None',
       color=BEAM_COLORS[beam], alpha=0.75)
     axes[beam].set_ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
@@ -268,7 +268,8 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277, cut_off=None):
   plt.savefig("radii.pdf")
   plt.show()
 
-def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277, mirror_normal=None):
+def draw_reflectance(data, alignment, mirror_index,
+    lab_index=1.000277, normal_vector=None):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
@@ -288,7 +289,7 @@ def draw_reflectance(data, alignment, mirror_index, lab_index=1.000277, mirror_n
         continue
       r_value, r_error = reflectance(
           reflected_beam, calibrated_input_beams[beam_index],
-          alignment, mirror_index, lab_index, mirror_normal)
+          alignment, mirror_index, lab_index, normal_vector)
       reflectivities[beam_index]['i'].append(input_positions[beam_index][0])
       reflectivities[beam_index]['r'].append(r_value)
       reflectivities[beam_index]['e'].append(max(r_error))
