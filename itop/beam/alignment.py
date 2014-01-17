@@ -228,12 +228,12 @@ class Calibration(object):
 
   """
   DISPLACEMENT_CONSTANTS = {
-      'z_targets': Vector([0.000, 0.000, 1000.000], 0.0005),
+      'z_targets': Vector([0.000, 0.000, 709.500], 0.5),
       }
 
   DISPLACEMENT_VARIABLES = {
-      'z_tracker': Vector([0.000, 0.000, 250.000], 0.0005),
-      'z_mirror':  Vector([0.000, 0.000, 250.000], 0.0005),
+      'z_tracker': Vector([0.000, 0.000, 671.820], 0.05),
+      'z_mirror':  Vector([0.000, 0.000, 485.838], 0.05),
       }
 
   EXTENTS = {
