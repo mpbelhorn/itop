@@ -24,6 +24,7 @@ from itop import math
 from itop import utilities
 from itop import motioncontrol
 from itop import beam
+from itop import prism
 from itop import photodiode
 from itop import analysis
 
@@ -53,22 +54,23 @@ def initialize_instruments():
   M. Belhorn's development machine. This function SHOULD NOT BE USED
   for production code. It is intended SOLELY FOR DEBUGGING PURPOSES!
   """
-  profiler = Profiler('/dev/itop_profiler')
-  esp_300 = StageController('/dev/itop_esp-300',
+  profiler = Profiler('/dev/ttyUSB4')
+  esp_300 = StageController('/dev/ttyUSB2',
       limits=[250.0, [-45.0, 190.0], 125.0])
-  esp_301 = StageController('/dev/itop_esp-301',
-      limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
-  beam_monitor = Photodiode('/dev/itop_pd0')
+  esp_301 = StageController('/dev/ttyUSB3',
+      limits=[125.0, [0.0, 50.0], [-95.0, 125.0]])
+  beam_monitor = Photodiode('/dev/ttyUSB1')
   rotator = esp_300.axes[1]
   tracker = Tracker(esp_301, rotator, profiler, beam_monitor)
   mirror = esp_300.axes[0]
-  instrument = Instrument(
-      tracker, mirror, os.path.join(_ROOT, 'data/alignment/test.gz'), 0.0)
+  #instrument = Instrument(
+  #    tracker, mirror, os.path.join(_ROOT, 'data/alignment/test.gz'), 0.0)
   return (
       profiler,
       esp_300,
       esp_301,
       tracker,
-      instrument)
+      # instrument
+      )
 
 
