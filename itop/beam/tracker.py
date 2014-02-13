@@ -54,8 +54,7 @@ class Tracker(object):
     Optional keyword arguments:
       'xyz_axes' ([1,2,3]): Sets the axis-dimension map in the order [x,y,z].
       'alignment' (None): Set an external alignment configuration.
-      'facing_z_direction' (-1): Direction camera is facing in z. Must be ±1.
-
+      'reference_azimuth' (180): Rotation stage angle of +z direction.
     """
     self.devices = {
         'driver':driver,
@@ -68,13 +67,23 @@ class Tracker(object):
                  driver.axes[xyz_axes[1] - 1],
                  driver.axes[xyz_axes[2] - 1])
     self.group_state = 1 # 1=axes independent, 2=xz grouped, 3=xyz grouped
-    self.facing_z_direction = kwargs.pop('facing_z_direction', -1)
+    self._reference_azimuth = kwargs.pop('reference_azimuth', 180.0)
+    self._z_cosine = self._find_z_cosine(self.devices['r_stage'].position())
     self.power_index = None
 
     # Optional instance variables.
     self.group_id = kwargs.pop('group_id', 1)
 
     self.change_grouping(1, fast=True)
+
+  def _find_z_cosine(self, angle=None):
+    """Return the sign of the z-axis direction cosine for the current
+    CCD orientation.
+    """
+    if angle is None:
+      angle = self.devices['r_stage'].position().value
+    return sys_math.copysign(
+        1.0, sys_math.cos(sys_math.radians(angle - self._reference_azimuth)))
 
 
   def change_grouping(self, state=1, fast=False):
@@ -123,8 +132,7 @@ class Tracker(object):
 
     """
     self.devices['r_stage'].position(angle, wait)
-    self.facing_z_direction = sys_math.copysign(
-            1.0, -sys_math.cos(sys_math.radians(angle)))
+    self._z_cosine = self._find_z_cosine(angle)
 
 
   def position(self, xyz_coordinates=None, wait=False):
@@ -188,7 +196,7 @@ class Tracker(object):
       if profile is None:
         return None
       profiles.append(profile)
-    centroids = [(-1 * self.facing_z_direction * i['centroid_x'],
+    centroids = [(-1 * self._z_cosine * i['centroid_x'],
                  i['centroid_y'], 0.0) for i in profiles]
     centroid = mean(zip(*centroids), 1)
     error = [std(zip(*centroids), 1)] if samples > 1 else 0.030
@@ -314,21 +322,25 @@ class Tracker(object):
       self.change_grouping(1, fast=False)
       self.position(
           self.position() + [
-            self.facing_z_direction * scan_direction_x * 18.0, 0, 0],
+            self._z_cosine * scan_direction_x * 18.0, 0, 0],
           wait=False)
       beam_position = self._scan_until_beam_visible(x_axis)
       if beam_position is None:
         self.position(
             self.position() + [
-              self.facing_z_direction * scan_direction_x * -36.0, 0, 0],
+              self._z_cosine * scan_direction_x * -36.0, 0, 0],
             wait=False)
         beam_position = self._scan_until_beam_visible(x_axis)
       beam_position = self.center_beam()
     # Return position or None, whatever it may be.
     return beam_position
 
-  def find_beam_trajectory(self, start_point=None,
-      scan_direction_x=1, scan_direction_z=1, z_samples=5):
+  def find_beam_trajectory(self,
+      start_point=None,
+      scan_direction_x=1,
+      scan_direction_z=1,
+      z_samples=5,
+      measure_power=False):
     """Find trajectory of single beam.
 
     The optional arguments are:
@@ -337,6 +349,7 @@ class Tracker(object):
       scan_direction_z (1): Integers +1 (-1) indicate to scan in the
                             positive (negative) z direction.
       z_samples (5): Number of points to sample the beam.
+      measure_power (False): Include power with beam data.
 
     """
     beam = Beam()
@@ -376,21 +389,27 @@ class Tracker(object):
     beam.add_sample(intercept)
     if sample_positions[0] == intercept[2]:
       sample_positions.pop(0)
-    for z_sample in sample_positions:
-      self.position(beam.position(z_sample), wait=True)
-      intercept = self.center_beam()
-      if intercept is not None:
-        beam.add_sample(intercept)
-      else:
-        # Cross this bridge when we get there.
-        pass
-    beam_angle = sys_math.degrees(sys_math.asin(beam.azimuth().value))
-    stage_angle = self.devices['r_stage'].position()
-    self.rotate(stage_angle - beam_angle, wait=True)
-    self.center_beam()
-    beam.power = (
-        self.devices['profiler'].average_power(),
-        self.devices['monitor'].read())
-    self.rotate(stage_angle, wait=True)
+    try:
+      for z_sample in sample_positions:
+        self.position(beam.position(z_sample), wait=True)
+        intercept = self.center_beam()
+        if intercept is not None:
+          beam.add_sample(intercept)
+        else:
+          # Cross this bridge when we get there.
+          pass
+    except TrackerError:
+      if len(beam.samples) < 2:
+        raise
+    beam.power = (0,0)
+    if measure_power:
+      beam_angle = sys_math.degrees(sys_math.asin(beam.azimuth().value))
+      stage_angle = self.devices['r_stage'].position()
+      self.rotate(stage_angle - beam_angle, wait=True)
+      self.center_beam()
+      beam.power = (
+          self.devices['profiler'].average_power(),
+          self.devices['monitor'].read())
+      self.rotate(stage_angle, wait=True)
     return beam
 
