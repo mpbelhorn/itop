@@ -1,9 +1,10 @@
 *.py[cod]
 
-itop/data/*
-
 # C extensions
 *.so
+
+itop/data/*
+!itop/data/alignment/latest.cfg
 
 # Packages
 *.egg
