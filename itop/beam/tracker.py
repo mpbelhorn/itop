@@ -68,7 +68,7 @@ class Tracker(object):
                  driver.axes[xyz_axes[2] - 1])
     self.group_state = 1 # 1=axes independent, 2=xz grouped, 3=xyz grouped
     self._reference_azimuth = kwargs.pop('reference_azimuth', 180.0)
-    self._z_cosine = self._find_z_cosine(self.reference_azimuth)
+    self._z_cosine = self._find_z_cosine(self.devices['r_stage'].position())
     self.power_index = None
 
     # Optional instance variables.
@@ -83,7 +83,7 @@ class Tracker(object):
     if angle is None:
       angle = self.devices['r_stage'].position().value
     return sys_math.copysign(
-        1.0, -sys_math.cos(sys_math.radians(angle - self.reference_azimuth)))
+        1.0, sys_math.cos(sys_math.radians(angle - self._reference_azimuth)))
 
 
   def change_grouping(self, state=1, fast=False):
