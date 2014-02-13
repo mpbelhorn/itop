@@ -55,9 +55,9 @@ def initialize_instruments():
   for production code. It is intended SOLELY FOR DEBUGGING PURPOSES!
   """
   profiler = Profiler('/dev/ttyUSB4')
-  esp_300 = StageController('/dev/ttyUSB2',
+  esp_300 = StageController('/dev/ttyUSB0',
       limits=[250.0, [-45.0, 190.0], 125.0])
-  esp_301 = StageController('/dev/ttyUSB3',
+  esp_301 = StageController('/dev/ttyUSB2',
       limits=[125.0, [0.0, 50.0], [-95.0, 125.0]])
   beam_monitor = Photodiode('/dev/ttyUSB1')
   rotator = esp_300.axes[1]
