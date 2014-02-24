@@ -103,7 +103,8 @@ try:
 except itop.beam.tracker.TrackerError:
   print('Reached end of stage travel.')
   instrument.save_data(args.output)
+  sys.exit(1)
 finally:
   print('Exiting.')
-  sys.exit(1)
+  sys.exit(0)
 
