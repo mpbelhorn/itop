@@ -14,7 +14,7 @@ import math
 
 parser = argparse.ArgumentParser(description='===Prism Angle Measurement===')
 parser.add_argument('--inputs', dest='input_range', nargs=2,
-    metavar=('FIRST', 'LAST'), type=float, default=[-40, 125],
+    metavar=('FIRST', 'LAST'), type=float, default=[5, 440],
     help='Specify beam input positions in mm.')
 parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
     default=10.0, help='Specify prism sampling step size in mm')
@@ -59,6 +59,8 @@ if not os.path.exists(os.path.dirname(output_path)):
       os.makedirs(os.path.dirname(output_path))
 
 # First take data when the beam is not through the prism.
+# Set power level above autocollimator beam.
+profiler.set_power_levels(35)
 print('\nFinding undeflected beam trajectory.')
 prism_stage.position(-125, wait=True)
 tracker.position(args.start_point, wait=True)
@@ -70,7 +72,9 @@ except KeyboardInterrupt:
   sys.exit(1)
 data = [(0, 0, b0)]
 
-# TODO: Find the prism edge.
+# Set power level back to beam 0 level.
+profiler.set_power_levels(profiler.profile()['power'])
+
 def find_edge(v=25, l=0.5):
   prism_stage.velocity(25)
   current_pos = prism_stage.position()
