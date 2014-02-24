@@ -9,9 +9,11 @@ from itop.math import Vector
 import math as sys_math
 
 def levi_civita_epsilon(vector):
-  if vector in [[1,2,3], [3,1,2], [2,3,1]]:
+  """Return the permutation Levi-Civita permutation coefficient for the
+  given 3-list or indexes (1, 2, 3)."""
+  if vector in [[1, 2, 3], [3, 1, 2], [2, 3, 1]]:
     return 1
-  elif vector in [[1,3,2], [3,2,1], [2,1,3]]:
+  elif vector in [[1, 3, 2], [3, 2, 1], [2, 1, 3]]:
     return -1
   else:
     return 0
@@ -410,7 +412,7 @@ class Tracker(object):
     except TrackerError:
       if len(beam.samples) < 2:
         raise
-    beam.power = (0,0)
+    beam.power = (0, 0)
     if measure_power:
       beam_angle = sys_math.degrees(sys_math.asin(beam.azimuth().value))
       stage_angle = self.devices['r_stage'].position()
