@@ -1,0 +1,104 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+import argparse
+import numpy as np
+from numpy import arange
+import datetime
+import itop
+import os
+import cPickle as pickle
+import sys
+import zlib
+import math
+
+parser = argparse.ArgumentParser(description='===Prism Angle Measurement===')
+parser.add_argument('--inputs', dest='input_range', nargs=2,
+    metavar=('FIRST', 'LAST'), type=float, default=[-40, 125],
+    help='Specify beam input positions in mm.')
+parser.add_argument('--step', metavar='SIZE', dest='step_size', type=float,
+    default=10.0, help='Specify prism sampling step size in mm')
+parser.add_argument('--home', action='store_true', default=False,
+    help='Home the stages before taking data')
+parser.add_argument('--serial', default='unsorted',
+    help='Specify the name of the optic for data storage')
+parser.add_argument('--samples', type=int, default=50,
+    help='The number of beam samples per trajectory.')
+parser.add_argument('--start', dest='start_point', nargs=3,
+    metavar=('X', 'Y', 'Z'), type=float, default=[10,18,125],
+    help='Start first scan at position [X,Y,Z].')
+
+
+args = parser.parse_args()
+
+# Initialize all the devices, necessary for prism angle measurement.
+
+profiler, esp_300, esp_301, beam_monitor, transmittance_monitor = itop.instrumentation()
+
+# Home the stages before taking any measurement.
+if args.home:
+  esp_300.home()
+  esp_301.home()
+
+# Defining the prism and rotation axes.
+prism_stage  = esp_300.axes[2]
+profiler_rotation_stage = esp_300.axes[1]
+
+# Initialize the beam tracker.
+tracker = itop.Tracker(esp_301, profiler_rotation_stage,
+    profiler, beam_monitor, xyz_axes=[3,2,1], reference_azimuth=90)
+
+prism_stage.power_on()
+# Prisms are nominally at a position of 90 degrees w.r.t. the tracker.
+tracker.rotate(90)
+
+run_starting_time = datetime.datetime.now().isoformat()
+output_path = itop.data_path('prism/{optic}/{scan}-data.gz'.format(
+    optic=args.serial, scan=run_starting_time))
+if not os.path.exists(os.path.dirname(output_path)):
+      os.makedirs(os.path.dirname(output_path))
+
+# First take data when the beam is not through the prism.
+print('\nFinding undeflected beam trajectory.')
+prism_stage.position(-100, wait=True) #absolute position around -80
+tracker.position([10, 46, 125], wait=True) #within 10cm window
+try:
+  b0 = tracker.find_beam_trajectory(
+      scan_direction_z=-1, z_samples=args.samples)
+except KeyboardInterrupt:
+  print('\nAborting.')
+  sys.exit(1)
+data = [(0, 0, b0)]
+
+# TODO: Find the prism edge.
+
+# Now take data with the prism in the beam path for the prism at several
+#     x positions.
+prism_range = [i for i in args.input_range]
+prism_step = abs(args.step_size)
+if prism_range[1] < prism_range[0]:
+  prism_step = -abs(args.step_size)
+scan_positions = np.append(
+    arange(
+        prism_range[0] + prism_step,
+        prism_range[1], prism_step),
+    prism_range[1])
+print('Sampling positions', scan_positions)
+
+
+try:
+  for prism_position_x in scan_positions:
+    prism_stage.position(prism_position_x, wait=True)
+    tracker.position(args.start_point, wait=True)
+    b1 = tracker.find_beam_trajectory(
+        scan_direction_z=-1, z_samples=args.samples)
+    theta = itop.prism.angle_from_beams(b0, b1)
+    data.append((prism_position_x, theta, b1))
+    print(prism_position_x, theta)
+    itop.utilities.save_object(data, output_path)
+except KeyboardInterrupt:
+  print('\nAborting.')
+  sys.exit(1)
+finally:
+  sys.exit(0)
+
