@@ -8,6 +8,66 @@ from numpy import array, linalg, dot, sqrt
 from itop.math import Vector
 from itop.math.linalg import normalize
 
+def sellmeier(
+    wavelength,
+    b_list=None,
+    c_list=None):
+  """Return the index of refraction for a beam of given wavelength in
+  micrometers in the material with the given Sellmeier dispertion
+  coefficients.
+
+  If no coefficient lists are passed, the material is assumed
+  to be Corning 7980."""
+
+  if not (b_list and c_list):
+    b_list = [
+        0.68374049400,
+        0.42032361300,
+        0.58502748000]
+    c_list = [
+        0.00460352869,
+        0.01339688560,
+        64.49327320000]
+  return sqrt(
+      sum([(b * wavelength**2) / (wavelength**2 - c)
+          for b, c in zip(*[b_list, c_list])]
+      ) + 1)
+
+def temperature_dispersion(
+    wavelength,
+    ambient_t,
+    reference_t=None,
+    c_list=None):
+  """Return the correction to the index of refraction for a beam of
+  given wavelength in micrometers through a material at the given ambient
+  temperature (in C).
+
+  An optional reference temperature and coefficient list can be passed.
+  If no coefficient list is given, the material is assumed to be
+  Corning 7980."""
+  if not (c_list and reference_t):
+    c_list = [9.390590,
+              0.235290,
+              -1.318560e-3,
+              3.028870e-4]
+    reference_t = 22.0
+
+  dn_per_dt = (
+      c_list[0] +
+      c_list[1] * wavelength**(-2) +
+      c_list[2] * wavelength**(-4) +
+      c_list[3] * wavelength**(-6))
+  return dn_per_dt * (ambient_t - reference_t) / 10**6
+
+def index_quartz(wavelength=532, ambient_t=23.3):
+  """Return the wavelength and temperature dispersion corrected
+  index of refraction for Corning 7980. Wavelength is given in nanometers
+  and temperature is given in degrees celsius.
+
+  The UC iTOP laboratory default values are 532nm  and 23.3C (74F).
+  """
+  return sellmeier(wavelength) + temperature_dispersion(wavelength, ambient_t)
+
 def refract(ray, normal, origin_index, final_index):
   """Returns the normalized direction of a given ray (normalized or not) after
   refraction through a boundary between two media with given normal vector and

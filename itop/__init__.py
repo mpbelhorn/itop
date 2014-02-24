@@ -21,6 +21,10 @@ Using any of these subpackages requires an explicit import.
 """
 
 from itop import math
+
+N_HPFS = math.optics.index_quartz()
+N_AIR = 1.000277
+
 from itop import utilities
 from itop import motioncontrol
 from itop import beam
@@ -42,6 +46,7 @@ def data_path(path):
 
   """
   return os.path.join(_ROOT, 'data', path)
+
 
 
 #####################################################################
@@ -81,8 +86,8 @@ def initialize_instruments():
   beam_monitor = Photodiode('/dev/ttyUSB0')
   rotator = esp_300.axes[1]
   tracker = Tracker(esp_301, rotator, profiler, beam_monitor)
-  mirror = esp_300.axes[0]
-  #instrument = Instrument(
+  # mirror = esp_300.axes[0]
+  # instrument = Instrument(
   #    tracker, mirror, os.path.join(_ROOT, 'data/alignment/test.gz'), 0.0)
   return (
       profiler,

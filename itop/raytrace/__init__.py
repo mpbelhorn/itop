@@ -3,6 +3,7 @@ import abc
 import numpy as np
 from math import sqrt
 from numpy import array, dot
+from itop import N_HPFS, N_AIR
 from itop.math.linalg import normalize, rotation_matrix_arrays
 from itop.math.linalg import rotation_matrix_euler as rotation_matrix
 from itop.beam.alignment import Alignment as DataAlignment
@@ -226,7 +227,7 @@ class SphericalSurface(_Surface):
 
 class _OpticalElement(object):
   """Base class for optical elements."""
-  def __init__(self, name=None, index=1.000277):
+  def __init__(self, name=None, index=N_AIR):
     self._name = name
     self.index = index
     self._bounds = []
@@ -264,11 +265,11 @@ class _OpticalElement(object):
 class Air(_OpticalElement):
   """The labratory air."""
   def __init__(self):
-    _OpticalElement.__init__(self, 'air', 1.000277)
+    _OpticalElement.__init__(self, 'air', N_AIR)
 
 class ItopMirror(_OpticalElement):
   """A model of a production itop mirror."""
-  def __init__(self, radius, dimensions, index=1.4608):
+  def __init__(self, radius, dimensions, index=N_HPFS):
     """Construct an itop mirror. Be default, the mirror is located with front
     face in the z=0 plane and substrate centered on the z-zxis facing z+."""
     _OpticalElement.__init__(self, 'itop mirror', index)

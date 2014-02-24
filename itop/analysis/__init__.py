@@ -6,6 +6,7 @@ plots.
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from itop.math import Vector
+from itop import N_HPFS, N_AIR
 import numpy as np
 import math as sys_math
 from itop.math.linalg import rotation_matrix
@@ -70,7 +71,7 @@ def radius(
     output_beam_2, input_position_2,
     input_beam_direction,
     mirror_index,
-    lab_index = 1.000277,
+    lab_index = N_AIR,
     face_normal=None):
   """Return the radius of curvature from two output beam trajectories
   from a common input beam at two different input positions and the
@@ -102,7 +103,7 @@ def radius(
       input_position_1,
       input_position_2)
 
-def radii(data, alignment, mirror_index, lab_index=1.000277):
+def radii(data, alignment, mirror_index, lab_index=N_AIR):
   """Return a list of the radii between beam_1 and beam_2 in the given data
   as a tuple (s, r) where s is the absolute separation distance in x and r
   is the radius. Any additional keyword arguments are passed on to the
@@ -150,7 +151,7 @@ def _incidence_angle_ray(ray, normal):
 
 def reflectance(
     reflected_beam, original_beam, alignment,
-    mirror_index, lab_index=1.000277, normal_vector=None):
+    mirror_index, lab_index=N_AIR, normal_vector=None):
   """Return the reflectance of the mirror at the given input position
   given the reflected beam, the original beam, and the refractive
   indexes."""
@@ -239,7 +240,7 @@ def draw_samples(data):
   plt.savefig("samples.pdf")
   plt.show()
 
-def draw_radii(data, alignment, mirror_index, lab_index=1.000277, cut_off=None):
+def draw_radii(data, alignment, mirror_index, lab_index=N_AIR, cut_off=None):
   """Plot the radius of the mirror as a function of beam separation distance
   in x. The radius is computed from each of the beam pairs in the given data.
   Data points must be in the form of
@@ -269,7 +270,7 @@ def draw_radii(data, alignment, mirror_index, lab_index=1.000277, cut_off=None):
   plt.show()
 
 def draw_reflectance(data, alignment, mirror_index,
-    lab_index=1.000277, normal_vector=None):
+    lab_index=N_AIR, normal_vector=None):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
