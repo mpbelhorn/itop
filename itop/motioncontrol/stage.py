@@ -113,6 +113,10 @@ class Limits(object):
       self.lower = 0.0
       self.upper = 0.0
 
+  def contain(x):
+    """Return True if x is within the limits."""
+    return self.lower <= x <=self.upper
+
   def middle(self):
     """Returns the center of the limit range.
 
