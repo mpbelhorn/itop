@@ -103,10 +103,7 @@ prism_step = abs(args.step_size)
 if prism_range[1] < prism_range[0]:
   prism_step = -abs(args.step_size)
 scan_positions = np.append(
-    arange(
-        prism_range[0] + prism_step,
-        prism_range[1], prism_step),
-    prism_range[1]) + edge
+    arange(prism_range[0], prism_range[1], prism_step), prism_range[1]) + edge
 scan_positions = [i for i in scan_positions if prism_stage.limits.contains(i)]
 print('Sampling positions', scan_positions)
 
@@ -116,8 +113,8 @@ for prism_stage_coordinate in scan_positions:
   b1 = tracker.find_beam_trajectory(
       scan_direction_z=-1, z_samples=args.samples)
   theta = itop.prism.angle_from_beams(b0, b1)
-  data.append((prism_position_x - edge, theta, b1))
-  print(prism_position_x - edge, theta)
+  data.append((prism_stage_coordinate  - edge, theta, b1))
+  print(prism_stage_coordinate - edge, theta)
   itop.utilities.save_object(data, output_path)
 sys.exit(0)
 
