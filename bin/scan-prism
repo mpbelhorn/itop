@@ -71,6 +71,26 @@ except KeyboardInterrupt:
 data = [(0, 0, b0)]
 
 # TODO: Find the prism edge.
+def find_edge(v=25, l=0.5):
+  prism_stage.velocity(25)
+  current_pos = prism_stage.position()
+  pl0 = profiler.read()['power']
+  prism_stage.velocity(v)
+  prism_stage.position(125);
+  while (profiler.read()['power']/pl0 > l):
+    pass
+  edge = prism_stage.position()
+  prism_stage.velocity(25)
+  prism_stage.stop()
+  prism_stage.position(edge, wait=True)
+  return (edge.value, profiler.read()['power']/pl0)
+
+print('Finding prism edge.')
+tracker.position(b0.first_sample(), wait=True)
+delrin, half_power = find_edge(5)
+prism_stage.position(delrin + 15, wait=True)
+edge, half_power = find_edge(0.1)
+print(edge)
 
 # Now take data with the prism in the beam path for the prism at several
 #     x positions.
@@ -93,8 +113,8 @@ try:
     b1 = tracker.find_beam_trajectory(
         scan_direction_z=-1, z_samples=args.samples)
     theta = itop.prism.angle_from_beams(b0, b1)
-    data.append((prism_position_x, theta, b1))
-    print(prism_position_x, theta)
+    data.append((prism_position_x - edge, theta, b1))
+    print(prism_position_x - edge, theta)
     itop.utilities.save_object(data, output_path)
 except KeyboardInterrupt:
   print('\nAborting.')
