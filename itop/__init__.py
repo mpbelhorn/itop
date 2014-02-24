@@ -45,6 +45,25 @@ def data_path(path):
 
 
 #####################################################################
+INSTRUMENTS = {
+    'source monitor': '/dev/ttyUSB0',
+    'transmit monitor': '/dev/ttyUSB1',
+    'esp 300': '/dev/ttyUSB2',
+    'esp 301': '/dev/ttyUSB3',
+    'profiler': '/dev/ttyUSB4',
+    }
+
+def instrumentation():
+  """Return instances of the raw instrumentation interfaces."""
+  return (
+      Profiler(INSTRUMENTS['profiler']),
+      StageController(INSTRUMENTS['esp 300'],
+          limits=[250, [-45.0, 190.0], 125.0]),
+      StageController(INSTRUMENTS['esp 301'],
+          limits=[125.0, [-0.1, 50.0], [-95.0, 125.0]]),
+      Photodiode(INSTRUMENTS['source monitor']),
+      Photodiode(INSTRUMENTS['transmit monitor']),
+      )
 
 def initialize_instruments():
   """A rough initializer for the profiler and stage controllers.
