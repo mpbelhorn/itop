@@ -11,7 +11,8 @@ import cPickle as pickle
 import sys
 import zlib
 
-parser = argparse.ArgumentParser(description='Scan a test mirror.')
+parser = argparse.ArgumentParser(
+    description='Scan an iTOP  mirror.')
 parser.add_argument('--inputs', dest='input_range', nargs=2,
     metavar=('FIRST', 'LAST'), type=float, default=[-100, -202],
     help='Specify beam input positions in mm.')
