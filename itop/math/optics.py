@@ -66,7 +66,8 @@ def index_quartz(wavelength=532, ambient_t=23.3):
 
   The UC iTOP laboratory default values are 532nm  and 23.3C (74F).
   """
-  return sellmeier(wavelength) + temperature_dispersion(wavelength, ambient_t)
+  return (sellmeier(wavelength/1000.0) +
+      temperature_dispersion(wavelength/1000.0, ambient_t))
 
 def refract(ray, normal, origin_index, final_index):
   """Returns the normalized direction of a given ray (normalized or not) after
