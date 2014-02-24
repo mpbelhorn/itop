@@ -8,6 +8,14 @@ from itop.beam import Beam
 from itop.math import Vector
 import math as sys_math
 
+def levi_civita_epsilon(vector):
+  if vector in [[1,2,3], [3,1,2], [2,3,1]]:
+    return 1
+  elif vector in [[1,3,2], [3,2,1], [2,1,3]]:
+    return -1
+  else:
+    return 0
+
 class TrackerError(Exception):
   """Error and exception handling for a beam tracker."""
   pass
@@ -63,6 +71,7 @@ class Tracker(object):
         'monitor':beam_monitor,
         }
     xyz_axes = kwargs.pop('xyz_axes', [1, 2, 3])
+    self._parity_correction = levi_civita_epsilon(xyz_axes)
     self.axes = (driver.axes[xyz_axes[0] - 1],
                  driver.axes[xyz_axes[1] - 1],
                  driver.axes[xyz_axes[2] - 1])
@@ -82,7 +91,7 @@ class Tracker(object):
     """
     if angle is None:
       angle = self.devices['r_stage'].position().value
-    return sys_math.copysign(
+    return self._parity_correction * sys_math.copysign(
         1.0, sys_math.cos(sys_math.radians(angle - self._reference_azimuth)))
 
 
@@ -196,7 +205,7 @@ class Tracker(object):
       if profile is None:
         return None
       profiles.append(profile)
-    centroids = [(-1 * self._z_cosine * i['centroid_x'],
+    centroids = [(self._z_cosine * i['centroid_x'],
                  i['centroid_y'], 0.0) for i in profiles]
     centroid = mean(zip(*centroids), 1)
     error = [std(zip(*centroids), 1)] if samples > 1 else 0.030
