@@ -49,7 +49,7 @@ def data_path(path, create=False):
     target = os.path.join('/lab/data', path)
   else:
     target = os.path.join(_ROOT, 'data', path)
-  if create and not os.path.exists(os.path.dirname(target):
+  if create and not os.path.exists(os.path.dirname(target)):
     os.makedirs(os.path.dirname(target))
   return target
 
