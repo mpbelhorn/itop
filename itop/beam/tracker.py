@@ -4,6 +4,7 @@ A module for tracking the position of beam segments in 3D space.
 
 """
 from numpy import array, mean, std, arange
+from time import sleep
 from itop.beam import Beam
 from itop.math import Vector
 import math as sys_math
@@ -95,6 +96,34 @@ class Tracker(object):
       angle = self.devices['r_stage'].position().value
     return self._parity_correction * sys_math.copysign(
         1.0, sys_math.cos(sys_math.radians(angle - self._reference_azimuth)))
+
+  def off_normal_power(normal, delta_normal, samples):
+    """Return a set of (angle, ccd power, beam power) data where the angle
+    is is the position (degrees) of the tracker rotation stage.
+
+    The given number of samples is collected for angular positions theta
+    in the range
+        'normal' - 'delta_normal' <= theta <= 'normal' + 'delta_normal'.
+    """
+    data = []
+    for i in np.arange(
+        -off_normal_range,
+        off_normal_range,
+        2*off_normal_range / samples):
+      self.rotate(sys_math.degrees(i) + normal_angle, wait=True)
+      sleep(0.3)
+      self.center_beam()
+      sleep(0.3)
+      data.append(
+          (self.devices['stage'].position(),
+           p.average_power(),
+           self.devices['monitor'].read())
+          )
+    data = array(data)
+    output = array((array([i.value for i in data[:,0]]),
+                    data[:,1]/data[:,2],
+                    data[:,2])).T
+    return output
 
 
   def change_grouping(self, state=1, fast=False):
