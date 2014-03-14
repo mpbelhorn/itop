@@ -41,11 +41,17 @@ from itop.beam import (
 import os
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))
-def data_path(path):
+def data_path(path, create=False):
   """Returns the path of the requested local data path.
 
   """
-  return os.path.join(_ROOT, 'data', path)
+  if os.path.exists('/lab/data'):
+    target = os.path.join('/lab/data', path)
+  else:
+    target = os.path.join(_ROOT, 'data', path)
+  if create and not os.path.exists(os.path.dirname(target):
+    os.makedirs(os.path.dirname(target))
+  return target
 
 
 

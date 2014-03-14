@@ -76,6 +76,7 @@ output = {
   }
 
 if args.output is None:
-  args.output = itop.data_path('alignment/{}-tilt_data.gz'.format(run_starting_time))
+  args.output = itop.data_path(
+      'alignment/{}-tilt_data.gz'.format(run_starting_time))
 itop.utilities.save_object(output, args.output)
 

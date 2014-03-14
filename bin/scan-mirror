@@ -22,6 +22,8 @@ parser.add_argument('--height', metavar='HEIGHT', dest='input_y', type=float,
     default=0.0, help='Specify beam 0 input height (Jack DI) in mm')
 parser.add_argument('--output', metavar='PATH', type=str,
     help='Path to output gz data file')
+parser.add_argument('--id', metavar='SERIAL', type=str, dest=mirror_id,
+    default='unsorted', help='Mirror ID (i.e. serial number)')
 parser.add_argument('--home', action='store_true', default=False,
     help='Home the stages before taking data')
 parser.add_argument('--align', action='store_true', default=False,
@@ -71,7 +73,10 @@ instrument = itop.Instrument(tracker, mirror_stage, alignment_path,
 run_starting_time = datetime.datetime.now().isoformat()
 
 if args.output is None:
-  args.output = itop.data_path('runs/{}-data.gz'.format(run_starting_time))
+  args.output = itop.data_path(
+      'mirrors/{optic}/{scan}-data.gz'.format(
+          optic=args.mirror_id, scan=run_starting_time),
+      create=True)
 
 #if not args.tilted:
 #  mirror_range = instrument.alignment.mirror_limits(args.input_range)

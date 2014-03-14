@@ -53,10 +53,9 @@ prism_stage.power_on()
 tracker.rotate(90)
 
 run_starting_time = datetime.datetime.now().isoformat()
-output_path = itop.data_path('prism/{optic}/{scan}-data.gz'.format(
-    optic=args.serial, scan=run_starting_time))
-if not os.path.exists(os.path.dirname(output_path)):
-      os.makedirs(os.path.dirname(output_path))
+output_path = itop.data_path('prisms/{optic}/{scan}-data.gz'.format(
+    optic=args.serial, scan=run_starting_time),
+    create=True)
 
 # First take data when the beam is not through the prism.
 # Set power level above autocollimator beam.
