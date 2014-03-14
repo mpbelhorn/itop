@@ -1,4 +1,4 @@
-#!/bin/python2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import argparse
@@ -36,12 +36,12 @@ parser.add_argument('--start', dest='start_point', nargs=3,
 
 args = parser.parse_args()
 
-profiler = itop.Profiler('/dev/itop_profiler')
-esp_300 = itop.StageController('/dev/itop_esp-300',
+profiler = itop.Profiler(itop.INSTRUMENTS['profiler'])
+esp_300 = itop.StageController(itop.INSTRUMENTS['esp 300'],
     limits=[250.0, [-45.0, 190.0], 125.0])
-esp_301 = itop.StageController('/dev/itop_esp-301',
-    limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
-beam_monitor = itop.Photodiode('/dev/itop_pd0')
+esp_301 = itop.StageController(itop.INSTRUMENTS['esp 301'],
+    limits=[125.0, [0.0, 50.0], [-95.0, 125.0]])
+beam_monitor = itop.Photodiode(itop.INSTRUMENTS['source monitor'])
 
 mirror_axis_id = 2 if args.alt else 0
 mirror_stage = esp_300.axes[mirror_axis_id]
