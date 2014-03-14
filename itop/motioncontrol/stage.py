@@ -377,7 +377,7 @@ class Stage(object):
     else:
       self.send('SN', units)
     unit_codes = [
-        'encoder-counts', 'motor-steps', 'mm', u'\u03BCm', 'in','mil',
+        'encoder-counts', 'motor-steps', 'mm', u'\u03BCm', 'in', 'mil',
          u'\u03BCin', u'\u00B0', 'grade', 'rad', 'mrad', u'\u03BCrad']
     return unit_codes[units]
 

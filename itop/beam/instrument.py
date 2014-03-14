@@ -145,10 +145,10 @@ class Instrument(object):
     in range at the given mirror position."""
     if not self.tilted:
       for index in self.alignment.beam_indexes():
-        yield (not self.alignment.out_of_range(index, [mirror_x, 0, 0]))
+        yield not self.alignment.out_of_range(index, [mirror_x, 0, 0])
     else:
       for index in self.alignment.beam_indexes():
-        yield (True)
+        yield True
 
   def _lowest_beam_in_range(self, mirror_x):
     """Return the lowest beam index that is in range or None if no beams are

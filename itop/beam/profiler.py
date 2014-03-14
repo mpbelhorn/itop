@@ -3,6 +3,7 @@
 A class to read the data from a Newport HD-LBP laser beam profiler.
 
 """
+
 import serial
 from numpy import mean, std
 from itop.math import Value
@@ -112,7 +113,7 @@ class Profiler(object):
         return profile
     else:
       try:
-        if (levels[level] <= power < levels[level - 1]):
+        if levels[level] <= power < levels[level - 1]:
           return profile
       except IndexError:
         if levels[-1] <= power:

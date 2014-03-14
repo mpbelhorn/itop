@@ -71,7 +71,7 @@ def radius(
     output_beam_2, input_position_2,
     input_beam_direction,
     mirror_index,
-    lab_index = N_AIR,
+    lab_index=N_AIR,
     face_normal=None):
   """Return the radius of curvature from two output beam trajectories
   from a common input beam at two different input positions and the
@@ -319,7 +319,7 @@ def draw_focii(data, alignment):
 def _draw_focii_input(focii_data, polarization):
   """Draw the focal points vs input position."""
   axes = plt.subplots(1, 3, figsize=(18, 4))[1]
-  colors = [['red','orange'], ['blue','green']]
+  colors = [['red', 'orange'], ['blue', 'green']]
   plot_data = {}
   for pair in sorted(focii_data.keys()):
     plot_data[pair] = {
@@ -356,7 +356,7 @@ def _draw_focii_input(focii_data, polarization):
 def _draw_focii_space(focii_data, polarization):
   """Draw the focal points in 3D space."""
   fig = plt.figure(figsize=(14, 9))
-  colors = [['red','orange'], ['blue','green']]
+  colors = [['red', 'orange'], ['blue', 'green']]
   axes = [plt.subplot(2, 2, 3)]
   axes.append(plt.subplot(2, 2, 1, sharex=axes[0]))
   axes.append(plt.subplot(2, 2, 4, sharey=axes[0]))

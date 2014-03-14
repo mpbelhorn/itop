@@ -173,7 +173,7 @@ class PlaneSurface(_Surface):
 
   def contains(self, position):
     """Return true if the position is below the surface w.r.t. the normal."""
-    return ((position - self._position).dot(self.normal(position)) < 0)
+    return (position - self._position).dot(self.normal(position)) < 0
 
 
 class SphericalSurface(_Surface):
@@ -354,7 +354,7 @@ def simulate_alignment(
   beam_a = DataBeam()
   beam_b = DataBeam()
 
-  for tracker_z in (np.arange(125, -95, -220/samples).tolist() + [-95]):
+  for tracker_z in np.arange(125, -95, -220/samples).tolist() + [-95]:
     beam_a.add_sample(ray_a.sample(tracker_z))
     beam_b.add_sample(ray_b.sample(tracker_z))
   alignment.beams = [beam_a, beam_b]
