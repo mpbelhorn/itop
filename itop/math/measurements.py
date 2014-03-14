@@ -6,6 +6,19 @@ uncertainty.
 import numpy as np
 from numpy.linalg import norm
 from numpy import array, sqrt, sin, cos
+from math import log
+
+def ratio_error(numerator, divisor, dnum, ddiv):
+  """Return the propagated uncertainty of a ratio numerator/divisor."""
+  return sqrt(
+      (dnum / divisor)**2 +
+      (numerator * ddiv / (divisor**2))**2)
+
+def power_error(base, power, dbase, dpower):
+  """Return the propagated uncertainty of base**power."""
+  return sqrt(
+      (power * base**(power - 1) * dbase)**2 +
+      (base**power * log(base) * dpower)**2)
 
 class MeasurementException(Exception):
   """Exceptions thrown by itop Measurement module objects."""

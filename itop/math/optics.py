@@ -69,6 +69,11 @@ def index_quartz(wavelength=532, ambient_t=23.3):
   return (sellmeier(wavelength/1000.0) +
       temperature_dispersion(wavelength/1000.0, ambient_t))
 
+def snells_law(origin_index, final_index, theta):
+  """Return the refraction angle given the refractive indexes and incidence
+  angle in radians at an optical boundary."""
+  return sys_math.asin((origin_index/final_index) * sys_math.sin(theta))
+
 def refract(ray, normal, origin_index, final_index):
   """Returns the normalized direction of a given ray (normalized or not) after
   refraction through a boundary between two media with given normal vector and
