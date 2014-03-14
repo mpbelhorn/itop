@@ -184,8 +184,8 @@ class Value(object):
 
   def __eq__(self, other):
     other = Value(other)
-    if (self.value + self.error[0] <= other.value + other.error[1]) and
-        (self.value + self.error[1] >= other.value + other.error[0]):
+    if ((self.value + self.error[0] <= other.value + other.error[1]) and
+        (self.value + self.error[1] >= other.value + other.error[0])):
       return True
     else:
       return False
