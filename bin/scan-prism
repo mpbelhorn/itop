@@ -107,14 +107,17 @@ scan_positions = np.append(
 scan_positions = [i for i in scan_positions if prism_stage.limits.contains(i)]
 print('Sampling positions', scan_positions)
 
+b1_starting_point = b0.first_sample() + [0, -32, 0]
+
 for prism_stage_coordinate in scan_positions:
   prism_stage.position(prism_stage_coordinate, wait=True)
-  tracker.position(b0.first_sample() + [0, -30, 0], wait=True)
+  tracker.position(b1_starting_point, wait=True)
   b1 = tracker.find_beam_trajectory(
       scan_direction_z=-1, z_samples=args.samples)
   theta = itop.prism.angle_from_beams(b0, b1)
   data.append((prism_stage_coordinate  - edge, theta, b1))
   print(prism_stage_coordinate - edge, theta)
   itop.utilities.save_object(data, output_path)
+  b1_starting_point = b1.first_sample()
 sys.exit(0)
 
