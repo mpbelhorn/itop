@@ -54,7 +54,7 @@ class Alignment(object):
       tracker.devices['r_stage'].go_to_home(wait=True)
     tracker.rotate(180, wait=True)
     start_point = [tracker.axes[0].limits.upper,
-                   tracker.axes[1].limits.upper - 5,
+                   tracker.axes[1].limits.upper - 3,
                    tracker.axes[2].limits.upper]
     z_direction = -1
     for beam_index in self.beam_indexes():
