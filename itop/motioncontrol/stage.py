@@ -301,7 +301,7 @@ class Stage(object):
     else:
       if self.limits is not None:
         position = clamp(position, self.limits.lower, self.limits.upper)
-      self.send('PA', position)
+      self.send('PA', '{:03.5f}'.format(float(position)))
     if wait:
       self.pause_for_stage()
     return Value(position, self.resolution)
