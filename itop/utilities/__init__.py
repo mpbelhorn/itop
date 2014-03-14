@@ -16,7 +16,7 @@ def save_object(target, file_path):
   """
   with open(file_path, 'wb') as output_file:
     output_file.write(zlib.compress(
-        cPickle.dumps(target, cPickle.HIGHEST_PROTOCOL),9))
+        cPickle.dumps(target, cPickle.HIGHEST_PROTOCOL), 9))
 
 def load_object(file_path):
   """Loads an object from a gzipped serialized object file created

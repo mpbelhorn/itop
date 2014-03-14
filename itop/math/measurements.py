@@ -157,22 +157,22 @@ class Value(object):
 
   def __lt__(self, other):
     other = Value(other)
-    if (self.value + self.error[1] < other.value + other.error[0]):
+    if (self.value + self.error[1]) < (other.value + other.error[0]):
       return True
     else:
       return False
 
   def __le__(self, other):
     other = Value(other)
-    if (self.value + self.error[0] <= other.value + other.error[1]):
+    if (self.value + self.error[0]) <= (other.value + other.error[1]):
       return True
     else:
       return False
 
   def __eq__(self, other):
     other = Value(other)
-    if ((self.value + self.error[0] <= other.value + other.error[1]) and
-        (self.value + self.error[1] >= other.value + other.error[0])):
+    if (self.value + self.error[0] <= other.value + other.error[1]) and
+        (self.value + self.error[1] >= other.value + other.error[0]):
       return True
     else:
       return False
@@ -182,14 +182,14 @@ class Value(object):
 
   def __gt__(self, other):
     other = Value(other)
-    if (self.value + self.error[0] > other.value + other.error[1]):
+    if (self.value + self.error[0]) > (other.value + other.error[1]):
       return True
     else:
       return False
 
   def __ge__(self, other):
     other = Value(other)
-    if (self.value + self.error[1] >= other.value + other.error[0]):
+    if (self.value + self.error[1]) >= (other.value + other.error[0]):
       return True
     else:
       return False
@@ -265,7 +265,7 @@ class Vector(object):
                 if error_type == 1 and len(errors[0]) == dim:
                   # Per dimension errors.
                   self.values = array(
-                      [Value(i,j) for i,j in zip(values, errors[0])])
+                      [Value(i, j) for i, j in zip(values, errors[0])])
                 elif error_type == 2:
                   # Global asymmetric errors.
                   self.values = array([Value(i, errors) for i in values])

@@ -82,7 +82,7 @@ def refract(ray, normal, origin_index, final_index):
     normal = -normal
   incidence = dot(-ray_direction, normal)
   complement = (1.0 - (1.0 - incidence**2) / rho**2)**(0.5)
-  return (ray_direction / rho + (incidence / rho - complement) * normal)
+  return (ray_direction / rho) + ((incidence / rho - complement) * normal)
 
 def reflection_normal(outgoing_ray, incoming_ray):
   """Returns the normal vector between incoming and outgoing

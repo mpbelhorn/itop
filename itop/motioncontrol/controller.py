@@ -189,7 +189,7 @@ class StageController(object):
     This command overides individually set accelerations.
 
     """
-    if (acceleration is None):
+    if acceleration is None:
       self.send('HA', '?', group_id)
       acceleration = float(self.read())
     else:
@@ -214,7 +214,7 @@ class StageController(object):
       [center_x, center_y, deltaTheta]
 
     """
-    if (coordinates is None):
+    if coordinates is None:
       self.send('HC', '?', group_id)
       coordinates = self.read()
     else:
@@ -227,7 +227,7 @@ class StageController(object):
     This command overides individually set decelerations.
 
     """
-    if (deceleration is None):
+    if deceleration is None:
       self.send('HD', '?', group_id)
       deceleration = float(self.read())
     else:
@@ -240,7 +240,7 @@ class StageController(object):
     This command overides individually set decelerations.
 
     """
-    if (deceleration is None):
+    if deceleration is None:
       self.send('HE', '?', group_id)
       deceleration = float(self.read())
     else:
@@ -257,7 +257,7 @@ class StageController(object):
     This command overides individually set jerks.
 
     """
-    if (jerk is None):
+    if jerk is None:
       self.send('HJ', '?', group_id)
       jerk = float(self.read())
     else:
@@ -274,7 +274,7 @@ class StageController(object):
       for group to come to a stop. Default is wait=False.
 
     """
-    if (coordinates is None):
+    if coordinates is None:
       self.send('HL', '?', group_id)
       coordinates = self.read()
     else:
@@ -427,7 +427,7 @@ class StageController(object):
     This command overides individually set velocities.
 
     """
-    if (velocity is None):
+    if velocity is None:
       self.send('HV', '?', group_id)
       velocity = float(self.read())
     else:
@@ -473,7 +473,7 @@ class StageController(object):
 
     """
     if status is None:
-      self.send('SB','?')
+      self.send('SB', '?')
       return int(self.read().replace('H', ''), 16)
     else:
       self.send('SB', hex(status).replace('x', '') + 'H')

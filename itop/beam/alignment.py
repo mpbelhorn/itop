@@ -3,6 +3,7 @@
 A class to manage the alignment of beams to the tracker.
 
 """
+
 import ConfigParser
 import ast
 import os
@@ -189,7 +190,7 @@ class Alignment(object):
         beam misses mirror
     """
     input_x = self.input_positions(mirror_position)[beam_index][0].value
-    if (abs(input_x) < Alignment.INTERFERENCE_CUTOFF):
+    if abs(input_x) < Alignment.INTERFERENCE_CUTOFF:
       return True
     elif (input_x < Calibration.EXTENTS['mirror'][0][0]) or (
           Calibration.EXTENTS['mirror'][0][1] < input_x):
@@ -255,7 +256,7 @@ class Calibration(object):
     if configuration is not None:
       self.load(configuration)
     else:
-      print('WARNING: Using default calibration data!')
+      print 'WARNING: Using default calibration data!'
       self.data.update(Calibration.DISPLACEMENT_CONSTANTS)
       self.data.update(Calibration.DISPLACEMENT_VARIABLES)
       self.data.update(Calibration.GENERAL)
