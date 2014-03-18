@@ -88,7 +88,7 @@ def initialize_instruments():
   esp_300 = StageController('/dev/ttyUSB2',
       limits=[250.0, [-45.0, 190.0], 125.0])
   esp_301 = StageController('/dev/ttyUSB3',
-      limits=[125.0, [0.0, 50.0], [-95.0, 125.0]])
+      limits=[125.0, [-0.05, 50.0], [-95.0, 125.0]])
   beam_monitor = Photodiode('/dev/ttyUSB0')
   rotator = esp_300.axes[1]
   tracker = Tracker(esp_301, rotator, profiler, beam_monitor)
