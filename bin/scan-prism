@@ -35,6 +35,8 @@ args = parser.parse_args()
 
 profiler, esp_300, esp_301, beam_monitor, transmittance_monitor = itop.instrumentation()
 
+esp_301 = itop.StageController(itop.INSTRUMENTS['esp 301'], limits=[125, [-0.05, 50.0], [-25.0, 25.0]])
+
 # Home the stages before taking any measurement.
 if args.home:
   esp_300.home()
@@ -106,12 +108,12 @@ scan_positions = np.append(
 scan_positions = [i for i in scan_positions if prism_stage.limits.contains(i)]
 print('Sampling positions', scan_positions)
 
-b1_starting_point = b0.first_sample() + [0, -32, 0]
+b1_starting_point = b0.first_sample() + [0, -40, 0]
 
 for prism_stage_coordinate in scan_positions:
   prism_stage.position(prism_stage_coordinate, wait=True)
   tracker.position(b1_starting_point, wait=True)
-  b1 = tracker.find_beam_trajectory(
+  b1 = tracker.find_beam_trajectory(start_point=b1_starting_point,
       scan_direction_z=-1, z_samples=args.samples)
   theta = itop.prism.angle_from_beams(b0, b1)
   data.append((prism_stage_coordinate  - edge, theta, b1))
