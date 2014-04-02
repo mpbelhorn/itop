@@ -210,14 +210,14 @@ class SphericalSurface(_Surface):
   def time_to_bound(self, ray):
     """Return the time-to-intersect if an intersection occurs, or None."""
     qr_a = ray.direction.dot(ray.direction)
-    qr_b = 2 * (ray.position - self._center).dot(ray.direction)
+    qr_b = 2. * (ray.position - self._center).dot(ray.direction)
     qr_c = np.linalg.norm(ray.position - self._center)**2 - self._radius**2
-    radical_arg = qr_b**2 - (4 * qr_a * qr_c)
+    radical_arg = qr_b**2 - (4. * qr_a * qr_c)
     try:
       if qr_b < 0:
-        quadratic = (-qr_b - sqrt(radical_arg)) / 2
+        quadratic = (-qr_b - sqrt(radical_arg)) / 2.
       else:
-        quadratic = (-qr_b + sqrt(radical_arg)) / 2
+        quadratic = (-qr_b + sqrt(radical_arg)) / 2.
       if quadratic != 0.0:
         return min((i for i in (quadratic / qr_a, qr_c / quadratic) if i > 0))
     except ValueError:
@@ -271,22 +271,22 @@ class Air(_OpticalElement):
 class ItopMirror(_OpticalElement):
   """A model of a production itop mirror."""
   def __init__(self, radius, dimensions, index=N_HPFS):
-    """Construct an itop mirror. Be default, the mirror is located with front
+    """Construct an itop mirror. By default, the mirror is located with front
     face in the z=0 plane and substrate centered on the z-zxis facing z+."""
     _OpticalElement.__init__(self, 'itop mirror', index)
     self.add_boundary(SphericalSurface(
-        [0, 0, radius - dimensions[2]], radius, name='-z',
+        [0., 0., radius - dimensions[2]], float(radius), name='-z',
         reflective=True))
     self.add_boundary(PlaneSurface(
-        [0, 0, 1], [0, 0, 0], name='+z'))
+        [0., 0., 1.], [0., 0., 0.], name='+z'))
     self.add_boundary(PlaneSurface(
-        [0, 1, 0], [0, dimensions[1]/2, 0], name='+y'))
+        [0., 1., 0.], [0., dimensions[1]/2., 0.], name='+y'))
     self.add_boundary(PlaneSurface(
-        [0, -1, 0], [0, -dimensions[1]/2, 0], name='-y'))
+        [0., -1., 0.], [0., -dimensions[1]/2., 0.], name='-y'))
     self.add_boundary(PlaneSurface(
-        [1, 0, 0], [dimensions[0]/2, 0, 0], name='+x'))
+        [1., 0., 0.], [dimensions[0]/2., 0., 0.], name='+x'))
     self.add_boundary(PlaneSurface(
-        [-1, 0, 0], [-dimensions[0]/2, 0, 0], name='-x'))
+        [-1., 0., 0.], [-dimensions[0]/2., 0., 0.], name='-x'))
 
 
 class Beam(object):
@@ -418,7 +418,7 @@ def simulate_data(
     simulated_beam_b.propagate([mirror])
     beam_a = DataBeam()
     beam_b = DataBeam()
-    for z_coordinate in np.arange(-95, 125, 220/5).tolist() + [125]:
+    for z_coordinate in np.arange(-95., 125., 220./5.).tolist() + [125.]:
       beam_a.add_sample(simulated_beam_a.ray().sample(z_coordinate))
       beam_b.add_sample(simulated_beam_b.ray().sample(z_coordinate))
     data.append(
