@@ -337,7 +337,7 @@ class Beam(object):
         next_element = Air()
       self._ray = bound.propagate(
           self._ray, self._element.index, next_element.index)
-      self._history.append((self._history[-1][0] + tti, self._ray))
+      self._history.append((self._history[-1][0], self._ray))
       self._element = next_element
 
 def simulate_alignment(
