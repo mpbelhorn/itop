@@ -92,25 +92,28 @@ print(np.append(arange(
           mirror_range[1], mirror_step),
       mirror_range[1]))
 
-try:
-  print('Starting data run at {}.'.format(run_starting_time))
-  print('===============')
-  print(instrument.sample_position(
-      mirror_range[0], start_point=args.start_point))
-  instrument.save_data(args.output)
+print('Starting data run at {}.'.format(run_starting_time))
+print('===============')
+print(instrument.sample_position(
+    mirror_range[0], start_point=args.start_point))
+instrument.save_data(args.output)
 
-  for mirror_position_x in np.append(
-      arange(
-          mirror_range[0] + mirror_step,
-          mirror_range[1], mirror_step),
-      mirror_range[1]):
+for mirror_position_x in np.append(
+    arange(
+        mirror_range[0] + mirror_step,
+        mirror_range[1], mirror_step),
+    mirror_range[1]):
+  try:
     print(instrument.sample_position(mirror_position_x))
     instrument.save_data(args.output)
-except itop.beam.tracker.TrackerError:
-  print('Reached end of stage travel.')
-  instrument.save_data(args.output)
-  sys.exit(1)
-finally:
-  print('Exiting.')
-  sys.exit(0)
+  except itop.beam.instrument.InstrumentError as error:
+    print(error)
+    pass
+#except itop.beam.tracker.TrackerError:
+#  print('Reached end of stage travel.')
+#  instrument.save_data(args.output)
+#  sys.exit(1)
+
+print('Scan Finished.')
+sys.exit(0)
 
