@@ -277,7 +277,10 @@ class Tracker(object):
     # Perhaps replace following while loop with a finite number of iterations?
     while True:
       centroid = self._centroid(8)
-      centered_position = centroid + self.position()
+      try:
+        centered_position = centroid + self.position()
+      except TypeError:
+        raise TrackerError('Beam disappeared. Check for obstructions.')
       for dim, coord in enumerate(centered_position):
         if ((coord.value > self.axes[dim].limits.upper + 0.01) or
             (coord.value < self.axes[dim].limits.lower - 0.01)):
