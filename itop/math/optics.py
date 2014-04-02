@@ -146,6 +146,7 @@ def radius_from_normals(normal_1, normal_2, input_1, impact_1, impact_2):
   separation = impact_1 - impact_2
   #separation = np.append(separation, 0)
   separation -= separation.dot(plane) * plane
+  separation = Vector(separation)
   separation = (abs(separation)).value
 
   return (separation, separation / (
