@@ -275,7 +275,7 @@ def draw_reflectance(data, alignment, mirror_index,
   input position.
   """
 
-  plt.figure(figsize=(9, 5), dpi=150)
+  plt.figure()
   reflectivities = {}
   calibrated_input_beams = [
       beam.transform(rotation_matrix(alignment.beams[0].direction))
@@ -301,11 +301,11 @@ def draw_reflectance(data, alignment, mirror_index,
         reflectivities[index]['e'],
         marker='o', ls='None', color=BEAM_COLORS[index],
         label='Beam {}'.format(index))
-  plt.title('Reflectance', fontsize=STYLE['titlesize'])
+  plt.title('Reflectance')
   plt.legend(loc='best', numpoints=1)
-  plt.ylabel("Reflectance", fontsize=STYLE['labelsize'])
-  plt.xlabel("Input Position [mm]", fontsize=STYLE['labelsize'])
-  plt.savefig("reflectance.pdf")
+  plt.ylabel("Reflectance")
+  plt.xlabel("Input Position [mm]")
+  plt.savefig("reflectance.eps")
   plt.show()
 
 def draw_focii(data, alignment):
