@@ -190,7 +190,12 @@ class Alignment(object):
         beam misses mirror
     """
     input_x = self.input_positions(mirror_position)[beam_index][0].value
-    if abs(input_x) < Alignment.INTERFERENCE_CUTOFF:
+    positive = True
+    if self.base_input_positions()[beam_index][0] < 0:
+      positive = False
+    if positive and input_x < Alignment.INTERFERENCE_CUTOFF:
+      return True
+    elif (not positive) and input_x > -Alignment.INTERFERENCE_CUTOFF:
       return True
     elif (input_x < Calibration.EXTENTS['mirror'][0][0]) or (
           Calibration.EXTENTS['mirror'][0][1] < input_x):
