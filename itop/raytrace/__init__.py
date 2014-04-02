@@ -191,6 +191,7 @@ class SphericalSurface(_Surface):
   def translate(self, displacement):
     """Translate the surface by the displacement with fixed orientation."""
     self._center = self._center + np.array(displacement)
+    self._position = self._position + np.array(displacement)
 
   def _rotate_about_origin(self, angle, axis):
     """Rotate the surface by angle about an axis at the origin."""
@@ -199,7 +200,7 @@ class SphericalSurface(_Surface):
 
   def normal(self, point):
     """Return the normal at the point on the surface."""
-    point = np.array(point) - self._center
+    point = self._center - np.array(point)
     # if abs(point.dot(point) - self._radius**2) > 1e-15:
     #   raise RayTraceError(
     #       'Cannot compute normal. Point is too far from surface ({}).'.format(
