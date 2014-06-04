@@ -28,10 +28,10 @@ class Profiler(object):
     self.serial.flushOutput()
     if not self.serial.read(10):
       print('No response from profiler. Check link.')
-    self.keys = ['time', 'centroid_x', 'centroid_y', 'centroid_r',
+    self.keys = ['time', 'centroid_y', 'centroid_x', 'centroid_r',
                  'level_1', 'level_2', 'level_3',
-                 'width_1', 'width_2', 'width_3',
                  'height_1', 'height_2', 'height_3',
+                 'width_1', 'width_2', 'width_3',
                  'power']
     self.power_levels = self.set_power_levels(nominal_power)
 
