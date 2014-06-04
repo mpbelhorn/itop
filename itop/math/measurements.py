@@ -85,10 +85,10 @@ class Value(object):
 
   def __repr__(self):
     if self.error[0] == -self.error[1]:
-      return '{0: .2e} ± {1[1]:.2e}'.format(
+      return 'Val({0: .4f} +/- {1[1]:.4f})'.format(
           self.value, self.error)
     else:
-      return '{0: .2e} ({1[1]:+.2e}/{1[0]:+.2e})'.format(
+      return 'Val({0: .4f} {1[1]:+.4f}/{1[0]:+.4f})'.format(
           self.value, self.error)
 
   def __str__(self):
@@ -294,7 +294,7 @@ class Vector(object):
               """Vector requires more than one component.""")
       except TypeError:
         raise MeasurementException(
-            """Vector expects a list of values.""")
+            "Vector expects a list of values. Recieved '{}'".format(values))
 
   def __iter__(self):
     for value in self.values:
@@ -395,10 +395,10 @@ class Vector(object):
     return self.__mul__(1.0 / other)
 
   def __repr__(self):
-    return repr([i for i in self])
+    return 'Vec[{}]'.format(
+        ','.join(['{0:> 10.4f}'.format(i.value) for i in self.values]))
 
-  def __abs__(self):
-    return Value(norm([i.value for i in self.values]),
+  def __abs__(self): return Value(norm([i.value for i in self.values]),
         (-norm(self.lower_errors()), norm(self.upper_errors())))
 
   def array(self):
