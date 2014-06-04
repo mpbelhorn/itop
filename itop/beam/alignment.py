@@ -25,7 +25,7 @@ class Alignment(object):
 
   """
 
-  INTERFERENCE_CUTOFF = 40.0 # mm off the optical axis.
+  INTERFERENCE_CUTOFF = 50.0 # mm off the optical axis.
 
   def __init__(self, calibration_file=None):
     """Constructor for alignment."""
@@ -55,7 +55,7 @@ class Alignment(object):
       tracker.devices['r_stage'].go_to_home(wait=True)
     tracker.rotate(180, wait=True)
     start_point = [tracker.axes[0].limits.upper,
-                   tracker.axes[1].limits.upper - 3,
+                   tracker.axes[1].limits.upper - 8,
                    tracker.axes[2].limits.upper]
     z_direction = -1
     for beam_index in self.beam_indexes():
@@ -63,7 +63,8 @@ class Alignment(object):
           tracker.devices['driver'], beam_index, self.beam_count())
       self.beams.append(
           tracker.find_beam_trajectory(
-            start_point, -1, z_direction, z_samples=25))
+            start_point, -1, z_direction, z_samples=25,
+            measure_power=True))
       start_point = self.beams[-1].last_sample() + [-30, 0, 0]
       z_direction = -1 * z_direction
       self.displacements.append(
@@ -81,27 +82,22 @@ class Alignment(object):
       print 'Measuring mirror tilt.'
     # FIXME: The mirror should reliably place where the CCD cannot
     #     see the main reflection.
-    mirror.position(-150, wait=True)
+    mirror.position(self.beams[0].intercept[0]-50, wait=True)
     tracker.power_index = 1
+    #TODO: Add a prompt for the user to switch the CCD settings.
+    #      Default shutter/gain settings = 0.216ms/1.000
+    #      Front-face settings = 0.936ms/1.000
     self.front_reflections = []
     start_point = [tracker.axes[0].limits.upper,
-                   tracker.axes[1].limits.lower + 13,
+                   self.beams[0].last_sample()[1],
                    tracker.axes[2].limits.lower]
-    z_direction = 1
-    for beam_index in self.beam_indexes():
-      expose_single_beam(
-          tracker.devices['driver'], beam_index, self.beam_count())
-      self.front_reflections.append(
-          tracker.find_beam_trajectory(
-              start_point, -1, z_direction, z_samples=25))
-      start_point = (
-          self.front_reflections[beam_index].last_sample() + [0, -5.5, 0])
-      z_direction = -1 * z_direction
-    normals = [
-        optics.reflection_normal(
-            self.front_reflections[i].direction, -self.beams[i].direction)
-        for i in self.beam_indexes()]
-    self.mirror_normal = (reduce(lambda x, y: x + y, normals)).normalize()
+    expose_single_beam(
+        tracker.devices['driver'], 0, self.beam_count())
+    self.front_reflections.append(
+        tracker.find_beam_trajectory(
+            start_point, -1, 1, z_samples=25))
+    self.mirror_normal = optics.reflection_normal(
+        self.front_reflections[0].direction, -self.beams[0].direction)
     tracker.power_index = None
 
 
