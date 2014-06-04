@@ -106,7 +106,7 @@ class Instrument(object):
 
     """
     output = list(self.data)
-    output.insert(0, self.alignment)
+    output.insert(0, (self.input_y, self.alignment))
     save_object(output, path)
 
   def _find_start_point(self, mirror_x):
