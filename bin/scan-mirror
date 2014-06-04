@@ -70,7 +70,7 @@ if args.align or args.tilted:
 
 instrument = itop.Instrument(tracker, mirror_stage, alignment_path,
     args.input_y, tilted=args.tilted)
-run_starting_time = datetime.datetime.now().isoformat()
+run_starting_time = datetime.datetime.now().isoformat()[:16]
 
 if args.output is None:
   args.output = itop.data_path(
@@ -115,5 +115,9 @@ for mirror_position_x in np.append(
 #  sys.exit(1)
 
 print('Scan Finished.')
+esp_301.shutter_state(0, 0)
+esp_301.shutter_state(1, 0)
+mirror_stage.position(0)
+tracker.position([0,0,0], wait=True)
 sys.exit(0)
 
