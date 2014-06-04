@@ -88,7 +88,8 @@ class Instrument(object):
           self.tracker.find_beam_trajectory(
               start_point,
               x_scan_direction,
-              scan_direction_z=(1 if start_point[2] < 0 else -1)
+              scan_direction_z=(1 if start_point[2] < 0 else -1),
+              measure_power=True
               ))
       if tracked_beams[-1] is None:
         print('Failed to find beam {}.'.format(beam_index))
