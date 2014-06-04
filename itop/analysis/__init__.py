@@ -111,7 +111,7 @@ def radii(data, alignment, mirror_index, lab_index=N_AIR):
   """
   matrix = rotation_matrix(alignment.beams[0].direction)
   input_directions = [-i.transform(matrix).direction for i in alignment.beams]
-  beam_indexes = range(len(data[0].beams))
+  beam_indexes = range(len(data[0].beams)) if alignment.front_reflections is None else [0]
   mirror_radii = [[] for i in beam_indexes]
   for item_1, data_1 in enumerate(data[:-1]):
     input_1 = alignment.input_positions(data_1.mirror_position)
@@ -187,7 +187,7 @@ BEAM_COLORS = {
     4: '#eecc00',
     }
 
-def draw_alignment(alignment):
+def draw_alignment(alignment, path='./'):
   """Plot alignment diagnostics."""
   samples = {}
   errors = {}
@@ -215,10 +215,10 @@ def draw_alignment(alignment):
 
   plt.tight_layout()
   fig.suptitle('Alignment Diagnostics', y=1.05, fontsize=STYLE['titlesize'])
-  plt.savefig("alignment.pdf")
+  plt.savefig(path + "alignment.pdf")
   plt.show()
 
-def draw_samples(data):
+def draw_samples(data, path='./'):
   """Draw the beam sample points in the frame of the tracker.
   Data must be a list of itop.DataPoints.
   """
@@ -237,10 +237,10 @@ def draw_samples(data):
 
   plt.tight_layout()
   plt.suptitle("Beam Samples", y=1.05, fontsize=STYLE['titlesize'])
-  plt.savefig("samples.pdf")
+  plt.savefig(path + "samples.pdf")
   plt.show()
 
-def draw_radii(data, alignment, mirror_index, lab_index=N_AIR, cut_off=None):
+def draw_radii(data, alignment, mirror_index, lab_index=N_AIR, cut_off=None, path='./'):
   """Plot the radius of the mirror as a function of beam separation distance
   in x. The radius is computed from each of the beam pairs in the given data.
   Data points must be in the form of
@@ -266,21 +266,22 @@ def draw_radii(data, alignment, mirror_index, lab_index=N_AIR, cut_off=None):
   plt.tight_layout()
   plt.suptitle("Calculated Radius vs Beam Separation", y=1.05,
       fontsize=STYLE['titlesize'])
-  plt.savefig("radii.pdf")
+  plt.savefig(path + "radii.pdf")
   plt.show()
 
 def draw_reflectance(data, alignment, mirror_index,
-    lab_index=N_AIR, normal_vector=None):
+    lab_index=N_AIR, normal_vector=None, path='./'):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
 
   plt.figure()
   reflectivities = {}
+  number_of_beams = 2 if alignment.front_reflections is None else 1
   calibrated_input_beams = [
       beam.transform(rotation_matrix(alignment.beams[0].direction))
       for beam in alignment.beams]
-  for index in range(len(alignment.beams)):
+  for index in range(number_of_beams):
     reflectivities[index] = {'i':[], 'r':[], 'e':[]}
   for sample in data:
     input_positions = alignment.input_positions(
@@ -305,18 +306,18 @@ def draw_reflectance(data, alignment, mirror_index,
   plt.legend(loc='best', numpoints=1)
   plt.ylabel("Reflectance")
   plt.xlabel("Input Position [mm]")
-  plt.savefig("reflectance.eps")
+  plt.savefig(path + "reflectance.eps")
   plt.show()
 
-def draw_focii(data, alignment):
+def draw_focii(data, alignment, path='./'):
   """Draw the beam crossing positions in the given set of mirror-aligned
   data."""
   cross_points = focii(data, alignment)
   for polarization in ('tangent', 'sagittal'):
-    _draw_focii_input(cross_points[polarization], polarization)
-    _draw_focii_space(cross_points[polarization], polarization)
+    _draw_focii_input(cross_points[polarization], polarization, path=path)
+    _draw_focii_space(cross_points[polarization], polarization, path=path)
 
-def _draw_focii_input(focii_data, polarization):
+def _draw_focii_input(focii_data, polarization, path='./'):
   """Draw the focal points vs input position."""
   axes = plt.subplots(1, 3, figsize=(18, 4))[1]
   colors = [['red', 'orange'], ['blue', 'green']]
@@ -350,10 +351,10 @@ def _draw_focii_input(focii_data, polarization):
   plt.suptitle(
       "{} Focii vs Input Position".format(polarization.capitalize()),
       y=1.05, fontsize=STYLE['titlesize'])
-  plt.savefig("focii_input_{}.pdf".format(polarization.lower()))
+  plt.savefig(path + "focii_input_{}.pdf".format(polarization.lower()))
   plt.show()
 
-def _draw_focii_space(focii_data, polarization):
+def _draw_focii_space(focii_data, polarization, path='./'):
   """Draw the focal points in 3D space."""
   fig = plt.figure(figsize=(14, 9))
   colors = [['red', 'orange'], ['blue', 'green']]
@@ -397,6 +398,6 @@ def _draw_focii_space(focii_data, polarization):
   fig.subplots_adjust(hspace=0, wspace=0)
   plt.suptitle('{} Focal Points'.format(polarization.capitalize()), y=1.05,
       fontsize=STYLE['titlesize'])
-  plt.savefig('focii_space_{}.pdf'.format(polarization.lower()))
+  plt.savefig(path + 'focii_space_{}.pdf'.format(polarization.lower()))
   plt.show()
 
