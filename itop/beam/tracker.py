@@ -453,6 +453,7 @@ class Tracker(object):
       beam.power = (
           self.devices['profiler'].average_power(),
           self.devices['monitor'].read())
+      beam.distortions = self.devices['profiler'].profile()
       self.rotate(stage_angle, wait=True)
     return beam
 
