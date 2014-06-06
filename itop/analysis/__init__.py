@@ -137,7 +137,7 @@ def _reflectance(
 
 def _normalize_power(power):
   """Return the ratio of CCD to Photodiode power measurements."""
-  return power[0] / power[1]
+  return power[0]#/ power[1]
 
 def _incidence_angle_beam(beam, normal):
   """Return the incidence angle of given itop.beam.beam object with the given
