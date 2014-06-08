@@ -448,6 +448,7 @@ class Tracker(object):
     if measure_power:
       beam_angle = sys_math.degrees(sys_math.asin(beam.azimuth().value))
       stage_angle = self.devices['r_stage'].position()
+      self.position(beam.intercept, wait=True)
       self.rotate(stage_angle - beam_angle, wait=True)
       self.center_beam()
       beam.power = (
@@ -455,5 +456,6 @@ class Tracker(object):
           self.devices['monitor'].read())
       beam.distortions = self.devices['profiler'].profile()
       self.rotate(stage_angle, wait=True)
+      self.position(intercept, wait=True)
     return beam
 
