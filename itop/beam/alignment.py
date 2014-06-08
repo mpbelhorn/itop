@@ -25,7 +25,7 @@ class Alignment(object):
 
   """
 
-  INTERFERENCE_CUTOFF = 50.0 # mm off the optical axis.
+  INTERFERENCE_CUTOFF = 55.0 # mm off the optical axis.
 
   def __init__(self, calibration_file=None):
     """Constructor for alignment."""

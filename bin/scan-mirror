@@ -63,6 +63,7 @@ alignment_path = itop.data_path('alignment/latest.gz')
 if args.align or args.tilted:
   calibration = itop.data_path('alignment/latest.cfg')
   alignment_data = itop.Alignment(calibration)
+  print('Homing Tracker')
   tracker.devices['driver'].home()
   alignment_data.align(tracker, home=True, tilted=args.tilted,
       mirror=mirror_stage)
