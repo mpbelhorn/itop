@@ -70,7 +70,7 @@ if args.align or args.tilted:
   itop.utilities.save_object(alignment_data, alignment_path)
 
 instrument = itop.Instrument(tracker, mirror_stage, alignment_path,
-    args.input_y, tilted=args.tilted)
+    args.input_y, tilted=args.tilted, serial=args.serial)
 run_starting_time = datetime.datetime.now().isoformat()[:16]
 
 if args.output is None:
@@ -109,6 +109,8 @@ for mirror_position_x in np.append(
     instrument.save_data(args.output)
   except itop.beam.instrument.InstrumentError as error:
     print(error)
+    pass
+  except KeyboardInterrupt:
     pass
 #except itop.beam.tracker.TrackerError:
 #  print('Reached end of stage travel.')

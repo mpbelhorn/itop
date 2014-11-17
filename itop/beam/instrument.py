@@ -27,7 +27,8 @@ class Instrument(object):
   relative to the mirror.
 
   """
-  def __init__(self, tracker, mirror, alignment, input_y, tilted=False):
+  def __init__(self, tracker, mirror, alignment, input_y, tilted=False, **kwargs):
+    self._serial = kwargs.pop('serial', 'unsorted')
     self.tracker = tracker
     self.mirror = mirror
     self.tilted = tilted
@@ -106,7 +107,7 @@ class Instrument(object):
 
     """
     output = list(self.data)
-    output.insert(0, (self.input_y, self.alignment))
+    output.insert(0, (self.input_y, self.alignment, self._serial))
     save_object(output, path)
 
   def _find_start_point(self, mirror_x):
