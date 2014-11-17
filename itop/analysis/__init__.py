@@ -15,7 +15,9 @@ from itop.math.optics import focus
 from itop.math.optics import refract
 from itop.math.optics import fresnel_coefficients
 from itop.math.optics import radius_from_normals as optical_radius
+from itop.math.optics import _radius_parameters as optical_radius_params
 from itop.math.optics import reconstruct_mirror_normal as mirror_normal
+from itop.analysis import distortion
 
 
 def focii(data, alignment):
@@ -66,6 +68,43 @@ def focii(data, alignment):
                  focus(beam_1, beam_2, plane='S')))
   return {'tangent': tan_focii, 'sagittal': sag_focii}
 
+def _radius_parameters_list(
+    output_beam_1, input_position_1,
+    output_beam_2, input_position_2,
+    input_beam_direction,
+    mirror_index,
+    lab_index=N_AIR,
+    face_normal=None):
+  """Return the radius of curvature from two output beam trajectories
+  from a common input beam at two different input positions and the
+  subtrate refraction index.
+
+  Takes the optional arguments:
+    lab_index (1.000277):
+      The refraction index of the laboratory air.
+
+    face_normal ([0,0,1]):
+      The normal vector of the front face.
+  """
+  if output_beam_1 is output_beam_2:
+    raise Exception('Radius Calculation requires two unique beams.')
+  if face_normal is None:
+    face_normal = [0, 0, 1]
+  reflection_normal_1 = mirror_normal(
+      output_beam_1.direction,
+      input_beam_direction,
+      face_normal, mirror_index, lab_index)
+  reflection_normal_2 = mirror_normal(
+      output_beam_2.direction,
+      input_beam_direction,
+      face_normal, mirror_index, lab_index)
+  return optical_radius_params(
+      reflection_normal_1,
+      reflection_normal_2,
+      input_beam_direction,
+      input_position_1,
+      input_position_2)
+
 def radius(
     output_beam_1, input_position_1,
     output_beam_2, input_position_2,
@@ -103,6 +142,33 @@ def radius(
       input_position_1,
       input_position_2)
 
+def radii_with_params(data, alignment, mirror_index, lab_index=N_AIR):
+  """Return a list of the radii between beam_1 and beam_2 in the given data
+  as a tuple (s, r) where s is the absolute separation distance in x and r
+  is the radius. Any additional keyword arguments are passed on to the
+  mirror normal reconstruction.
+  """
+  matrix = rotation_matrix(alignment.beams[0].direction)
+  input_directions = [-i.transform(matrix).direction for i in alignment.beams]
+  beam_indexes = range(len(data[0].beams)) if alignment.front_reflections is None else [0]
+  mirror_radii = [[] for i in beam_indexes]
+  for item_1, data_1 in enumerate(data[:-1]):
+    input_1 = alignment.input_positions(data_1.mirror_position)
+    for data_2 in data[item_1 + 1:]:
+      input_2 = alignment.input_positions(data_2.mirror_position)
+      for beam_id in beam_indexes:
+        if all([d.beams[beam_id] is not None for d in (data_1, data_2)]):
+          mirror_radii[beam_id].append(
+              (radius(data_1.beams[beam_id], input_1[beam_id],
+                     data_2.beams[beam_id], input_2[beam_id],
+                     input_directions[beam_id], mirror_index,
+                     lab_index, alignment.mirror_normal),
+               _radius_parameters_list(data_1.beams[beam_id], input_1[beam_id],
+                     data_2.beams[beam_id], input_2[beam_id],
+                     input_directions[beam_id], mirror_index,
+                     lab_index, alignment.mirror_normal)))
+  return mirror_radii
+
 def radii(data, alignment, mirror_index, lab_index=N_AIR):
   """Return a list of the radii between beam_1 and beam_2 in the given data
   as a tuple (s, r) where s is the absolute separation distance in x and r
@@ -137,7 +203,7 @@ def _reflectance(
 
 def _normalize_power(power):
   """Return the ratio of CCD to Photodiode power measurements."""
-  return power[0]#/ power[1]
+  return power[0] / power[1]
 
 def _incidence_angle_beam(beam, normal):
   """Return the incidence angle of given itop.beam.beam object with the given
@@ -213,8 +279,8 @@ def draw_alignment(alignment, path='./'):
               dim='xyz'[y_axis], beam=beam),
           fontsize=STYLE['labelsize'])
 
-  plt.tight_layout()
   fig.suptitle('Alignment Diagnostics', y=1.05, fontsize=STYLE['titlesize'])
+  plt.tight_layout()
   plt.savefig(path + "alignment.pdf")
   plt.show()
 
@@ -222,7 +288,7 @@ def draw_samples(data, path='./'):
   """Draw the beam sample points in the frame of the tracker.
   Data must be a list of itop.DataPoints.
   """
-  axes = plt.subplots(1, 3, figsize=(18, 4))[1]
+  fig, axes = plt.subplots(1, 3, figsize=(18, 4))
   for data_point in data:
     for index, beam in enumerate(data_point.beams):
       if beam is not None:
@@ -235,10 +301,11 @@ def draw_samples(data, path='./'):
           axes[plot].set_ylabel('{}-coordinate [mm]'.format('xyz'[y_axis]),
               fontsize=STYLE['labelsize'])
 
-  plt.tight_layout()
   plt.suptitle("Beam Samples", y=1.05, fontsize=STYLE['titlesize'])
+  plt.tight_layout()
   plt.savefig(path + "samples.pdf")
   plt.show()
+  return fig
 
 def draw_radii(data, alignment, mirror_index, lab_index=N_AIR, cut_off=None, path='./'):
   """Plot the radius of the mirror as a function of beam separation distance
@@ -251,31 +318,34 @@ def draw_radii(data, alignment, mirror_index, lab_index=N_AIR, cut_off=None, pat
   """
   n_beams = len(data[0].beams)
   axes = plt.subplots(1, n_beams, figsize=(6.0 * n_beams, 4))[1]
+  output = []
   for beam, r_list in enumerate(
         radii(data, alignment, mirror_index, lab_index)):
     axes[beam].set_title('Beam {}'.format(beam), fontsize=STYLE['titlesize'])
     if cut_off is not None:
       r_list = [(i[0], i[1]) for i in r_list if i[0] >= cut_off]
-    print 'beam {} r={} +/- {}'.format(beam, np.mean(np.array(r_list)[:, 1]),
-        np.std(np.array(r_list)[:, 1]))
+    avg_radius = (
+        np.mean(np.array(r_list)[:, 1]), np.std(np.array(r_list)[:, 1]))
+    print 'beam {} r={} +/- {}'.format(beam, avg_radius[0], avg_radius[1])
+    output.append(avg_radius)
     axes[beam].plot(*zip(*r_list), marker='o', ls='None',
       color=BEAM_COLORS[beam], alpha=0.75)
     axes[beam].set_ylabel("Radius [mm]", fontsize=STYLE['labelsize'])
     axes[beam].set_xlabel("Beam Separation [mm]", fontsize=STYLE['labelsize'])
 
-  plt.tight_layout()
   plt.suptitle("Calculated Radius vs Beam Separation", y=1.05,
       fontsize=STYLE['titlesize'])
+  plt.tight_layout()
   plt.savefig(path + "radii.pdf")
   plt.show()
+  return output
 
-def draw_reflectance(data, alignment, mirror_index,
-    lab_index=N_AIR, normal_vector=None, path='./'):
+def _generate_reflectance_plot(data, alignment, mirror_index,
+    lab_index=N_AIR, normal_vector=None):
   """Plot the reflectance of the mirror as a function of beam
   input position.
   """
 
-  plt.figure()
   reflectivities = {}
   number_of_beams = 2 if alignment.front_reflections is None else 1
   calibrated_input_beams = [
@@ -306,6 +376,17 @@ def draw_reflectance(data, alignment, mirror_index,
   plt.legend(loc='best', numpoints=1)
   plt.ylabel("Reflectance")
   plt.xlabel("Input Position [mm]")
+
+def draw_reflectance(data, alignment, mirror_index,
+    lab_index=N_AIR, normal_vector=None, path='./'):
+  """Plot the reflectance of the mirror as a function of beam
+  input position.
+  """
+
+  plt.figure()
+  _generate_reflectance_plot(data, alignment, mirror_index,
+      lab_index, normal_vector)
+  plt.tight_layout()
   plt.savefig(path + "reflectance.eps")
   plt.show()
 
@@ -347,10 +428,10 @@ def _draw_focii_input(focii_data, polarization, path='./'):
     axis.set_xlabel('Input Position [mm]', fontsize=STYLE['labelsize'])
     axis.set_ylabel('{}-coordinate [mm]'.format('xyz'[dimension]),
         fontsize=STYLE['labelsize'])
-  plt.tight_layout()
   plt.suptitle(
       "{} Focii vs Input Position".format(polarization.capitalize()),
       y=1.05, fontsize=STYLE['titlesize'])
+  plt.tight_layout()
   plt.savefig(path + "focii_input_{}.pdf".format(polarization.lower()))
   plt.show()
 
@@ -394,10 +475,10 @@ def _draw_focii_space(focii_data, polarization, path='./'):
   axes[1].set_ylabel('x coordinate [mm]', fontsize=STYLE['labelsize'])
   axes[2].set_xlabel('x coordinate [mm]', fontsize=STYLE['labelsize'])
 
-  plt.tight_layout()
-  fig.subplots_adjust(hspace=0, wspace=0)
   plt.suptitle('{} Focal Points'.format(polarization.capitalize()), y=1.05,
       fontsize=STYLE['titlesize'])
+  plt.tight_layout()
+  fig.subplots_adjust(hspace=0, wspace=0)
   plt.savefig(path + 'focii_space_{}.pdf'.format(polarization.lower()))
   plt.show()
 
