@@ -65,7 +65,7 @@ class Alignment(object):
           tracker.find_beam_trajectory(
             start_point, -1, z_direction, z_samples=25,
             measure_power=True))
-      start_point = self.beams[-1].last_sample() + [-30, 0, 0]
+      start_point = self.beams[-1].last_sample() + [-180, 0, 0]
       z_direction = -1 * z_direction
       self.displacements.append(
           self.beams[beam_index].intercept - self.beams[0].intercept)
