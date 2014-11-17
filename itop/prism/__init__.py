@@ -1,5 +1,5 @@
 """
-A package for handeling prism testing.
+A package for handeling substrate and prism testing.
 """
 
 import os
@@ -170,6 +170,12 @@ def transmission(data, **kwargs):
 def plot_transmittance(data_sets, **kwargs):
   prism_id = kwargs.pop('prism_id', '')
   force_overwrite = kwargs.pop('overwrite', False)
+  prism_type = kwargs.pop('type', 'unsorted')
+  title = 'unsorted'
+  if prism_type is 'mirrors':
+    title = 'Mirror'
+  elif prism_type is 'prisms':
+    title = 'Prism'
 
   results = np.array([transmission(d, **kwargs) for d in data_sets])
 
@@ -183,7 +189,7 @@ def plot_transmittance(data_sets, **kwargs):
       ls='None', marker='o')
   axis.yaxis.get_major_formatter().set_useOffset(False)
   plt.xlim(0, number_of_trials + 1)
-  plt.ylim(99.5, 100)
+  plt.ylim(99.5, 100.2)
 
   avg = np.mean(results[:,0]) * 100
   avg_error = (
@@ -195,7 +201,7 @@ def plot_transmittance(data_sets, **kwargs):
       'Avg = {:03.3f}$\pm${:03.3f}'.format(avg, avg_error),
       verticalalignment='bottom', horizontalalignment='right',
       transform=axis.transAxes, color='b', fontsize=15)
-  plt.title('Prism ' + prism_id + ' Transmittance', fontsize=18)
+  plt.title(title + ' ' + prism_id + ' Transmittance', fontsize=18)
   plt.ylabel('T [%/m]', fontsize=18)
   tick_labels = [str(i) for i in ordinates]
   tick_labels.insert(0, '')
@@ -203,8 +209,8 @@ def plot_transmittance(data_sets, **kwargs):
   plt.xlabel('Trial', fontsize=18)
   axis.yaxis.set_tick_params(labelsize=12)
   axis.xaxis.set_tick_params(labelsize=12)
-  output_path = '/lab/data/prisms/{}/transmittance_{}.pdf'.format(
-      prism_id, prism_id)
+  output_path = '/lab/data/{}/{}/transmittance_{}.pdf'.format(
+      prism_type, prism_id, prism_id)
   if not os.path.exists(output_path) or force_overwrite:
     print('Saving output')
     plt.savefig(output_path)
