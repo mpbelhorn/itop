@@ -19,6 +19,15 @@ from itop.math.optics import _radius_parameters as optical_radius_params
 from itop.math.optics import reconstruct_mirror_normal as mirror_normal
 from itop.analysis import distortion
 
+def load_data(path, start=0, stop=1):
+  raw_data = itop.utilities.load_object(path)
+  height, alignment, serial = raw_data.pop(0)
+  aligned_data = [data_point.realign(alignment) for data_point in raw_data[start:-stop]]
+  return {'height': height,
+          'alignment': alignment,
+          'serial': serial,
+          'tdata': raw_data[start:-stop],
+          'mdata': aligned_data}
 
 def focii(data, alignment):
   """Return a nested dictionary containing each beam-pair crossing point
