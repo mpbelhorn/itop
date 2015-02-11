@@ -451,10 +451,15 @@ class Tracker(object):
       self.position(beam.intercept, wait=True)
       self.rotate(stage_angle - beam_angle, wait=True)
       self.center_beam()
-      beam.power = (
-          self.devices['profiler'].average_power(),
-          self.devices['monitor'].read())
+      ccd_power = self.devices['profiler'].average_power()
       beam.distortions = self.devices['profiler'].profile()
+      self.devices['driver'].shutter_state(0, 0)
+      self.devices['driver'].shutter_state(1, 0)
+      sleep(0.1)
+      monitor_powers = []
+      for _ in range(10):
+        monitor_powers.append(self.devices['monitor'].read())
+      beam.power = (ccd_power, mean(monitor_powers))
       self.rotate(stage_angle, wait=True)
       self.position(intercept, wait=True)
     return beam
