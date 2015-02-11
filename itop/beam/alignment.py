@@ -84,9 +84,8 @@ class Alignment(object):
     #     see the main reflection.
     mirror.position(self.beams[0].intercept[0]-50, wait=True)
     tracker.power_index = 1
-    #TODO: Add a prompt for the user to switch the CCD settings.
-    #      Default shutter/gain settings = 0.216ms/1.000
-    #      Front-face settings = 0.936ms/1.000
+    #TODO: Catch errors and remind user to reset CCD settings.
+    raw_input("Set CCD shutter to >1ms with gain 1. Press Enter when ready.")
     self.front_reflections = []
     start_point = [tracker.axes[0].limits.upper,
                    self.beams[0].last_sample()[1],
@@ -99,6 +98,7 @@ class Alignment(object):
     self.mirror_normal = optics.reflection_normal(
         self.front_reflections[0].direction, -self.beams[0].direction)
     tracker.power_index = None
+    raw_input("Set CCD shutter to default setting 0.216ms with gain 1. Press Enter when ready.")
 
 
   def beam_indexes(self):
