@@ -1,0 +1,79 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function
+import argparse
+import numpy as np
+from math import sqrt
+import itop
+import sys
+
+parser = argparse.ArgumentParser(
+    description='Collect iTOP mirror distortion data.')
+parser.add_argument('--serial', metavar='SERIAL', type=str,
+    help='Mirror ID (i.e. serial number)', default='unsorted')
+parser.add_argument('--position', metavar='XPOS', dest='input_x', type=float,
+    default=105, help='Specify scan x-input position in mm w.r.t. optical axis.')
+
+
+args = parser.parse_args()
+
+profiler, esp_300, esp_301, beam_monitor, _pd1 = itop.instrumentation()
+tracker = itop.Tracker(esp_301, esp_300.axes[1], profiler, beam_monitor)
+mirror = esp_300.axes[0]
+
+alignment = itop.utilities.load_object('/lab/data/alignment/latest.gz')
+
+if alignment.mirror_normal[2].value is not 1:
+  print("Using non-normal mirror alignment!")
+  sys.exit(1)
+
+if abs(args.input_x) < 40:
+  print("Distortion scan too close to optical axis!")
+  sys.exit(1)
+
+beam_id = 0 if args.input_x > 0 else 1
+from itop.motioncontrol.controller import expose_single_beam
+expose_single_beam(esp_301, beam_id, 2)
+
+print("Moving mirror into position.")
+mirror.position(
+    alignment.mirror_positions([args.input_x, 0, 0])[beam_id][0].value,
+    wait=True)
+
+print("Ensure mirror is at y=0. Move tracker onto beam manually.")
+raw_input("Press Enter to continue...")
+
+# Reduce power level needed to think beam is in view. This way
+# when the beam is cut-off by the edge of the bar, we can still take
+# data.
+tracker.devices['profiler'].set_power_levels(5)
+tracker.center_beam()
+
+
+def sample_height(mirror_height):
+    profile = profiler.profile()
+    return [mirror_height,
+            profile['height_1'],
+            profile['height_2'],
+            profile['height_3'],
+            profile['width_1'],
+            profile['width_2'],
+            profile['width_3'],
+            profile['power']]
+
+# Clear data.
+data = []
+mirror_y = 0.25 #mm from S1.
+
+while mirror_y > -20.0:
+  tracker.center_beam()
+  mirror_y = mirror_y - 0.25
+  data.append(sample_height(mirror_y))
+  raw_input("Sampled y={}. Press Enter to continue.".format(mirror_y))
+
+itop.utilities.save_object(data,
+    '/lab/data/mirrors/{}/distortion_scan_x({}).gz'.format(
+        args.serial, args.input_x))
+print("Finished data collection.")
+sys.exit(0)
