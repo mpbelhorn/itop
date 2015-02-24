@@ -59,6 +59,9 @@ class Alignment(object):
                    tracker.axes[2].limits.upper]
     z_direction = -1
     for beam_index in self.beam_indexes():
+      if tilted and beam_index > 0:
+        self.beams.append(self.beams[0])
+        continue
       expose_single_beam(
           tracker.devices['driver'], beam_index, self.beam_count())
       self.beams.append(
