@@ -64,17 +64,30 @@ INSTRUMENTS = {
     'profiler': '/dev/ttyUSB4',
     }
 
-def instrumentation():
+def instrumentation(extended=False):
   """Return instances of the raw instrumentation interfaces."""
-  return (
-      Profiler(INSTRUMENTS['profiler']),
-      StageController(INSTRUMENTS['esp 300'],
-          limits=[250, [-45.0, 190.0], 125.0]),
-      StageController(INSTRUMENTS['esp 301'],
-          limits=[125.0, [-0.1, 50.0], [-95.0, 125.0]]),
-      Photodiode(INSTRUMENTS['source monitor']),
-      Photodiode(INSTRUMENTS['transmit monitor']),
-      )
+  instruments = {
+      'profiler':Profiler(INSTRUMENTS['profiler']),
+      'esp 0':StageController(INSTRUMENTS['esp 300'],
+                limits=[250, [-45.0, 190.0], 125.0]),
+      'esp 1':StageController(INSTRUMENTS['esp 301'],
+               limits=[125.0, [-0.1, 50.0], [-95.0, 125.0]]),
+      'photodiode 0':Photodiode(INSTRUMENTS['source monitor']),
+      'photodiode 1':Photodiode(INSTRUMENTS['transmit monitor']),
+      }
+  instruments['tracker'] = Tracker(
+      instruments['esp 1'],
+      instruments['esp 0'].axes[1],
+      instruments['profiler'],
+      instruments['photodiode 0'],
+      xyz_axes=[1,2,3],
+      reference_azimuth=180)
+  instruments['mirror'] = instruments['esp 0'].axes[0]
+  keys = ['profiler', 'esp 0', 'esp 1', 'photodiode 0', 'photodiode 1']
+  if extended:
+    keys += ['tracker','mirror']
+  return tuple((instruments[k] for k in keys))
+
 
 def initialize_instruments():
   """A rough initializer for the profiler and stage controllers.
