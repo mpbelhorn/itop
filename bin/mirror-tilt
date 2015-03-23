@@ -11,7 +11,7 @@ import cPickle as pickle
 import sys
 import zlib
 
-parser = argparse.ArgumentParser(description='Measure the mirror tilt.')
+parser = argparse.ArgumentParser(description='Tools to establish the mirror tilt.')
 parser.add_argument('--start', dest='start_point', nargs=3,
     metavar=('X', 'Y', 'Z'), type=float,
     help='Start first scan at position [X,Y,Z].')
@@ -21,15 +21,17 @@ parser.add_argument('--home', action='store_true', default=False,
     help='Home the stages before taking data')
 parser.add_argument('--output', metavar='PATH', type=str,
     help='Path to output gz data file')
+parser.add_argument('-s', '--set-state', action='store_true', default=False,
+    help='Position the mirror and tracker to set the mirror tilt.')
 
 args = parser.parse_args()
-
-profiler = itop.Profiler('/dev/ttyUSB0')
-esp_300 = itop.StageController('/dev/ttyUSB1',
+profiler = itop.Profiler(itop.INSTRUMENTS['profiler'])
+esp_300 = itop.StageController(itop.INSTRUMENTS['esp 300'],
     limits=[250.0, [-45.0, 190.0], 125.0])
-esp_301 = itop.StageController('/dev/ttyUSB2',
-    limits=[125.0, [0.0, 25.0], [-95.0, 125.0]])
-beam_monitor = itop.Photodiode('/dev/itop_lds1000')
+esp_301 = itop.StageController(itop.INSTRUMENTS['esp 301'],
+    limits=[125.0, [0.0, 50.0], [-95.0, 125.0]])
+beam_monitor = itop.Photodiode(itop.INSTRUMENTS['source monitor'])
+
 
 mirror_stage= esp_300.axes[0]
 profiler_rotation_stage = esp_300.axes[1]
@@ -41,6 +43,13 @@ mirror_stage.power_on()
 if args.home:
   mirror_stage.go_to_home(wait=True)
 mirror_stage.position(60, wait=True)
+
+if args.set_state:
+  tracker.rotate(0)
+  tracker.position([-125, 40, 125], wait=True)
+  esp_301.shutter_state(0, 1)
+  esp_301.shutter_state(1, 0)
+  sys.exit()
 
 alignment_path = itop.data_path('alignment/latest.gz')
 alignment_data = itop.utilities.load_object(alignment_path)

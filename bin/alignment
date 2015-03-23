@@ -1,0 +1,34 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+import argparse
+import numpy as np
+from numpy import arange
+import datetime
+import itop
+import os
+import cPickle as pickle
+import sys
+import zlib
+
+parser = argparse.ArgumentParser(
+    description='Measure and record beam alignment.')
+args = parser.parse_args()
+
+profiler = itop.Profiler(itop.INSTRUMENTS['profiler'])
+esp_300 = itop.StageController(itop.INSTRUMENTS['esp 300'],
+    limits=[250.0, [-45.0, 190.0], 125.0])
+esp_301 = itop.StageController(itop.INSTRUMENTS['esp 301'],
+    limits=[125.0, [0.0, 50.0], [-95.0, 125.0]])
+beam_monitor = itop.Photodiode(itop.INSTRUMENTS['source monitor'])
+
+profiler_rotation_stage = esp_300.axes[1]
+
+tracker = itop.Tracker(esp_301, profiler_rotation_stage,
+    profiler, beam_monitor, check=True)
+
+alignment_path = itop.data_path('alignment/latest.gz')
+calibration = itop.data_path('alignment/latest.cfg')
+alignment_data = itop.Alignment(calibration)
+alignment_data.align(tracker, home=True)
+itop.utilities.save_object(alignment_data, alignment_path)
