@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import argparse
@@ -46,7 +46,7 @@ mirror_stage.position(60, wait=True)
 
 if args.set_state:
   tracker.rotate(0)
-  tracker.position([-125, 40, 125], wait=True)
+  tracker.position([-125, 33, 125], wait=True)
   esp_301.shutter_state(0, 1)
   esp_301.shutter_state(1, 0)
   sys.exit()
