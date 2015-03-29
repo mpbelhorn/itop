@@ -41,6 +41,9 @@ mirror.position(
     alignment.mirror_positions([args.input_x, 0, 0])[beam_id][0].value,
     wait=True)
 
+# FIXME: Should only run for sample x=100 or be generalized in some way.
+tracker.position([13.2, 44.3, 0])
+
 print("Ensure mirror is at y=0. Move tracker onto beam manually.")
 raw_input("Press Enter to continue...")
 
